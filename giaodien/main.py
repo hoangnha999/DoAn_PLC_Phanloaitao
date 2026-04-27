@@ -805,18 +805,24 @@ class CameraWindow:
             openni2.initialize() 
             self.astra_dev = openni2.Device.open_any()
             
-            self.astra_color_stream = self.astra_dev.create_color_stream()
-            self.astra_color_stream.start()
-            
+            # CHỈ MỞ DEPTH STREAM (Astra Pro dùng UVC cho Color, không hỗ trợ qua OpenNI)
             self.astra_depth_stream = self.astra_dev.create_depth_stream()
             self.astra_depth_stream.start()
             
-            # Cố gắng bật đồng bộ màu và chiều sâu
-            try:
-                self.astra_dev.set_image_registration_mode(openni2.IMAGE_REGISTRATION_DEPTH_TO_COLOR)
-                self.astra_dev.set_depth_color_sync_enabled(True)
-            except:
-                pass
+            # Mở Color Stream bằng OpenCV (Webcam tiêu chuẩn)
+            self.cap = None
+            for i in range(3): # Thử quét các cổng webcam
+                cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+                if cap.isOpened():
+                    ret, _ = cap.read()
+                    if ret:
+                        self.cap = cap
+                        break
+                    else:
+                        cap.release()
+            
+            if self.cap is None:
+                self.win.after(0, self._log_event, "⚠️ Cảnh báo: Không thể tìm thấy RGB Camera. Chỉ chạy Depth.")
                 
             self._cam_running = True
             self.btn_cam.config(text="⏹  Tắt Astra Pro", bg="#B71C1C", activebackground="#7F0000")
@@ -831,25 +837,38 @@ class CameraWindow:
 
     def _stream_astra_loop(self):
         import numpy as np
+        from openni import openni2
+        self.win.after(0, self._log_event, "Đã vào luồng Astra. Đang đồng bộ hóa RGB và Depth...")
+        
         while self._cam_running:
             try:
-                # Đọc color frame
-                cframe = self.astra_color_stream.read_frame()
-                cdata = np.frombuffer(cframe.get_buffer_as_uint8(), dtype=np.uint8)
-                color_img = cdata.reshape((cframe.height, cframe.width, 3))
-                self.frame_to_save = cv2.cvtColor(color_img, cv2.COLOR_RGB2BGR)
+                # Đọc Color Frame từ OpenCV (UVC)
+                color_img = None
+                if self.cap and self.cap.isOpened():
+                    ret, cframe = self.cap.read()
+                    if ret:
+                        self.frame_to_save = cframe.copy()
+                        color_img = cv2.cvtColor(cframe, cv2.COLOR_BGR2RGB)
                 
-                # Đọc depth frame
+                # Chờ có Depth Frame mới (timeout 1 giây để không bị treo vĩnh viễn)
+                openni2.wait_for_any_stream([self.astra_depth_stream], timeout=1000)
+                
+                # Đọc Depth Frame từ OpenNI
                 dframe = self.astra_depth_stream.read_frame()
                 ddata = np.frombuffer(dframe.get_buffer_as_uint16(), dtype=np.uint16)
                 depth_img = ddata.reshape((dframe.height, dframe.width))
-                self.last_depth_map = depth_img.copy() # Lưu lại cho Open3D
+                self.last_depth_map = depth_img.copy() # Lưu lại cho 3D
                 
-                # Tạo Depth Map (Ảnh màu nhiệt)
+                # Tạo Depth Map Color (Ảnh màu nhiệt)
                 depth_norm = cv2.normalize(depth_img, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
                 depth_colormap = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
                 
-                # Hiển thị
+                # Nếu không có Color Frame, dùng Depth thay thế
+                if color_img is None:
+                    color_img = cv2.cvtColor(depth_colormap, cv2.COLOR_BGR2RGB)
+                    self.frame_to_save = depth_colormap.copy()
+                
+                # Resize và hiển thị
                 color_resized = cv2.resize(color_img, (850, 240))
                 imgtk_color = ImageTk.PhotoImage(image=Image.fromarray(color_resized))
                 
@@ -857,9 +876,15 @@ class CameraWindow:
                 depth_rgb = cv2.cvtColor(depth_resized, cv2.COLOR_BGR2RGB)
                 imgtk_gray = ImageTk.PhotoImage(image=Image.fromarray(depth_rgb))
                 
+                self.canvas.imgtk = imgtk_color
+                self.canvas_gray.imgtk = imgtk_gray
                 self.canvas.after(0, self._update_canvas, imgtk_color, imgtk_gray)
-            except Exception:
-                pass
+            except Exception as e:
+                # Tránh in lỗi timeout liên tục khi chờ stream
+                if "OniStatus.ONI_STATUS_TIME_OUT" not in str(e):
+                    self.win.after(0, self._log_event, f"Astra Error: {e}")
+                import time
+                time.sleep(0.5)
 
     def _show_point_cloud(self):
         if not hasattr(self, 'last_depth_map') or self.last_depth_map is None:
