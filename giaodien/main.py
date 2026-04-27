@@ -44,7 +44,7 @@ class FruitClassificationApp:
         """Cấu hình cửa sổ chính."""
         self.root.title("Nhận dạng và phân loại hàng trái cây")
         self.root.configure(bg=self.BG_COLOR)
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
 
         # Lắng nghe phím Q từ mọi nơi để tắt app
         self.root.bind_all("<q>", lambda e: self.root.destroy())
@@ -146,6 +146,14 @@ class FruitClassificationApp:
         # ── Đề tài ──
         topic_frame = tk.Frame(content_frame, bg=self.BG_COLOR)
         topic_frame.pack(fill="x", pady=(5, 10))
+
+        tk.Label(
+            topic_frame,
+            text="ĐỒ ÁN ĐIỀU KHIỂN LẬP TRÌNH",
+            font=("Arial", 12, "bold"),
+            fg=self.TOPIC_COLOR,
+            bg=self.BG_COLOR,
+        ).pack(pady=(0, 5))
 
         tk.Label(
             topic_frame,
