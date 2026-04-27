@@ -295,13 +295,17 @@ class CameraWindow:
         self._plc_poll_id   = None
         self._count_vars    = {}
 
+        # ── Quản lý Trang & Menu ──
+        self.sidebar_visible = False
+        self.current_page = "PHANLOAI" # Mặc định trang phân loại
+
         self.win = tk.Toplevel(parent)
         self.win.title("Hệ thống phân loại hạng chất lượng trái cây")
         self.win.configure(bg="#1A1A2E")
         self.win.resizable(False, False)
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        W, H = 1160, 670
+        W, H = 1160, 700 # Tăng nhẹ chiều cao
         sw = parent.winfo_screenwidth()
         sh = parent.winfo_screenheight()
         self.win.geometry(f"{W}x{H}+{(sw-W)//2}+{(sh-H)//2}")
@@ -312,27 +316,166 @@ class CameraWindow:
         self.win.after(500, self._start_camera)
 
     # ═══════════════════════════════════════════════════════
-    #  GIAO DIỆN
+    #  GIAO DIỆN & NAVIGATION
     # ═══════════════════════════════════════════════════════
     def _build_ui(self):
-        # Thanh tiêu đề
-        hdr = tk.Frame(self.win, bg="#0D0D1F", pady=7)
-        hdr.pack(fill="x")
-        tk.Label(
-            hdr,
-            text="🍎  HỆ THỐNG PHÂN LOẠI HẠNG CHẤT LƯỢNG TRÁI CÂY  |  PLC S7-1200",
-            font=("Arial", 12, "bold"), fg="#C8C8FF", bg="#0D0D1F",
-        ).pack()
+        # 1. Thanh tiêu đề (Header) với nút Menu
+        self.hdr = tk.Frame(self.win, bg="#0D0D1F", height=50)
+        self.hdr.pack(fill="x", side="top")
+        self.hdr.pack_propagate(False)
 
-        # Body
-        body = tk.Frame(self.win, bg="#1A1A2E")
-        body.pack(fill="both", expand=True, padx=10, pady=(8, 4))
+        # Nút 3 gạch (☰)
+        self.btn_menu = tk.Button(self.hdr, text="☰", font=("Arial", 18, "bold"),
+                                  fg="#FFFFFF", bg="#0D0D1F", activebackground="#1A1A2E",
+                                  activeforeground="#FFFFFF", bd=0, cursor="hand2",
+                                  padx=15, command=self._toggle_sidebar)
+        self.btn_menu.pack(side="left")
 
-        self._build_left(body)
-        self._build_right(body)
+        self.title_lbl = tk.Label(self.hdr, text="🍎 HỆ THỐNG PHÂN LOẠI TRÁI CÂY",
+                                  font=("Arial", 12, "bold"), fg="#C8C8FF", bg="#0D0D1F")
+        self.title_lbl.pack(side="left", padx=10)
 
-        # PLC bar
-        self._build_plc_bar()
+        # 2. Container chính
+        self.main_container = tk.Frame(self.win, bg="#1A1A2E")
+        self.main_container.pack(fill="both", expand=True)
+
+        # 3. Sidebar (Ban đầu ẩn)
+        self.sidebar = tk.Frame(self.win, bg="#12122A", width=220)
+        self.sidebar.place(x=-220, y=50, relheight=1) # Ẩn bên trái
+
+        self._build_sidebar_items()
+
+        # 4. Tạo các Trang (Frames)
+        self.page_phanloai = tk.Frame(self.main_container, bg="#1A1A2E")
+        self.page_setting = tk.Frame(self.main_container, bg="#1A1A2E")
+
+        self._build_phanloai_page()
+        self._build_setting_page()
+
+        # Hiển thị trang mặc định
+        self._show_page("PHANLOAI")
+
+    def _toggle_sidebar(self):
+        """Hiệu ứng ẩn hiện Sidebar."""
+        if not self.sidebar_visible:
+            # Hiện sidebar
+            self._animate_sidebar(0)
+            self.sidebar_visible = True
+        else:
+            # Ẩn sidebar
+            self._animate_sidebar(-220)
+            self.sidebar_visible = False
+
+    def _animate_sidebar(self, target_x):
+        self.sidebar.place(x=target_x)
+
+    def _build_sidebar_items(self):
+        """Các mục trong menu bên."""
+        tk.Label(self.sidebar, text="MENU", font=("Arial", 10, "bold"),
+                 fg="#5C5C7A", bg="#12122A", pady=20).pack()
+
+        menu_items = [
+            ("📊  PHÂN LOẠI", "PHANLOAI"),
+            ("⚙️  CÀI ĐẶT", "SETTING")
+        ]
+
+        for text, page_id in menu_items:
+            btn = tk.Button(self.sidebar, text=text, font=("Arial", 11, "bold"),
+                            fg="#A0A0C0", bg="#12122A", activebackground="#1A1A2E",
+                            activeforeground="#FFFFFF", bd=0, cursor="hand2",
+                            anchor="w", padx=25, pady=12,
+                            command=lambda p=page_id: self._show_page(p))
+            btn.pack(fill="x")
+
+    def _show_page(self, page_id):
+        """Chuyển đổi giữa các trang."""
+        self.current_page = page_id
+        
+        # Ẩn tất cả trang
+        self.page_phanloai.pack_forget()
+        self.page_setting.pack_forget()
+
+        if page_id == "PHANLOAI":
+            self.page_phanloai.pack(fill="both", expand=True, padx=10, pady=10)
+            self.title_lbl.config(text="🍎 HỆ THỐNG PHÂN LOẠI TRÁI CÂY - GIÁM SÁT")
+        else:
+            self.page_setting.pack(fill="both", expand=True, padx=10, pady=10)
+            self.title_lbl.config(text="⚙️ HỆ THỐNG PHÂN LOẠI TRÁI CÂY - CÀI ĐẶT")
+
+        # Đóng menu sau khi chọn
+        if self.sidebar_visible:
+            self._toggle_sidebar()
+
+    def _build_phanloai_page(self):
+        """Trang Phân loại: Thống kê + Camera + Start/Stop."""
+        # Chia layout Trái (Stats) / Phải (Camera)
+        self._build_left(self.page_phanloai)
+        self._build_right(self.page_phanloai)
+        # PLC status bar sẽ dùng chung hoặc tích hợp vào cuối trang
+        self._build_plc_status_area(self.page_phanloai)
+
+    def _build_setting_page(self):
+        """Trang Cài đặt: PLC IP, Nguồn Camera, Reset."""
+        container = tk.Frame(self.page_setting, bg="#1A1A2E")
+        container.place(relx=0.5, rely=0.4, anchor="center")
+
+        # 1. Cấu hình PLC
+        plc_box = tk.LabelFrame(container, text=" KẾT NỐI PLC S7-1200 ", font=("Arial", 10, "bold"),
+                                fg="#9090CC", bg="#1A1A2E", padx=20, pady=20)
+        plc_box.pack(fill="x", pady=10)
+
+        # IP Entry
+        tk.Label(plc_box, text="Địa chỉ IP:", fg="#A0A0C0", bg="#1A1A2E").grid(row=0, column=0, sticky="w")
+        self.plc_ip_var = tk.StringVar(value="192.168.0.1")
+        tk.Entry(plc_box, textvariable=self.plc_ip_var, width=20, bg="#22223A", fg="white", bd=0).grid(row=0, column=1, padx=10, pady=5)
+
+        # Rack/Slot
+        tk.Label(plc_box, text="Rack/Slot:", fg="#A0A0C0", bg="#1A1A2E").grid(row=1, column=0, sticky="w")
+        rs_frame = tk.Frame(plc_box, bg="#1A1A2E")
+        rs_frame.grid(row=1, column=1, sticky="w", pady=5, padx=10)
+        self.plc_rack_var = tk.StringVar(value="0")
+        self.plc_slot_var = tk.StringVar(value="1")
+        tk.Entry(rs_frame, textvariable=self.plc_rack_var, width=3, bg="#22223A", fg="white", bd=0).pack(side="left")
+        tk.Label(rs_frame, text=" / ", fg="white", bg="#1A1A2E").pack(side="left")
+        tk.Entry(rs_frame, textvariable=self.plc_slot_var, width=3, bg="#22223A", fg="white", bd=0).pack(side="left")
+
+        self.btn_connect = tk.Button(plc_box, text="🔌 KẾT NỐI PLC", font=("Arial", 10, "bold"),
+                                     bg="#1565C0", fg="white", padx=20, command=self._toggle_plc)
+        self.btn_connect.grid(row=2, column=0, columnspan=2, pady=15)
+
+        # 2. Cấu hình Camera
+        cam_box = tk.LabelFrame(container, text=" CẤU HÌNH CAMERA ", font=("Arial", 10, "bold"),
+                                fg="#9090CC", bg="#1A1A2E", padx=20, pady=20)
+        cam_box.pack(fill="x", pady=10)
+        
+        self.cam_var = tk.StringVar(value=self.CAM_SOURCES[0])
+        self.combo = ttk.Combobox(cam_box, textvariable=self.cam_var, values=self.CAM_SOURCES, state="readonly", width=30)
+        self.combo.pack(pady=10)
+
+        # 3. Khác
+        tk.Button(container, text="🔄 RESET BỘ ĐẾM DỮ LIỆU", bg="#3949AB", fg="white", 
+                  font=("Arial", 10, "bold"), pady=8, command=self._reset_counts).pack(fill="x", pady=20)
+
+    def _build_plc_status_area(self, parent):
+        """Thanh trạng thái và nút Start/Stop tích hợp vào trang Phân loại."""
+        bar = tk.Frame(parent, bg="#0D0D1F", height=60)
+        bar.pack(side="bottom", fill="x", pady=(10, 0))
+
+        # Nút START / STOP
+        ctrl = tk.Frame(bar, bg="#0D0D1F")
+        ctrl.pack(side="left", padx=18)
+
+        self.btn_start = tk.Button(ctrl, text="▶  START", font=("Arial", 12, "bold"),
+                                    fg="#FFFFFF", bg="#00695C", padx=25, pady=8, command=self._plc_start)
+        self.btn_start.pack(side="left", padx=(0, 10))
+
+        self.btn_stop_plc = tk.Button(ctrl, text="⏹  STOP", font=("Arial", 12, "bold"),
+                                       fg="#FFFFFF", bg="#B71C1C", padx=25, pady=8, command=self._plc_stop)
+        self.btn_stop_plc.pack(side="left")
+
+        self.lbl_plc_status = tk.Label(bar, text="⚫ PLC chưa kết nối", font=("Arial", 10, "bold"),
+                                        fg="#666680", bg="#0D0D1F")
+        self.lbl_plc_status.pack(side="right", padx=20)
 
     # ─── Panel trái ─────────────────────────────────────
     def _build_left(self, parent):
@@ -373,48 +516,6 @@ class CameraWindow:
                  font=("Arial", 26, "bold"), fg="#FFFFFF", bg="#12122A",
                  ).pack(pady=(0, 4))
 
-        # Reset
-        tk.Button(lf, text="🔄  Reset Bộ đếm",
-                  font=("Arial", 10, "bold"),
-                  fg="#FFFFFF", bg="#3949AB", activebackground="#283593",
-                  relief="flat", cursor="hand2", padx=10, pady=4,
-                  command=self._reset_counts,
-                  ).pack(pady=(8, 4), padx=8, fill="x")
-
-        # ─── Khung chọn Camera (Nổi bật hơn) ───
-        tk.Frame(lf, bg="#3A3A5E", height=1).pack(fill="x", padx=8, pady=(12, 4))
-        
-        cam_ctrl_frame = tk.Frame(lf, bg="#12122A", bd=1, relief="flat")
-        cam_ctrl_frame.pack(fill="x", padx=8, pady=4, ipady=4)
-
-        tk.Label(
-            cam_ctrl_frame, text="📸  NGUỒN CAMERA:",
-            font=("Arial", 9, "bold"), fg="#FFD700", bg="#12122A",
-        ).pack(anchor="w", padx=10, pady=(4, 2))
-
-        self.cam_var = tk.StringVar(value=self.CAM_SOURCES[0])
-        self.combo = ttk.Combobox(
-            cam_ctrl_frame, textvariable=self.cam_var,
-            values=self.CAM_SOURCES,
-            state="readonly", font=("Arial", 10), width=26
-        )
-        self.combo.pack(padx=10, pady=4, fill="x")
-
-        self.btn_cam = tk.Button(
-            cam_ctrl_frame, text="▶  BẬT CAMERA",
-            font=("Arial", 10, "bold"),
-            fg="#FFFFFF", bg="#2E7D32", activebackground="#1B5E20",
-            relief="flat", cursor="hand2", padx=10, pady=4,
-            command=self._toggle_camera
-        )
-        self.btn_cam.pack(padx=10, pady=4, fill="x")
-
-        self.lbl_cam_status = tk.Label(
-            cam_ctrl_frame, text="⚫  Chưa kết nối",
-            font=("Arial", 9), fg="#8888AA", bg="#12122A"
-        )
-        self.lbl_cam_status.pack(pady=(0, 4))
-
 
     # ─── Panel phải: camera màu + ảnh xám ─────────────────
     def _build_right(self, parent):
@@ -454,61 +555,6 @@ class CameraWindow:
                                      font=("Arial", 12), fill="#333344")
 
 
-    # ─── Thanh PLC dưới ─────────────────────────────────
-    def _build_plc_bar(self):
-        bar = tk.Frame(self.win, bg="#0D0D1F", pady=7)
-        bar.pack(fill="x", side="bottom")
-
-        # Thông tin kết nối
-        conn = tk.Frame(bar, bg="#0D0D1F")
-        conn.pack(side="left", padx=(12, 0))
-
-        tk.Label(conn, text="PLC S7-1200:", font=("Arial", 10, "bold"),
-                 fg="#8888AA", bg="#0D0D1F").grid(row=0, column=0, padx=(0, 6))
-
-        for col, (lbl, var_name, default, w) in enumerate([
-            ("IP:",   "plc_ip_var",   "192.168.0.1", 13),
-            ("Rack:", "plc_rack_var", "0",            3),
-            ("Slot:", "plc_slot_var", "1",            3),
-        ], start=1):
-            tk.Label(conn, text=lbl, font=("Arial", 10),
-                     fg="#A0A0C0", bg="#0D0D1F").grid(row=0, column=col*2-1, padx=(6, 2))
-            var = tk.StringVar(value=default)
-            setattr(self, var_name, var)
-            tk.Entry(conn, textvariable=var, font=("Arial", 10), width=w,
-                     bg="#22223A", fg="#FFFFFF", insertbackground="#FFFFFF",
-                     relief="flat", bd=4).grid(row=0, column=col*2, padx=2)
-
-        self.btn_connect = tk.Button(conn, text="🔌  Kết nối PLC",
-                                      font=("Arial", 10, "bold"),
-                                      fg="#FFFFFF", bg="#1565C0", activebackground="#0D47A1",
-                                      relief="flat", cursor="hand2", padx=10, pady=3,
-                                      command=self._toggle_plc)
-        self.btn_connect.grid(row=0, column=7, padx=(10, 0))
-
-        # Nút START / STOP
-        ctrl = tk.Frame(bar, bg="#0D0D1F")
-        ctrl.pack(side="left", padx=18)
-
-        self.btn_start = tk.Button(ctrl, text="▶  START",
-                                    font=("Arial", 12, "bold"),
-                                    fg="#FFFFFF", bg="#00695C", activebackground="#004D40",
-                                    relief="flat", cursor="hand2", padx=20, pady=6,
-                                    command=self._plc_start)
-        self.btn_start.pack(side="left", padx=(0, 8))
-
-        self.btn_stop_plc = tk.Button(ctrl, text="⏹  STOP",
-                                       font=("Arial", 12, "bold"),
-                                       fg="#FFFFFF", bg="#B71C1C", activebackground="#7F0000",
-                                       relief="flat", cursor="hand2", padx=20, pady=6,
-                                       command=self._plc_stop)
-        self.btn_stop_plc.pack(side="left")
-
-        # Trạng thái PLC
-        self.lbl_plc_status = tk.Label(bar, text="⚫  PLC chưa kết nối",
-                                        font=("Arial", 10, "bold"),
-                                        fg="#666680", bg="#0D0D1F")
-        self.lbl_plc_status.pack(side="right", padx=14)
 
     # ═══════════════════════════════════════════════════════
     #  LOGIC CAMERA
