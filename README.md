@@ -36,7 +36,7 @@ pip install Pillow opencv-python python-snap7
 
 ### Bước 3: Chạy chương trình
 ```bash
-python main.py
+python giaodien/main.py
 ```
 
 ---
@@ -58,8 +58,8 @@ python main.py
 ---
 
 ## 📁 Cấu trúc thư mục (Project Structure)
-*   `main.py`: File code chính của ứng dụng.
-*   `images/`: Thư mục chứa logo và hình ảnh minh họa.
+*   `giaodien/main.py`: File code chính của ứng dụng.
+*   `giaodien/images/`: Thư mục chứa logo và hình ảnh minh họa.
 *   `README.md`: File hướng dẫn này.
 
 ---
