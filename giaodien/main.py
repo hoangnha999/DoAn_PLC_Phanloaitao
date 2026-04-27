@@ -892,7 +892,8 @@ class CameraWindow:
             
             # Mở Color Stream bằng OpenCV (Webcam tiêu chuẩn)
             self.cap = None
-            for i in range(3): # Thử quét các cổng webcam
+            # Ưu tiên quét cổng 1 và 2 trước (Camera cắm ngoài/USB) thay vì 0 (Camera Laptop tích hợp)
+            for i in (1, 2, 0): 
                 cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
                 if cap.isOpened():
                     # Ép tỷ lệ 4:3 (640x480) giống hệt với Depth Map để tránh lệch góc nhìn
