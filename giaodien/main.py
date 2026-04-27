@@ -82,7 +82,7 @@ class FruitClassificationApp:
 
             # Hình hệ thống băng chuyền
             conveyor_img = Image.open(self._get_image_path("conveyor_system.png"))
-            conveyor_img = conveyor_img.resize((700, 300), Image.LANCZOS) # Hiển thị to, rõ ràng
+            conveyor_img = conveyor_img.resize((280, 200), Image.LANCZOS)
             self.conveyor_image = ImageTk.PhotoImage(conveyor_img)
 
 
