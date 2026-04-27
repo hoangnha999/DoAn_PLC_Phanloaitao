@@ -220,9 +220,12 @@ class FruitClassificationApp:
         btn_frame = tk.Frame(self.root, bg="#F5F5F5")
         btn_frame.pack(fill="x", padx=0, pady=0, side="bottom")
 
+        btn_container = tk.Frame(btn_frame, bg="#F5F5F5")
+        btn_container.pack(expand=True)
+
         # Nút "Chạy chương trình"
         btn_run = tk.Button(
-            btn_frame,
+            btn_container,
             text="Chạy chương trình",
             font=("Arial", 12, "bold"),
             fg=self.BTN_TEXT_COLOR,
@@ -235,11 +238,11 @@ class FruitClassificationApp:
             pady=8,
             command=self._on_run,
         )
-        btn_run.pack(side="left", padx=(30, 15), pady=12)
+        btn_run.pack(side="left", padx=10, pady=12)
 
         # Nút "Kết thúc chương trình"
         btn_stop = tk.Button(
-            btn_frame,
+            btn_container,
             text="Kết thúc chương trình",
             font=("Arial", 12, "bold"),
             fg=self.BTN_TEXT_COLOR,
@@ -252,7 +255,8 @@ class FruitClassificationApp:
             pady=8,
             command=self._on_stop,
         )
-        btn_stop.pack(side="left", padx=(15, 30), pady=12)
+        btn_stop.pack(side="left", padx=10, pady=12)
+
 
     # ─── Xử lý sự kiện ───────────────────────────────────────────────
     def _on_run(self):
