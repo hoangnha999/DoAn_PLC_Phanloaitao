@@ -381,28 +381,40 @@ class CameraWindow:
                   command=self._reset_counts,
                   ).pack(pady=(8, 4), padx=8, fill="x")
 
-        # Camera source
-        tk.Frame(lf, bg="#3A3A5E", height=1).pack(fill="x", padx=8, pady=(12, 6))
-        tk.Label(lf, text="Nguồn camera:",
-                 font=("Arial", 10, "bold"), fg="#8888AA", bg="#1A1A2E",
-                 ).pack(anchor="w", padx=10)
+        # ─── Khung chọn Camera (Nổi bật hơn) ───
+        tk.Frame(lf, bg="#3A3A5E", height=1).pack(fill="x", padx=8, pady=(12, 4))
+        
+        cam_ctrl_frame = tk.Frame(lf, bg="#12122A", bd=1, relief="flat")
+        cam_ctrl_frame.pack(fill="x", padx=8, pady=4, ipady=4)
+
+        tk.Label(
+            cam_ctrl_frame, text="📸  NGUỒN CAMERA:",
+            font=("Arial", 9, "bold"), fg="#FFD700", bg="#12122A",
+        ).pack(anchor="w", padx=10, pady=(4, 2))
 
         self.cam_var = tk.StringVar(value=self.CAM_SOURCES[0])
-        self.combo = ttk.Combobox(lf, textvariable=self.cam_var,
-                                   values=self.CAM_SOURCES,
-                                   state="readonly", font=("Arial", 10), width=26)
+        self.combo = ttk.Combobox(
+            cam_ctrl_frame, textvariable=self.cam_var,
+            values=self.CAM_SOURCES,
+            state="readonly", font=("Arial", 10), width=26
+        )
         self.combo.pack(padx=10, pady=4, fill="x")
 
-        self.btn_cam = tk.Button(lf, text="▶  Bật Camera",
-                                  font=("Arial", 10, "bold"),
-                                  fg="#FFFFFF", bg="#2E7D32", activebackground="#1B5E20",
-                                  relief="flat", cursor="hand2", padx=10, pady=4,
-                                  command=self._toggle_camera)
-        self.btn_cam.pack(padx=10, pady=3, fill="x")
+        self.btn_cam = tk.Button(
+            cam_ctrl_frame, text="▶  BẬT CAMERA",
+            font=("Arial", 10, "bold"),
+            fg="#FFFFFF", bg="#2E7D32", activebackground="#1B5E20",
+            relief="flat", cursor="hand2", padx=10, pady=4,
+            command=self._toggle_camera
+        )
+        self.btn_cam.pack(padx=10, pady=4, fill="x")
 
-        self.lbl_cam_status = tk.Label(lf, text="⚫  Camera chưa bật",
-                                        font=("Arial", 9), fg="#666680", bg="#1A1A2E")
-        self.lbl_cam_status.pack(pady=2)
+        self.lbl_cam_status = tk.Label(
+            cam_ctrl_frame, text="⚫  Chưa kết nối",
+            font=("Arial", 9), fg="#8888AA", bg="#12122A"
+        )
+        self.lbl_cam_status.pack(pady=(0, 4))
+
 
     # ─── Panel phải: camera màu + ảnh xám ─────────────────
     def _build_right(self, parent):
