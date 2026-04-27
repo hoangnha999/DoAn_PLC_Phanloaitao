@@ -713,6 +713,10 @@ class CameraWindow:
         self.canvas_gray.create_text(425, 155,
                                      text="Ảnh xám sẽ hiển thị khi camera hoạt động",
                                      font=("Arial", 12), fill="#333344")
+        
+        # Đặt lại ID để vẽ frame mới khi bật camera
+        self.img_id_color = None
+        self.img_id_gray = None
 
 
 
@@ -776,8 +780,14 @@ class CameraWindow:
 
     def _update_canvas(self, imgtk_color, imgtk_gray):
         if self._cam_running:
-            self.canvas.create_image(0, 0, anchor="nw", image=imgtk_color)
-            self.canvas_gray.create_image(0, 0, anchor="nw", image=imgtk_gray)
+            if getattr(self, 'img_id_color', None) is None:
+                self.canvas.delete("all")
+                self.canvas_gray.delete("all")
+                self.img_id_color = self.canvas.create_image(0, 0, anchor="nw", image=imgtk_color)
+                self.img_id_gray = self.canvas_gray.create_image(0, 0, anchor="nw", image=imgtk_gray)
+            else:
+                self.canvas.itemconfig(self.img_id_color, image=imgtk_color)
+                self.canvas_gray.itemconfig(self.img_id_gray, image=imgtk_gray)
 
     # ═══════════════════════════════════════════════════════
     #  LOGIC PLC S7-1200 (snap7)
