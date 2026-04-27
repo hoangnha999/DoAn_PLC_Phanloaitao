@@ -319,8 +319,10 @@ class CameraWindow:
 
         self.win = tk.Toplevel(parent)
         self.win.title("Hệ thống phân loại hạng chất lượng trái cây")
-        self.win.configure(bg="#F1F5F9") # Slate 100 - Trắng xám sáng sủa
-        self.win.resizable(False, False)
+        self.win.configure(bg="#F1F5F9")
+        self.win.resizable(True, True)
+        # Loại bỏ thanh tiêu đề mặc định của Windows để dùng custom header
+        self.win.overrideredirect(True)
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
 
         W, H = 1160, 760 # Tăng chiều cao để hiển thị đủ thẻ Yield và nút Camera
@@ -427,6 +429,34 @@ class CameraWindow:
                                   font=("Arial", 12, "bold"), fg="#F8FAFC", bg="#0F172A")
         self.title_lbl.pack(side="left", padx=10)
 
+        # Nút điều khiển cửa sổ (bên phải header)
+        window_controls = tk.Frame(self.hdr, bg="#0F172A")
+        window_controls.pack(side="right", padx=10)
+
+        self.btn_minimize = tk.Button(window_controls, text="🗕", font=("Arial", 12),
+                                      fg="#94A3B8", bg="#0F172A", activebackground="#1E293B",
+                                      activeforeground="#FFFFFF", bd=0, cursor="hand2",
+                                      command=self._minimize_window)
+        self.btn_minimize.pack(side="left", padx=5)
+
+        self.btn_restore = tk.Button(window_controls, text="🗗", font=("Arial", 12),
+                                     fg="#94A3B8", bg="#0F172A", activebackground="#1E293B",
+                                     activeforeground="#FFFFFF", bd=0, cursor="hand2",
+                                     command=self._restore_window)
+        self.btn_restore.pack(side="left", padx=5)
+
+        self.btn_close = tk.Button(window_controls, text="🗙", font=("Arial", 12),
+                                   fg="#94A3B8", bg="#0F172A", activebackground="#EF4444",
+                                   activeforeground="#FFFFFF", bd=0, cursor="hand2",
+                                   command=self._on_close)
+        self.btn_close.pack(side="left", padx=5)
+
+        # Hỗ trợ kéo thả cửa sổ bằng header
+        self.hdr.bind("<ButtonPress-1>", self._start_move)
+        self.hdr.bind("<B1-Motion>", self._do_move)
+        self.title_lbl.bind("<ButtonPress-1>", self._start_move)
+        self.title_lbl.bind("<B1-Motion>", self._do_move)
+
         # 2. Container chính
         self.main_container = tk.Frame(self.win, bg="#F1F5F9")
         self.main_container.pack(fill="both", expand=True)
@@ -460,6 +490,38 @@ class CameraWindow:
 
     def _animate_sidebar(self, target_x):
         self.sidebar.place(x=target_x)
+
+    # ─── ĐIỀU KHIỂN CỬA SỔ (WINDOW CONTROLS) ─────────────────────────
+    def _start_move(self, event):
+        self.x = event.x
+        self.y = event.y
+
+    def _do_move(self, event):
+        deltax = event.x - self.x
+        deltay = event.y - self.y
+        x = self.win.winfo_x() + deltax
+        y = self.win.winfo_y() + deltay
+        self.win.geometry(f"+{x}+{y}")
+
+    def _minimize_window(self):
+        # Khi dùng overrideredirect, iconify() có thể lỗi trên một số bản Windows.
+        # Ta tạm thời tắt overrideredirect trước khi thu nhỏ.
+        self.win.overrideredirect(False)
+        self.win.iconify()
+        # Bind sự kiện khi cửa sổ mở lên lại thì bật overrideredirect
+        self.win.bind("<Map>", self._on_deiconify)
+        
+    def _on_deiconify(self, event):
+        self.win.overrideredirect(True)
+        self.win.unbind("<Map>")
+
+    def _restore_window(self):
+        if self.win.state() == 'zoomed':
+            self.win.state('normal')
+            self.btn_restore.config(text="🗗") # Icon Restore Down
+        else:
+            self.win.state('zoomed')
+            self.btn_restore.config(text="🗖") # Icon Maximize
 
     def _build_sidebar_items(self):
         """Các mục trong menu bên."""
