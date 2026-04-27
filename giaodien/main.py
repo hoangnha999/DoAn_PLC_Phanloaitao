@@ -49,12 +49,17 @@ class FruitClassificationApp:
         self.root.configure(bg=self.BG_COLOR)
         self.root.resizable(False, False)
 
+        # Lắng nghe phím Q từ mọi nơi để tắt app
+        self.root.bind_all("<q>", lambda e: self.root.destroy())
+        self.root.bind_all("<Q>", lambda e: self.root.destroy())
+
         # Căn giữa cửa sổ trên màn hình
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         x = (screen_w - self.WINDOW_WIDTH) // 2
         y = (screen_h - self.WINDOW_HEIGHT) // 2
         self.root.geometry(f"{self.WINDOW_WIDTH}x{self.WINDOW_HEIGHT}+{x}+{y}")
+
 
     # ─── Tải hình ảnh ─────────────────────────────────────────────────
     def _get_image_path(self, filename):
