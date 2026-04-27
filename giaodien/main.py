@@ -10,6 +10,8 @@ import os
 import sys
 import threading
 import cv2
+import sqlite3
+from datetime import datetime
 
 
 class FruitClassificationApp:
@@ -331,11 +333,61 @@ class CameraWindow:
         sh = parent.winfo_screenheight()
         self.win.geometry(f"{W}x{H}+{(sw-W)//2}+{(sh-H)//2}")
 
+        self._init_db()
         self._build_ui()
 
         # Tự động bật camera ngay sau khi mở cửa sổ
         self.win.after(500, self._start_camera)
         self._log_event("Hệ thống Vision đã khởi động.")
+        self._log_event("Đã tải xong CSDL Lịch sử (SQLite).")
+
+    # ═══════════════════════════════════════════════════════
+    #  DATABASE (SQLITE) & LƯU ẢNH
+    # ═══════════════════════════════════════════════════════
+    def _init_db(self):
+        """Khởi tạo SQLite Database và thư mục chứa ảnh."""
+        self.img_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history_images")
+        if not os.path.exists(self.img_dir):
+            os.makedirs(self.img_dir)
+            
+        self.db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS phan_loai_history
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      thoi_gian TEXT,
+                      ket_qua TEXT,
+                      duong_dan_anh TEXT,
+                      ty_le_yield TEXT)''')
+        conn.commit()
+        conn.close()
+
+    def _save_to_sql(self, grade):
+        """Lưu ảnh và thông tin vào CSDL."""
+        if not hasattr(self, 'frame_to_save') or self.frame_to_save is None:
+            return
+            
+        # Tạo tên file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19] # YYYYMMDD_HHMMSS_mmm
+        filename = f"{grade}_{timestamp}.jpg"
+        filepath = os.path.join(self.img_dir, filename)
+        
+        # Lưu ảnh gốc
+        cv2.imwrite(filepath, self.frame_to_save)
+        
+        # Lưu DB
+        try:
+            yield_str = self._yield_var.get()
+            t_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute("INSERT INTO phan_loai_history (thoi_gian, ket_qua, duong_dan_anh, ty_le_yield) VALUES (?, ?, ?, ?)",
+                      (t_str, grade, filepath, yield_str))
+            conn.commit()
+            conn.close()
+            self._log_event(f"SQL Saved: [{grade}] -> {filename}")
+        except Exception as e:
+            self._log_event(f"SQL Error: {e}")
 
     # ═══════════════════════════════════════════════════════
     #  GIAO DIỆN & NAVIGATION
@@ -408,7 +460,8 @@ class CameraWindow:
 
         menu_items = [
             ("📊  PHÂN LOẠI", "PHANLOAI"),
-            ("⚙️  CÀI ĐẶT", "SETTING")
+            ("⚙️  CÀI ĐẶT", "SETTING"),
+            ("📂  LỊCH SỬ SQL", "HISTORY")
         ]
 
         for text, page_id in menu_items:
@@ -421,6 +474,10 @@ class CameraWindow:
 
     def _show_page(self, page_id):
         """Chuyển đổi giữa các trang."""
+        if page_id == "HISTORY":
+            self._show_history_window()
+            return
+
         self.current_page = page_id
         
         # Ẩn tất cả trang
@@ -437,6 +494,45 @@ class CameraWindow:
         # Đóng menu sau khi chọn
         if self.sidebar_visible:
             self._toggle_sidebar()
+
+    def _show_history_window(self):
+        """Mở cửa sổ xem lịch sử lưu trong CSDL SQLite."""
+        hw = tk.Toplevel(self.win)
+        hw.title("Lịch sử Phân loại (SQLite)")
+        hw.geometry("900x500")
+        hw.configure(bg="#F1F5F9")
+        
+        # Header
+        tk.Label(hw, text="📂 LỊCH SỬ PHÂN LOẠI & HÌNH ẢNH", font=("Arial", 14, "bold"), fg="#0F172A", bg="#F1F5F9").pack(pady=10)
+        
+        # Bảng (Treeview)
+        columns = ("ID", "Thời gian", "Kết quả", "Tỷ lệ", "Đường dẫn ảnh")
+        tree = ttk.Treeview(hw, columns=columns, show="headings", height=15)
+        
+        tree.heading("ID", text="ID")
+        tree.column("ID", width=50, anchor="center")
+        tree.heading("Thời gian", text="Thời gian")
+        tree.column("Thời gian", width=150, anchor="center")
+        tree.heading("Kết quả", text="Kết quả")
+        tree.column("Kết quả", width=100, anchor="center")
+        tree.heading("Tỷ lệ", text="Tỷ lệ Yield")
+        tree.column("Tỷ lệ", width=100, anchor="center")
+        tree.heading("Đường dẫn ảnh", text="Đường dẫn file ảnh lưu trữ")
+        tree.column("Đường dẫn ảnh", width=450, anchor="w")
+        
+        tree.pack(fill="both", expand=True, padx=15, pady=10)
+        
+        # Load dữ liệu
+        try:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute("SELECT * FROM phan_loai_history ORDER BY id DESC LIMIT 100")
+            rows = c.fetchall()
+            for row in rows:
+                tree.insert("", "end", values=row)
+            conn.close()
+        except Exception as e:
+            messagebox.showerror("Lỗi CSDL", f"Không thể đọc dữ liệu:\n{e}")
 
     def _build_phanloai_page(self):
         """Trang Phân loại: Thống kê + Camera + Start/Stop + Log."""
@@ -660,6 +756,9 @@ class CameraWindow:
             ret, frame = self.cap.read()
             if not ret:
                 break
+                
+            self.frame_to_save = frame.copy() # Lưu lại frame hiện hành để chụp ảnh
+            
             # ── Frame màu ──
             color = cv2.resize(frame, (850, 240))
             color_rgb = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
@@ -783,6 +882,10 @@ class CameraWindow:
     #  BỘ ĐẾM PHÂN LOẠI
     # ═══════════════════════════════════════════════════════
     def _update_counts(self, good, medium, bad):
+        old_good = int(self._count_vars["GOOD"].get())
+        old_medium = int(self._count_vars["MEDIUM"].get())
+        old_bad = int(self._count_vars["BAD"].get())
+
         self._count_vars["GOOD"].set(str(good))
         self._count_vars["MEDIUM"].set(str(medium))
         self._count_vars["BAD"].set(str(bad))
@@ -795,6 +898,14 @@ class CameraWindow:
             self._yield_var.set(f"{yield_rate:.1f} %")
         else:
             self._yield_var.set("0.0 %")
+
+        # LƯU LỊCH SỬ (Tự động kích hoạt khi có táo mới được phân loại)
+        if good > old_good:
+            self._save_to_sql("GOOD")
+        if medium > old_medium:
+            self._save_to_sql("MEDIUM")
+        if bad > old_bad:
+            self._save_to_sql("BAD")
 
     def _reset_counts(self):
         self._update_counts(0, 0, 0)
