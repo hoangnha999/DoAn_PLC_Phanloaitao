@@ -648,9 +648,16 @@ class CameraWindow:
                                 fg="#0284C7", bg="#FFFFFF", padx=20, pady=20)
         cam_box.pack(fill="x", pady=10)
         
+        tk.Label(cam_box, text="Chế độ Hoạt động (Mode):", fg="#475569", bg="#FFFFFF").pack(anchor="w")
         self.cam_var = tk.StringVar(value=self.CAM_SOURCES[0])
-        self.combo = ttk.Combobox(cam_box, textvariable=self.cam_var, values=self.CAM_SOURCES, state="readonly", width=30)
-        self.combo.pack(pady=10)
+        self.combo = ttk.Combobox(cam_box, textvariable=self.cam_var, values=self.CAM_SOURCES, state="readonly", width=35)
+        self.combo.pack(pady=(0, 15), anchor="w")
+
+        tk.Label(cam_box, text="Nguồn Camera Màu (Khi dùng Astra 3D):", fg="#475569", bg="#FFFFFF").pack(anchor="w")
+        self.astra_color_list = ["Cổng 0 (Laptop)", "Cổng 1 (USB Ngoài 1)", "Cổng 2 (USB Ngoài 2)"]
+        self.astra_color_var = tk.StringVar(value=self.astra_color_list[1]) # Ưu tiên cổng 1 cho Astra
+        self.combo_astra_color = ttk.Combobox(cam_box, textvariable=self.astra_color_var, values=self.astra_color_list, state="readonly", width=35)
+        self.combo_astra_color.pack(pady=(0, 5), anchor="w")
 
         # 3. Khác
 
@@ -892,8 +899,15 @@ class CameraWindow:
             
             # Mở Color Stream bằng OpenCV (Webcam tiêu chuẩn)
             self.cap = None
-            # Ưu tiên quét cổng 1 và 2 trước (Camera cắm ngoài/USB) thay vì 0 (Camera Laptop tích hợp)
-            for i in (1, 2, 0): 
+            
+            # Lấy cổng camera màu người dùng chọn ở tab Cài Đặt
+            sel_idx = self.combo_astra_color.current()
+            if sel_idx < 0: sel_idx = 1
+            
+            # Ưu tiên quét cổng được chọn trước, dự phòng các cổng khác nếu cổng đó lỗi
+            scan_order = [sel_idx] + [i for i in (1, 2, 0) if i != sel_idx]
+            
+            for i in scan_order:
                 cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
                 if cap.isOpened():
                     # Ép tỷ lệ 4:3 (640x480) giống hệt với Depth Map để tránh lệch góc nhìn
