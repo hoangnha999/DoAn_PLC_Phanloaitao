@@ -384,6 +384,19 @@ class CameraWindow:
         except Exception as e:
             self._log_event(f"SQL Error: {e}")
 
+    def _manual_snapshot(self):
+        """Gọi khi nhấn nút Chụp Ảnh Thủ Công."""
+        if not self._cam_running:
+            messagebox.showwarning("Cảnh báo", "Vui lòng Bật Camera trước khi chụp!")
+            return
+        
+        if not hasattr(self, 'frame_to_save') or self.frame_to_save is None:
+            messagebox.showwarning("Cảnh báo", "Chưa nhận được khung hình từ Camera!")
+            return
+            
+        self._save_to_sql("MANUAL")
+        messagebox.showinfo("Thành công", "Đã lưu ảnh thủ công vào CSDL Lịch sử (SQL)!")
+
     # ═══════════════════════════════════════════════════════
     #  GIAO DIỆN & NAVIGATION
     # ═══════════════════════════════════════════════════════
@@ -609,7 +622,13 @@ class CameraWindow:
         self.btn_stop_plc = tk.Button(ctrl, text="⏹  STOP", font=("Arial", 11, "bold"),
                                        fg="#FFFFFF", bg="#EF4444", width=12, pady=5,
                                        relief="flat", cursor="hand2", command=self._plc_stop)
-        self.btn_stop_plc.pack(side="left")
+        self.btn_stop_plc.pack(side="left", padx=(0, 10))
+
+        # Nút CHỤP ẢNH THỦ CÔNG
+        self.btn_snapshot = tk.Button(ctrl, text="📸  CHỤP LƯU SQL", font=("Arial", 11, "bold"),
+                                       fg="#FFFFFF", bg="#F59E0B", width=16, pady=5,
+                                       relief="flat", cursor="hand2", command=self._manual_snapshot)
+        self.btn_snapshot.pack(side="left")
 
         self.lbl_plc_status = tk.Label(bar, text="⚫ PLC chưa kết nối", font=("Arial", 10),
                                         fg="#64748B", bg="#FFFFFF")
