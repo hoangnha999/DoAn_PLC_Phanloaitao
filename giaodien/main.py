@@ -93,13 +93,17 @@ class FruitClassificationApp:
     # ─── Xây dựng giao diện ──────────────────────────────────────────
     def _build_ui(self):
         """Xây dựng toàn bộ giao diện."""
+        # Gói toàn bộ giao diện vào một Frame trung tâm để tự căn giữa khi cửa sổ to ra
+        self.wrapper = tk.Frame(self.root, bg=self.BG_COLOR)
+        self.wrapper.place(relx=0.5, rely=0.5, anchor="center")
+        
         self._build_header()
         self._build_content()
         self._build_buttons()
 
     def _build_header(self):
         """Phần header: logo + thông tin khoa/trường."""
-        header_frame = tk.Frame(self.root, bg=self.BG_COLOR)
+        header_frame = tk.Frame(self.wrapper, bg=self.BG_COLOR)
         header_frame.pack(fill="x", padx=20, pady=(15, 5))
 
         # Logo khoa (trái)
@@ -140,7 +144,7 @@ class FruitClassificationApp:
 
     def _build_content(self):
         """Phần nội dung: đề tài, GVHD, nhóm, hình ảnh."""
-        content_frame = tk.Frame(self.root, bg=self.BG_COLOR)
+        content_frame = tk.Frame(self.wrapper, bg=self.BG_COLOR)
         content_frame.pack(fill="both", expand=True, padx=20, pady=5)
 
         # ── Đề tài ──
@@ -225,10 +229,10 @@ class FruitClassificationApp:
     def _build_buttons(self):
         """Phần nút bấm ở cuối giao diện."""
         # Đường kẻ phân cách
-        separator = tk.Frame(self.root, height=2, bg="#E0E0E0")
+        separator = tk.Frame(self.wrapper, height=2, bg="#E0E0E0")
         separator.pack(fill="x", padx=20, pady=(5, 0))
 
-        btn_frame = tk.Frame(self.root, bg="#F5F5F5")
+        btn_frame = tk.Frame(self.wrapper, bg="#F5F5F5")
         btn_frame.pack(fill="x", padx=0, pady=0, side="bottom")
 
         btn_container = tk.Frame(btn_frame, bg="#F5F5F5")
