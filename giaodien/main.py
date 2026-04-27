@@ -419,11 +419,12 @@ class CameraWindow:
 
     def _build_phanloai_page(self):
         """Trang Phân loại: Thống kê + Camera + Start/Stop."""
-        # Chia layout Trái (Stats) / Phải (Camera)
+        # 1. Hiển thị cụm PLC trước để nó chiếm chỗ ở dưới cùng
+        self._build_plc_status_area(self.page_phanloai)
+
+        # 2. Sau đó mới chia layout Trái (Stats) / Phải (Camera) ở phần còn lại
         self._build_left(self.page_phanloai)
         self._build_right(self.page_phanloai)
-        # PLC status bar sẽ dùng chung hoặc tích hợp vào cuối trang
-        self._build_plc_status_area(self.page_phanloai)
 
     def _build_setting_page(self):
         """Trang Cài đặt: PLC IP, Nguồn Camera, Reset."""
@@ -716,17 +717,27 @@ class CameraWindow:
         except Exception as e:
             messagebox.showerror("Lỗi PLC", f"Ghi dữ liệu thất bại!\n{e}")
 
+    # ─── PLC 1214C Control Bits ───
+    PLC_START_BYTE = 0 # M0
+    PLC_START_BIT  = 0 # .0 -> M0.0
+    PLC_STOP_BYTE  = 0 # M0
+    PLC_STOP_BIT   = 1 # .1 -> M0.1
+
     def _plc_start(self):
         """Ghi M0.0 = True → PLC bắt đầu chạy."""
-        self._plc_write_bit(self.PLC_START_BYTE, self.PLC_START_BIT, True)
-        if self._plc_connected:
-            self.lbl_plc_status.config(text="🟢  PLC: Đang chạy", fg="#69F0AE")
+        success = self._plc_write_bit(self.PLC_START_BYTE, self.PLC_START_BIT, True)
+        if success:
+            self.lbl_plc_status.config(text="🟢 PLC: Đang chạy (M0.0)", fg="#2E7D32")
+        else:
+            self.lbl_plc_status.config(text="🔴 Lỗi ghi START", fg="#D32F2F")
 
     def _plc_stop(self):
         """Ghi M0.1 = True → PLC dừng."""
-        self._plc_write_bit(self.PLC_STOP_BYTE, self.PLC_STOP_BIT, True)
-        if self._plc_connected:
-            self.lbl_plc_status.config(text="🟡  PLC: Đã dừng", fg="#FFD600")
+        success = self._plc_write_bit(self.PLC_STOP_BYTE, self.PLC_STOP_BIT, True)
+        if success:
+            self.lbl_plc_status.config(text="🟡 PLC: Đã dừng (M0.1)", fg="#C62828")
+        else:
+            self.lbl_plc_status.config(text="🔴 Lỗi ghi STOP", fg="#D32F2F")
 
     # ═══════════════════════════════════════════════════════
     #  BỘ ĐẾM PHÂN LOẠI
