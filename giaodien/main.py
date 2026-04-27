@@ -92,7 +92,6 @@ class FruitClassificationApp:
         """Xây dựng toàn bộ giao diện."""
         self._build_header()
         self._build_content()
-        self._build_plc_quick_control()
         self._build_buttons()
 
     def _build_header(self):
@@ -210,37 +209,6 @@ class FruitClassificationApp:
                 anchor="w",
             ).pack(side="left")
 
-    def _build_plc_quick_control(self):
-        """Thanh điều khiển PLC nhanh trên trang chính."""
-        plc_frame = tk.LabelFrame(self.root, text=" ⚡ ĐIỀU KHIỂN NHANH PLC (S7-1200 1214C) ",
-                                  font=("Arial", 9, "bold"), fg="#0D47A1", bg=self.BG_COLOR,
-                                  padx=10, pady=5)
-        plc_frame.pack(fill="x", padx=40, pady=(0, 10))
-
-        # Nút Kết nối
-        self.btn_main_conn = tk.Button(plc_frame, text="🔌 Kết nối", font=("Arial", 9, "bold"),
-                                       bg="#1976D2", fg="white", command=self._plc_connect)
-        self.btn_main_conn.pack(side="left", padx=10)
-
-        # START / STOP
-        tk.Button(plc_frame, text="▶ START", font=("Arial", 9, "bold"),
-                  bg="#00796B", fg="white", width=12, command=self._plc_start).pack(side="left", padx=5)
-        tk.Button(plc_frame, text="⏹ STOP", font=("Arial", 9, "bold"),
-                  bg="#C62828", fg="white", width=12, command=self._plc_stop).pack(side="left", padx=5)
-
-        self.lbl_main_plc = tk.Label(plc_frame, text="⚫ Chưa kết nối", font=("Arial", 9),
-                                     fg="#666666", bg=self.BG_COLOR)
-        self.lbl_main_plc.pack(side="right", padx=10)
-
-    # ─── Logic PLC Trang chính ──────────────────────────────────────
-    def _plc_connect(self):
-        if not self._plc: 
-            messagebox.showerror("Lỗi", "Chưa cài python-snap7!")
-            return
-        try:
-            self._plc.connect("192.168.0.1", 0, 1)
-            self._plc_connected = True
-            self.lbl_main_plc.config(text="🟢 Đã kết nối", fg="#2E7D32")
             self.btn_main_conn.config(text="🔌 Ngắt", bg="#6A1B9A")
         except Exception as e:
             messagebox.showerror("Lỗi PLC", f"Không kết nối được: {e}")
@@ -512,25 +480,29 @@ class CameraWindow:
                   font=("Arial", 10, "bold"), pady=8, command=self._reset_counts).pack(fill="x", pady=20)
 
     def _build_plc_status_area(self, parent):
-        """Thanh trạng thái và nút Start/Stop tích hợp vào trang Phân loại."""
-        bar = tk.Frame(parent, bg="#0D0D1F", height=60)
-        bar.pack(side="bottom", fill="x", pady=(10, 0))
+        """Thanh điều khiển nhanh PLC giống hệt mẫu yêu cầu."""
+        bar = tk.LabelFrame(parent, text=" ⚡ ĐIỀU KHIỂN NHANH PLC (S7-1200 1214C) ",
+                              font=("Arial", 10, "bold"), fg="#9090CC", bg="#0D0D1F",
+                              padx=15, pady=8)
+        bar.pack(side="bottom", fill="x", pady=(10, 0), padx=5)
 
         # Nút START / STOP
         ctrl = tk.Frame(bar, bg="#0D0D1F")
-        ctrl.pack(side="left", padx=18)
+        ctrl.pack(side="left", padx=5)
 
-        self.btn_start = tk.Button(ctrl, text="▶  START", font=("Arial", 12, "bold"),
-                                    fg="#FFFFFF", bg="#00695C", padx=25, pady=8, command=self._plc_start)
+        self.btn_start = tk.Button(ctrl, text="▶  START", font=("Arial", 11, "bold"),
+                                    fg="#FFFFFF", bg="#00695C", width=12, pady=5, 
+                                    relief="flat", cursor="hand2", command=self._plc_start)
         self.btn_start.pack(side="left", padx=(0, 10))
 
-        self.btn_stop_plc = tk.Button(ctrl, text="⏹  STOP", font=("Arial", 12, "bold"),
-                                       fg="#FFFFFF", bg="#B71C1C", padx=25, pady=8, command=self._plc_stop)
+        self.btn_stop_plc = tk.Button(ctrl, text="⏹  STOP", font=("Arial", 11, "bold"),
+                                       fg="#FFFFFF", bg="#B71C1C", width=12, pady=5,
+                                       relief="flat", cursor="hand2", command=self._plc_stop)
         self.btn_stop_plc.pack(side="left")
 
-        self.lbl_plc_status = tk.Label(bar, text="⚫ PLC chưa kết nối", font=("Arial", 10, "bold"),
-                                        fg="#666680", bg="#0D0D1F")
-        self.lbl_plc_status.pack(side="right", padx=20)
+        self.lbl_plc_status = tk.Label(bar, text="⚫ PLC chưa kết nối", font=("Arial", 10),
+                                        fg="#8888AA", bg="#0D0D1F")
+        self.lbl_plc_status.pack(side="right", padx=10)
 
     # ─── Panel trái ─────────────────────────────────────
     def _build_left(self, parent):
