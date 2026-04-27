@@ -76,28 +76,11 @@ Hệ thống bao gồm 2 màn hình chính với các chức năng riêng biệt
     *   `Chạy chương trình`: Để chuyển sang giao diện điều khiển chính.
     *   `Kết thúc`: Đóng ứng dụng.
 
-### 2. Màn hình Điều khiển & Giám sát (Control & Monitoring Screen)
-Màn hình này xuất hiện sau khi nhấn "Chạy chương trình":
+### 2. Màn hình Dashboard Điều khiển (Bản nâng cấp Xanh biển)
+Màn hình này có hệ thống **Menu bên (Sidebar)** cho phép chuyển đổi giữa:
 
-#### ⬅️ Bảng bên trái (Left Panel - Thống kê)
-*   **Bộ đếm (Counters)**: Hiển thị số lượng táo đã phân loại theo 3 hạng:
-    *   **✅ GOOD**: Táo đạt chất lượng cao.
-    *   **🟡 MEDIUM**: Táo hạng trung bình.
-    *   **❌ BAD**: Táo lỗi/hỏng.
-*   **Tổng số**: Tổng cộng số táo đã đi qua hệ thống.
-*   **Reset**: Đặt lại tất cả bộ đếm về 0.
-*   **Nguồn Camera**: Danh sách chọn (Default, IP Cam,...) và nút bật/tắt Camera.
-
-#### ↗️ Bảng bên phải (Right Panel - Camera Stream)
-*   **Khung trên (Color)**: Hiển thị video thực tế từ camera với màu sắc đầy đủ.
-*   **Khung dưới (Grayscale)**: Hiển thị ảnh xám (đen trắng) dùng để xử lý thuật toán nhận dạng dễ dàng hơn.
-
-#### ⬇️ Thanh dưới cùng (Bottom Bar - PLC Control)
-*   **Kết nối PLC**: Nhập IP (mặc định `192.168.0.1`), Rack, Slot và nhấn nút Connect.
-*   **Điều khiển PLC**:
-    *   `▶ START`: Gửi tín hiệu chạy hệ thống cơ khí/băng chuyền.
-    *   `⏹ STOP`: Dừng hệ thống khẩn cấp.
-*   **Trạng thái**: Đèn báo trạng thái kết nối PLC thời gian thực.
+*   **📊 Trang Phân loại (Monitoring)**: Hiển thị Thống kê, Camera Stream và cụm nút **START/STOP** căn giữa để điều khiển PLC.
+*   **⚙️ Trang Cài đặt (Settings)**: Nơi cấu hình IP PLC, chọn Nguồn Camera và Reset dữ liệu.
 
 ---
 
