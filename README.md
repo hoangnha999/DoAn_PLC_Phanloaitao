@@ -19,25 +19,30 @@ Dự án sử dụng Python (Tkinter) để tạo giao diện giám sát và đi
 
 ---
 
-## 🚀 Hướng dẫn cài đặt và chạy (Installation & Running)
+## 🚀 Hướng dẫn cài đặt và chạy (Chi tiết cho người mới)
 
-### Bước 1: Tải mã nguồn
-Tải dự án về máy bằng cách tải file `.zip` hoặc dùng lệnh:
-```bash
-git clone https://github.com/hoangnha999/DoAn_PLC_Phanloaitao.git
-cd DoAn_PLC_Phanloaitao
-```
+Nếu bạn không biết sử dụng Git, hãy làm theo các bước đơn giản dưới đây:
 
-### Bước 2: Cài đặt thư viện
-Mở Terminal/PowerShell và chạy lệnh:
+### Bước 1: Tải mã nguồn về máy
+*   **Cách 1 (Đơn giản nhất):** Truy cập link GitHub [DoAn_PLC_Phanloaitao](https://github.com/hoangnha999/DoAn_PLC_Phanloaitao). Nhấn vào nút xanh **Code** -> Chọn **Download ZIP**. Sau khi tải về, hãy giải nén file ra thư mục.
+*   **Cách 2 (Dùng Git):** Chạy lệnh `git clone https://github.com/hoangnha999/DoAn_PLC_Phanloaitao.git`
+
+### Bước 2: Cài đặt Python
+*   Nếu máy bạn chưa có Python, hãy tải tại [python.org](https://www.python.org/downloads/) (Chọn bản 3.10 hoặc mới hơn). 
+*   **Lưu ý quan trọng:** Khi cài đặt, hãy tích chọn vào ô **"Add Python to PATH"**.
+
+### Bước 3: Cài đặt các thư viện hỗ trợ
+Mở thư mục dự án vừa giải nén. Nhấn phím `Shift` + `Chuột phải` vào vùng trống trong thư mục và chọn **"Open PowerShell window here"** (hoặc Terminal), sau đó copy và dán lệnh sau:
 ```bash
 pip install Pillow opencv-python python-snap7
 ```
 
-### Bước 3: Chạy chương trình
+### Bước 4: Chạy chương trình
+Vẫn tại cửa sổ đó, nhập lệnh sau để mở giao diện:
 ```bash
 python giaodien/main.py
 ```
+*(Hoặc bạn có thể chuột phải vào file `main.py` trong thư mục `giaodien` và chọn "Open with Python")*
 
 ---
 
