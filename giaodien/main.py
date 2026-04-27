@@ -944,6 +944,25 @@ class CameraWindow:
                 depth_norm = cv2.normalize(depth_img, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
                 depth_colormap = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
                 
+                # --- VẼ THƯỚC ĐO THANG MÀU (COLORBAR LEGEND) ---
+                h, w = depth_colormap.shape[:2]
+                bar_h, bar_w, margin = 150, 15, 10
+                if h > bar_h + 20 and w > bar_w + 60:
+                    # Tạo gradient dọc: 255 (Nóng/Đỏ/Xa) ở trên, 0 (Lạnh/Xanh/Gần) ở dưới
+                    gradient = np.linspace(255, 0, bar_h, dtype=np.uint8).reshape(-1, 1)
+                    gradient = np.repeat(gradient, bar_w, axis=1)
+                    colorbar_color = cv2.applyColorMap(gradient, cv2.COLORMAP_JET)
+                    
+                    x1, y1 = w - margin - bar_w, margin
+                    depth_colormap[y1:y1+bar_h, x1:x1+bar_w] = colorbar_color
+                    
+                    # Viền trắng cho thước đo
+                    cv2.rectangle(depth_colormap, (x1, y1), (x1+bar_w, y1+bar_h), (255, 255, 255), 1)
+                    # Ghi chú FAR / NEAR
+                    cv2.putText(depth_colormap, "FAR", (x1 - 35, y1 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                    cv2.putText(depth_colormap, "NEAR", (x1 - 42, y1 + bar_h), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                # -----------------------------------------------
+                
                 # Nếu không có Color Frame, dùng Depth thay thế
                 if color_img is None:
                     color_img = cv2.cvtColor(depth_colormap, cv2.COLOR_BGR2RGB)
