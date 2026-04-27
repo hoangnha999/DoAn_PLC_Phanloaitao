@@ -259,11 +259,11 @@ class CameraWindow:
     """Cửa sổ chính: stream camera, thống kê phân loại, giao tiếp PLC S7-1200."""
 
     CAM_SOURCES = [
-        "Camera 0 (Mặc định)",
-        "Camera 1",
-        "Camera 2",
-        "Camera 3",
-        "RTSP / IP Camera",
+        "Camera máy tính (Tích hợp)",
+        "Webcam rời 1 (Cổng USB)",
+        "Webcam rời 2 (Cổng USB)",
+        "Webcam rời 3",
+        "Luồng RTSP / IP Camera",
     ]
 
     GRADE_CFG = {
