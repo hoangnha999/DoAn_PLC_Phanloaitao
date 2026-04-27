@@ -480,12 +480,13 @@ class CameraWindow:
         """Thanh điều khiển nhanh PLC."""
         bar = tk.LabelFrame(parent, text=" ⚡ ĐIỀU KHIỂN NHANH PLC (S7-1200 1214C) ",
                               font=("Arial", 10, "bold"), fg="#01579B", bg="#B3E5FC",
-                              padx=15, pady=8)
+                              padx=15, pady=8, height=65)
         bar.pack(side="bottom", fill="x", pady=(10, 0), padx=5)
+        bar.pack_propagate(False) # Ngăn khung co lại
 
-        # Nút START / STOP
+        # Nút START / STOP (Căn giữa)
         ctrl = tk.Frame(bar, bg="#B3E5FC")
-        ctrl.pack(side="left", padx=5)
+        ctrl.place(relx=0.5, rely=0.5, anchor="center")
 
         self.btn_start = tk.Button(ctrl, text="▶  START", font=("Arial", 11, "bold"),
                                     fg="#FFFFFF", bg="#00695C", width=12, pady=5, 
