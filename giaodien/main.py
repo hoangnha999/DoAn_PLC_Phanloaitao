@@ -895,6 +895,9 @@ class CameraWindow:
             for i in range(3): # Thử quét các cổng webcam
                 cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
                 if cap.isOpened():
+                    # Ép tỷ lệ 4:3 (640x480) giống hệt với Depth Map để tránh lệch góc nhìn
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                     ret, _ = cap.read()
                     if ret:
                         self.cap = cap
