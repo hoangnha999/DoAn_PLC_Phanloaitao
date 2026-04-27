@@ -326,7 +326,7 @@ class CameraWindow:
         self.win.resizable(False, False)
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        W, H = 1160, 720 # Tăng thêm chiều cao cho bảng Log
+        W, H = 1160, 760 # Tăng chiều cao để hiển thị đủ thẻ Yield và nút Camera
         sw = parent.winfo_screenwidth()
         sh = parent.winfo_screenheight()
         self.win.geometry(f"{W}x{H}+{(sw-W)//2}+{(sh-H)//2}")
@@ -541,40 +541,40 @@ class CameraWindow:
         # Thẻ 3 hạng
         for grade, cfg in self.GRADE_CFG.items():
             card = tk.Frame(lf, bg=cfg["bg"])
-            card.pack(fill="x", padx=8, pady=4, ipady=4)
+            card.pack(fill="x", padx=8, pady=2)
             tk.Label(card, text=f"{cfg['icon']}  {cfg['label']}",
                      font=("Arial", 11, "bold"), fg=cfg["color"], bg=cfg["bg"],
-                     ).pack(anchor="w", padx=10, pady=(4, 0))
+                     ).pack(anchor="w", padx=10, pady=(2, 0))
             var = tk.StringVar(value="0")
             self._count_vars[grade] = var
             tk.Label(card, textvariable=var,
-                     font=("Consolas", 28, "bold"), fg="#FFFFFF", bg=cfg["bg"],
-                     ).pack(anchor="e", padx=14, pady=(0, 4))
+                     font=("Consolas", 24, "bold"), fg="#FFFFFF", bg=cfg["bg"],
+                     ).pack(anchor="e", padx=14, pady=(0, 2))
 
         # Tổng
-        tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=8)
+        tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=4)
         total_card = tk.Frame(lf, bg="#F8FAFC")
         total_card.pack(fill="x", padx=8)
         tk.Label(total_card, text="TỔNG SỐ",
                  font=("Arial", 10, "bold"), fg="#475569", bg="#F8FAFC",
-                 ).pack(pady=(4, 0))
+                 ).pack(pady=(2, 0))
         self._total_var = tk.StringVar(value="0")
         tk.Label(total_card, textvariable=self._total_var,
-                 font=("Consolas", 24, "bold"), fg="#0F172A", bg="#F8FAFC",
-                 ).pack(pady=(0, 4))
+                 font=("Consolas", 20, "bold"), fg="#0F172A", bg="#F8FAFC",
+                 ).pack(pady=(0, 2))
 
         # Thẻ Yield Rate (Tỷ lệ đạt)
-        tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=8)
+        tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=4)
         yield_card = tk.Frame(lf, bg="#F8FAFC")
         yield_card.pack(fill="x", padx=8)
-        tk.Label(yield_card, text="🎯 YIELD RATE", font=("Arial", 10, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(4,0))
+        tk.Label(yield_card, text="🎯 YIELD RATE", font=("Arial", 10, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(2,0))
         self._yield_var = tk.StringVar(value="0.0 %")
-        tk.Label(yield_card, textvariable=self._yield_var, font=("Consolas", 18, "bold"), fg="#059669", bg="#F8FAFC").pack(pady=(0,4))
+        tk.Label(yield_card, textvariable=self._yield_var, font=("Consolas", 16, "bold"), fg="#059669", bg="#F8FAFC").pack(pady=(0,2))
 
         # Nút Bật/Tắt Camera
         self.btn_cam = tk.Button(lf, text="▶ BẬT CAMERA", font=("Arial", 10, "bold"),
-                                  bg="#2E7D32", fg="white", pady=8, cursor="hand2", command=self._toggle_camera)
-        self.btn_cam.pack(fill="x", padx=15, pady=(15, 5))
+                                  bg="#2E7D32", fg="white", pady=6, cursor="hand2", command=self._toggle_camera)
+        self.btn_cam.pack(fill="x", padx=15, pady=(10, 2))
 
         self.lbl_cam_status = tk.Label(lf, text="⚫ Camera chưa bật", font=("Arial", 9),
                                         fg="#475569", bg="#FFFFFF")
