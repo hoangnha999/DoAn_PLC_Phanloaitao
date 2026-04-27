@@ -1,8 +1,3 @@
-"""
-Giao diện báo điện - Đồ án Nhận dạng và Phân loại Trái cây
-Khoa Điện - Điện Tử, Trường ĐH Sư phạm Kỹ thuật TP.HCM (UTE)
-"""
-
 import tkinter as tk
 from tkinter import messagebox, ttk
 from PIL import Image, ImageTk
@@ -282,10 +277,10 @@ class CameraWindow:
     """Cửa sổ chính: stream camera, thống kê phân loại, giao tiếp PLC S7-1200."""
 
     CAM_SOURCES = [
+        "Astra Pro SDK (Depth + RGB)",
         "Camera máy tính (Tích hợp)",
         "Webcam rời 1 (Cổng USB)",
         "Webcam rời 2 (Cổng USB)",
-        "Webcam rời 3",
         "Luồng RTSP / IP Camera",
     ]
 
@@ -691,12 +686,17 @@ class CameraWindow:
         self.canvas.pack(padx=4, pady=(0, 2))
 
         # ── Canvas xám (dưới) ──
-        tk.Label(rf, text="🔲  MACHINE VISION (GRAYSCALE)",
+        tk.Label(rf, text="🔲  MACHINE VISION (DEPTH MAP / GRAYSCALE)",
                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF",
                  ).pack(anchor="w", padx=6, pady=(2, 0))
         self.canvas_gray = tk.Canvas(rf, width=850, height=240,
                                      bg="#000000", highlightthickness=1, highlightbackground="#CBD5E1")
         self.canvas_gray.pack(padx=4, pady=(0, 4))
+        
+        # Nút bật 3D Point Cloud
+        self.btn_3d = tk.Button(rf, text="🌌 MỞ POINT CLOUD 3D", font=("Arial", 9, "bold"),
+                                bg="#4F46E5", fg="white", cursor="hand2", pady=4, command=self._show_point_cloud)
+        self.btn_3d.pack(pady=5)
 
         self._draw_placeholder()
 
@@ -730,7 +730,13 @@ class CameraWindow:
             self._start_camera()
 
     def _start_camera(self):
-        idx = self.combo.current()
+        val = self.cam_var.get()
+        if "Astra Pro" in val:
+            self._start_astra_camera()
+            return
+            
+        # Code cũ cho OpenCV bình thường
+        idx = self.combo.current() - 1 # Do thêm Astra lên đầu
         if idx < 0:
             idx = 0
         self.cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
@@ -746,9 +752,22 @@ class CameraWindow:
 
     def _stop_camera(self):
         self._cam_running = False
+        
+        # Tắt Astra
+        if hasattr(self, 'astra_dev') and self.astra_dev:
+            try:
+                if hasattr(self, 'astra_color_stream'): self.astra_color_stream.stop()
+                if hasattr(self, 'astra_depth_stream'): self.astra_depth_stream.stop()
+                from openni import openni2
+                openni2.unload()
+                self.astra_dev = None
+            except: pass
+            
+        # Tắt OpenCV
         if self.cap:
             self.cap.release()
             self.cap = None
+            
         self.btn_cam.config(text="▶  Bật Camera", bg="#2E7D32", activebackground="#1B5E20")
         self.lbl_cam_status.config(text="⚫  Camera chưa bật", fg="#666680")
         self.combo.config(state="readonly")
@@ -777,6 +796,105 @@ class CameraWindow:
                 self.canvas.after(0, self._update_canvas, imgtk_color, imgtk_gray)
             except Exception:
                 break
+
+    # ─── ASTRA PRO SDK LOGIC ──────────────────────────────────────────────
+    def _start_astra_camera(self):
+        try:
+            from openni import openni2
+            # Khởi tạo OpenNI2
+            openni2.initialize() 
+            self.astra_dev = openni2.Device.open_any()
+            
+            self.astra_color_stream = self.astra_dev.create_color_stream()
+            self.astra_color_stream.start()
+            
+            self.astra_depth_stream = self.astra_dev.create_depth_stream()
+            self.astra_depth_stream.start()
+            
+            # Cố gắng bật đồng bộ màu và chiều sâu
+            try:
+                self.astra_dev.set_image_registration_mode(openni2.IMAGE_REGISTRATION_DEPTH_TO_COLOR)
+                self.astra_dev.set_depth_color_sync_enabled(True)
+            except:
+                pass
+                
+            self._cam_running = True
+            self.btn_cam.config(text="⏹  Tắt Astra Pro", bg="#B71C1C", activebackground="#7F0000")
+            self.lbl_cam_status.config(text="🟢  Đang phát (Astra Pro 3D)", fg="#69F0AE")
+            self.combo.config(state="disabled")
+            self._cam_thread = threading.Thread(target=self._stream_astra_loop, daemon=True)
+            self._cam_thread.start()
+        except ImportError:
+            messagebox.showerror("Thiếu thư viện", "Chưa cài đặt SDK. Chạy lệnh trong Terminal:\n pip install openni")
+        except Exception as e:
+            messagebox.showerror("Lỗi Astra Pro SDK", f"Không thể kết nối Camera Astra. Hãy chắc chắn bạn đã cắm cáp và cài Driver của hãng.\nChi tiết: {e}")
+
+    def _stream_astra_loop(self):
+        import numpy as np
+        while self._cam_running:
+            try:
+                # Đọc color frame
+                cframe = self.astra_color_stream.read_frame()
+                cdata = np.frombuffer(cframe.get_buffer_as_uint8(), dtype=np.uint8)
+                color_img = cdata.reshape((cframe.height, cframe.width, 3))
+                self.frame_to_save = cv2.cvtColor(color_img, cv2.COLOR_RGB2BGR)
+                
+                # Đọc depth frame
+                dframe = self.astra_depth_stream.read_frame()
+                ddata = np.frombuffer(dframe.get_buffer_as_uint16(), dtype=np.uint16)
+                depth_img = ddata.reshape((dframe.height, dframe.width))
+                self.last_depth_map = depth_img.copy() # Lưu lại cho Open3D
+                
+                # Tạo Depth Map (Ảnh màu nhiệt)
+                depth_norm = cv2.normalize(depth_img, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+                depth_colormap = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
+                
+                # Hiển thị
+                color_resized = cv2.resize(color_img, (850, 240))
+                imgtk_color = ImageTk.PhotoImage(image=Image.fromarray(color_resized))
+                
+                depth_resized = cv2.resize(depth_colormap, (850, 240))
+                depth_rgb = cv2.cvtColor(depth_resized, cv2.COLOR_BGR2RGB)
+                imgtk_gray = ImageTk.PhotoImage(image=Image.fromarray(depth_rgb))
+                
+                self.canvas.after(0, self._update_canvas, imgtk_color, imgtk_gray)
+            except Exception:
+                pass
+
+    def _show_point_cloud(self):
+        if not hasattr(self, 'last_depth_map') or self.last_depth_map is None:
+            messagebox.showwarning("Chưa có dữ liệu", "Hãy bật Camera Astra Pro và để camera quét Depth Map trước khi mở 3D!")
+            return
+            
+        try:
+            import open3d as o3d
+            import numpy as np
+            
+            # Chuyển đổi định dạng cho Open3D
+            color_rgb = cv2.cvtColor(self.frame_to_save, cv2.COLOR_BGR2RGB)
+            depth_img = self.last_depth_map
+            
+            o3d_color = o3d.geometry.Image(color_rgb)
+            o3d_depth = o3d.geometry.Image(depth_img)
+            
+            rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(
+                o3d_color, o3d_depth, depth_scale=1000.0, depth_trunc=3.0, convert_rgb_to_intensity=False)
+            
+            intrinsics = o3d.camera.PinholeCameraIntrinsic(
+                o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault)
+                
+            pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, intrinsics)
+            pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]) # Lật trục
+            
+            # Hiện cửa sổ Open3D
+            o3d.visualization.draw_geometries([pcd], window_name="Astra Pro 3D Point Cloud", width=800, height=600)
+            
+        except ImportError:
+            messagebox.showerror("Thiếu thư viện", "Chưa cài đặt Open3D. Chạy lệnh:\n pip install open3d")
+        except Exception as e:
+            messagebox.showerror("Lỗi Open3D", f"Không thể tạo Point Cloud:\n{e}")
+            
+    # ─── END ASTRA PRO SDK LOGIC ────────────────────────────────────────
 
     def _update_canvas(self, imgtk_color, imgtk_gray):
         if self._cam_running:
