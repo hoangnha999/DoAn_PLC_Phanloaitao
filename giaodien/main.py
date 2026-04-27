@@ -209,19 +209,7 @@ class FruitClassificationApp:
                 anchor="w",
             ).pack(side="left")
 
-            self.btn_main_conn.config(text="🔌 Ngắt", bg="#6A1B9A")
-        except Exception as e:
-            messagebox.showerror("Lỗi PLC", f"Không kết nối được: {e}")
 
-    def _plc_start(self):
-        if self._plc_connected:
-            self._plc.mb_write(0, 1, bytearray([0x01])) # Ghi M0.0 = True
-            self.lbl_main_plc.config(text="▶ Đang chạy...", fg="#00796B")
-
-    def _plc_stop(self):
-        if self._plc_connected:
-            self._plc.mb_write(0, 1, bytearray([0x02])) # Ghi M0.1 = True
-            self.lbl_main_plc.config(text="⏹ Đã dừng", fg="#C62828")
 
     def _build_buttons(self):
         """Phần nút bấm ở cuối giao diện."""
@@ -474,6 +462,14 @@ class CameraWindow:
         self.cam_var = tk.StringVar(value=self.CAM_SOURCES[0])
         self.combo = ttk.Combobox(cam_box, textvariable=self.cam_var, values=self.CAM_SOURCES, state="readonly", width=30)
         self.combo.pack(pady=10)
+
+        self.btn_cam = tk.Button(cam_box, text="▶ BẬT CAMERA", font=("Arial", 10, "bold"),
+                                  bg="#2E7D32", fg="white", padx=20, pady=5, command=self._toggle_camera)
+        self.btn_cam.pack(pady=5)
+
+        self.lbl_cam_status = tk.Label(cam_box, text="⚫ Camera chưa bật", font=("Arial", 9),
+                                        fg="#8888AA", bg="#1A1A2E")
+        self.lbl_cam_status.pack(pady=5)
 
         # 3. Khác
         tk.Button(container, text="🔄 RESET BỘ ĐẾM DỮ LIỆU", bg="#3949AB", fg="white", 
