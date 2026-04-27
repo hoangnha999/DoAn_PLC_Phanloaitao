@@ -474,15 +474,8 @@ class CameraWindow:
         self.combo = ttk.Combobox(cam_box, textvariable=self.cam_var, values=self.CAM_SOURCES, state="readonly", width=30)
         self.combo.pack(pady=10)
 
-        self.btn_cam = tk.Button(cam_box, text="▶ BẬT CAMERA", font=("Arial", 10, "bold"),
-                                  bg="#2E7D32", fg="white", padx=20, pady=5, command=self._toggle_camera)
-        self.btn_cam.pack(pady=5)
-
-        self.lbl_cam_status = tk.Label(cam_box, text="⚫ Camera chưa bật", font=("Arial", 9),
-                                        fg="#546E7A", bg="#E1F5FE")
-        self.lbl_cam_status.pack(pady=5)
-
         # 3. Khác
+
         tk.Button(container, text="🔄 RESET BỘ ĐẾM DỮ LIỆU", bg="#3949AB", fg="white", 
                   font=("Arial", 10, "bold"), pady=8, command=self._reset_counts).pack(fill="x", pady=20)
 
@@ -550,6 +543,15 @@ class CameraWindow:
         tk.Label(total_card, textvariable=self._total_var,
                  font=("Arial", 26, "bold"), fg="#FFFFFF", bg="#12122A",
                  ).pack(pady=(0, 4))
+
+        # Nút Bật/Tắt Camera
+        self.btn_cam = tk.Button(lf, text="▶ BẬT CAMERA", font=("Arial", 10, "bold"),
+                                  bg="#2E7D32", fg="white", pady=8, cursor="hand2", command=self._toggle_camera)
+        self.btn_cam.pack(fill="x", padx=15, pady=(30, 5))
+
+        self.lbl_cam_status = tk.Label(lf, text="⚫ Camera chưa bật", font=("Arial", 9),
+                                        fg="#546E7A", bg="#E1F5FE")
+        self.lbl_cam_status.pack(pady=0)
 
 
     # ─── Panel phải: camera màu + ảnh xám ─────────────────
