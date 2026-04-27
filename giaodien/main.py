@@ -18,17 +18,26 @@ class FruitClassificationApp:
     # ─── Cấu hình giao diện ──────────────────────────────────────────
     WINDOW_WIDTH = 750
     WINDOW_HEIGHT = 580
-    BG_COLOR = "#FFFFFF"
-    TITLE_COLOR = "#1A237E"       # Xanh đậm cho tiêu đề
-    SUBTITLE_COLOR = "#0D47A1"    # Xanh cho phụ đề
-    TOPIC_COLOR = "#D32F2F"       # Đỏ cho đề tài
-    TEXT_COLOR = "#212121"        # Đen cho nội dung
-    BTN_RUN_COLOR = "#4CAF50"     # Xanh lá cho nút chạy
-    BTN_STOP_COLOR = "#F44336"    # Đỏ cho nút dừng
-    BTN_TEXT_COLOR = "#FFFFFF"    # Trắng cho chữ trên nút
+    BG_COLOR = "#E1F5FE"         # Xanh da trời nhạt
+    TITLE_COLOR = "#0D47A1"       # Xanh đậm
+    SUBTITLE_COLOR = "#1565C0"
+    TOPIC_COLOR = "#D32F2F"
+    TEXT_COLOR = "#212121"
+    BTN_RUN_COLOR = "#1976D2"     # Xanh biển
+    BTN_STOP_COLOR = "#D32F2F"
+    BTN_TEXT_COLOR = "#FFFFFF"
 
     def __init__(self, root):
         self.root = root
+        
+        # ── PLC (Dùng chung cho trang chính) ──
+        try:
+            import snap7
+            self._plc = snap7.client.Client()
+        except:
+            self._plc = None
+        self._plc_connected = False
+
         self._setup_window()
         self._load_images()
         self._build_ui()
@@ -83,6 +92,7 @@ class FruitClassificationApp:
         """Xây dựng toàn bộ giao diện."""
         self._build_header()
         self._build_content()
+        self._build_plc_quick_control()
         self._build_buttons()
 
     def _build_header(self):
@@ -199,6 +209,51 @@ class FruitClassificationApp:
                 bg=self.BG_COLOR,
                 anchor="w",
             ).pack(side="left")
+
+    def _build_plc_quick_control(self):
+        """Thanh điều khiển PLC nhanh trên trang chính."""
+        plc_frame = tk.LabelFrame(self.root, text=" ⚡ ĐIỀU KHIỂN NHANH PLC (S7-1200 1214C) ",
+                                  font=("Arial", 9, "bold"), fg="#0D47A1", bg=self.BG_COLOR,
+                                  padx=10, pady=5)
+        plc_frame.pack(fill="x", padx=40, pady=(0, 10))
+
+        # Nút Kết nối
+        self.btn_main_conn = tk.Button(plc_frame, text="🔌 Kết nối", font=("Arial", 9, "bold"),
+                                       bg="#1976D2", fg="white", command=self._plc_connect)
+        self.btn_main_conn.pack(side="left", padx=10)
+
+        # START / STOP
+        tk.Button(plc_frame, text="▶ START", font=("Arial", 9, "bold"),
+                  bg="#00796B", fg="white", width=12, command=self._plc_start).pack(side="left", padx=5)
+        tk.Button(plc_frame, text="⏹ STOP", font=("Arial", 9, "bold"),
+                  bg="#C62828", fg="white", width=12, command=self._plc_stop).pack(side="left", padx=5)
+
+        self.lbl_main_plc = tk.Label(plc_frame, text="⚫ Chưa kết nối", font=("Arial", 9),
+                                     fg="#666666", bg=self.BG_COLOR)
+        self.lbl_main_plc.pack(side="right", padx=10)
+
+    # ─── Logic PLC Trang chính ──────────────────────────────────────
+    def _plc_connect(self):
+        if not self._plc: 
+            messagebox.showerror("Lỗi", "Chưa cài python-snap7!")
+            return
+        try:
+            self._plc.connect("192.168.0.1", 0, 1)
+            self._plc_connected = True
+            self.lbl_main_plc.config(text="🟢 Đã kết nối", fg="#2E7D32")
+            self.btn_main_conn.config(text="🔌 Ngắt", bg="#6A1B9A")
+        except Exception as e:
+            messagebox.showerror("Lỗi PLC", f"Không kết nối được: {e}")
+
+    def _plc_start(self):
+        if self._plc_connected:
+            self._plc.mb_write(0, 1, bytearray([0x01])) # Ghi M0.0 = True
+            self.lbl_main_plc.config(text="▶ Đang chạy...", fg="#00796B")
+
+    def _plc_stop(self):
+        if self._plc_connected:
+            self._plc.mb_write(0, 1, bytearray([0x02])) # Ghi M0.1 = True
+            self.lbl_main_plc.config(text="⏹ Đã dừng", fg="#C62828")
 
     def _build_buttons(self):
         """Phần nút bấm ở cuối giao diện."""
