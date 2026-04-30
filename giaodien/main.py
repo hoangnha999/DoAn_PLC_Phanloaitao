@@ -8,6 +8,11 @@ import cv2
 import sqlite3
 from datetime import datetime
 
+# Đảm bảo Python tìm thấy thư mục Processing
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from Processing.analyzer import FruitAnalyzer
+
 
 class FruitClassificationApp:
     """Giao diện chính của ứng dụng nhận dạng và phân loại trái cây."""
@@ -344,7 +349,10 @@ class CameraWindow:
         sh = parent.winfo_screenheight()
         self.win.geometry(f"{W}x{H}+{(sw-W)//2}+{(sh-H)//2}")
 
+        self.analyzer = FruitAnalyzer()
+        self.current_grade = "UNKNOWN"
         self._init_db()
+        self._refresh_stats_ui() # Tải thống kê từ CSDL cũ (nếu có)
         self._build_ui()
 
         # KHÔNG tự động bật camera – chờ người dùng chọn loại đầu báo camera rồi bấm "BẬT CAMERA"
@@ -373,10 +381,14 @@ class CameraWindow:
         conn.commit()
         conn.close()
 
-    def _save_to_sql(self, grade):
-        """Lưu ảnh và thông tin vào CSDL."""
+    def _save_to_sql(self, grade=None):
+        """Lưu thông tin phân loại và hình ảnh vào CSDL SQL."""
         if not hasattr(self, 'frame_to_save') or self.frame_to_save is None:
             return
+
+        # Nếu không truyền grade, lấy grade từ bộ phân tích hiện tại
+        if grade is None or grade == "MANUAL":
+            grade = self.current_grade if self.current_grade != "UNKNOWN" else "GOOD"
             
         # Tạo tên file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19] # YYYYMMDD_HHMMSS_mmm
@@ -397,6 +409,9 @@ class CameraWindow:
             conn.commit()
             conn.close()
             self._log_event(f"SQL Saved: [{grade}] -> {filename}")
+            
+            # Cập nhật các con số thống kê trên giao diện
+            self._refresh_stats_ui()
         except Exception as e:
             self._log_event(f"SQL Error: {e}")
 
@@ -404,7 +419,39 @@ class CameraWindow:
         if hasattr(self, 'win'):
             self.win.after(0, self._update_snapshot_gallery, filepath, None)
 
+    def _refresh_stats_ui(self):
+        """Cập nhật các ô số GOOD/MEDIUM/BAD và Yield Rate từ CSDL."""
+        if not hasattr(self, 'win') or not self.win.winfo_exists(): return
+        try:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            
+            total_count = 0
+            good_count = 0
+            
+            for grade in ["GOOD", "MEDIUM", "BAD"]:
+                c.execute("SELECT COUNT(*) FROM phan_loai_history WHERE ket_qua=?", (grade,))
+                count = c.fetchone()[0]
+                total_count += count
+                if grade == "GOOD": good_count = count
+                
+                if grade in self._count_vars:
+                    self._count_vars[grade].set(str(count))
+            
+            if hasattr(self, '_total_var'): self._total_var.set(str(total_count))
+            
+            if total_count > 0:
+                y_rate = (good_count / total_count) * 100
+                if hasattr(self, '_yield_var'): self._yield_var.set(f"{y_rate:.1f} %")
+            else:
+                if hasattr(self, '_yield_var'): self._yield_var.set("0.0 %")
+                
+            conn.close()
+        except Exception as e:
+            print(f"Error refreshing stats: {e}")
+
     def _update_snapshot_gallery(self, filepath=None, cv2_frame=None):
+        if not hasattr(self, 'win') or not self.win.winfo_exists(): return
         try:
             if filepath:
                 img = Image.open(filepath)
@@ -487,14 +534,18 @@ class CameraWindow:
     #  GIAO DIỆN & NAVIGATION
     # ═══════════════════════════════════════════════════════
     def _log_event(self, msg):
-        """Ghi log hệ thống."""
-        if hasattr(self, 'log_text'):
+        """Ghi log vào ô Text ở cuối trang."""
+        if not hasattr(self, 'log_text') or not self.log_text.winfo_exists():
+            return
+        try:
             import time
             t = time.strftime("%H:%M:%S")
             self.log_text.config(state="normal")
             self.log_text.insert("end", f"[{t}] {msg}\n")
             self.log_text.see("end")
             self.log_text.config(state="disabled")
+        except:
+            pass
 
     def _build_ui(self):
         # 1. Thanh tiêu đề (Header) với nút Menu
@@ -735,6 +786,7 @@ class CameraWindow:
                         except: pass
                 
                 self._refresh_history_table()
+                self._refresh_stats_ui() # Reset các con số về 0
                 messagebox.showinfo("Thành công", "Đã dọn dẹp sạch sẽ CSDL và thư mục ảnh!")
                 self._log_event("🗑️ Đã xóa sạch toàn bộ lịch sử SQL.")
             except Exception as e:
@@ -875,9 +927,10 @@ class CameraWindow:
                  font=("Arial", 11, "bold"), fg="#0284C7", bg="#FFFFFF",
                  ).pack(pady=(4, 6))
 
-        tk.Label(lf, text="Đang phân loại:  🍎 Táo",
+        self.lbl_grading_status = tk.Label(lf, text="Đang phân loại:  🍎 Táo",
                  font=("Arial", 10, "bold"), fg="#DC2626", bg="#FFFFFF",
-                 ).pack(pady=(0, 10))
+                 )
+        self.lbl_grading_status.pack(pady=(0, 10))
 
         # Thẻ 3 hạng
         for grade, cfg in self.GRADE_CFG.items():
@@ -916,6 +969,11 @@ class CameraWindow:
         self.btn_cam = tk.Button(lf, text="▶ BẬT CAMERA", font=("Arial", 10, "bold"),
                                   bg="#2E7D32", fg="white", pady=6, cursor="hand2", command=self._toggle_camera)
         self.btn_cam.pack(fill="x", padx=15, pady=(10, 2))
+
+        # Nút Mở File (Ảnh/Video) nhanh
+        self.btn_open_file = tk.Button(lf, text="📂 MỞ FILE (ẢNH/VIDEO)", font=("Arial", 10, "bold"),
+                                       bg="#6366F1", fg="white", pady=6, cursor="hand2", command=self._quick_open_file)
+        self.btn_open_file.pack(fill="x", padx=15, pady=5)
 
         self.lbl_cam_status = tk.Label(lf, text="⚫ Camera chưa bật", font=("Arial", 9),
                                         fg="#475569", bg="#FFFFFF")
@@ -973,6 +1031,27 @@ class CameraWindow:
             self.snapshot_labels.append(lbl)
 
         self._draw_placeholder()
+
+    def _quick_open_file(self):
+        """Hàm mở file nhanh từ nút bấm ở sidebar."""
+        file_path = filedialog.askopenfilename(
+            title="Chọn file ảnh hoặc video để phân tích",
+            filetypes=[("Tất cả tệp media", "*.jpg *.jpeg *.png *.bmp *.mp4 *.avi *.mkv *.mov"),
+                       ("Ảnh", "*.jpg *.jpeg *.png *.bmp"),
+                       ("Video", "*.mp4 *.avi *.mkv *.mov")]
+        )
+        if not file_path:
+            return
+            
+        ext = os.path.splitext(file_path)[1].lower()
+        is_video = ext in [".mp4", ".avi", ".mkv", ".mov"]
+        
+        # Nếu đang chạy camera thì dừng lại trước
+        if self._cam_running:
+            self._stop_camera()
+            
+        # Gọi hàm khởi tạo chế độ file đã viết trước đó
+        self._start_file_mode(file_path, is_video=is_video)
 
     def _draw_placeholder(self):
         self.canvas.delete("all")
@@ -1107,10 +1186,31 @@ class CameraWindow:
                 
             self.frame_to_save = frame.copy() # Lưu lại frame hiện hành để chụp ảnh
             
-            # --- VẼ KHUNG PHÂN TÍCH ---
+            # --- VẼ KHUNG PHÂN TÍCH & XỬ LÝ ---
             h_f, w_f = frame.shape[:2]
-            cv2.rectangle(frame, (w_f//2 - 100, 20), (w_f//2 + 100, h_f - 20), (255, 255, 255), 2)
-            cv2.putText(frame, "ANALYSIS ZONE", (w_f//2 - 95, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            x1, y1, x2, y2 = w_f//2 - 100, 20, w_f//2 + 100, h_f - 20
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 255, 255), 2)
+            cv2.putText(frame, "ANALYSIS ZONE", (x1 + 5, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+            # --- GỌI LOGIC PHÂN LOẠI THÂM ĐEN ---
+            try:
+                roi = frame[y1:y2, x1:x2]
+                processed_roi, defect_area, ripeness, grade = self.analyzer.analyze_apple(roi)
+                frame[y1:y2, x1:x2] = processed_roi
+                self.current_grade = grade # Cập nhật grade vào biến toàn cục
+                
+                # Hiển thị kết quả lên GUI (Panel trái)
+                color_map_hex = {"GOOD": "#10B981", "MEDIUM": "#F59E0B", "BAD": "#EF4444", "UNKNOWN": "#64748B"}
+                status_text = f"Đang phân loại: 🍎 {grade}"
+                if grade != "NO_APPLE" and grade != "UNKNOWN":
+                    status_text += f" ({ripeness:.0f}% Đỏ)"
+                self.lbl_grading_status.config(text=status_text, fg=color_map_hex.get(grade, "#64748B"))
+
+                # Hiển thị kết quả lên khung hình Camera
+                color_map_bgr = {"GOOD": (0, 255, 0), "MEDIUM": (0, 255, 255), "BAD": (0, 0, 255)}
+                cv2.putText(frame, f"STATUS: {grade}", (x1, y2 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_map_bgr.get(grade, (255,255,255)), 2)
+            except:
+                pass
 
             # Auto buffer update (tự động đẩy khung hình) theo thời gian thực (0.1s/lần)
             current_time = time.time()

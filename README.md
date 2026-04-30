@@ -1,98 +1,43 @@
-# Hệ Thống Phân Loại Hạng Chất Lượng Trái Cây (🍎 Apple Grading System)
+# 🍎 Hệ Thống Phân Loại Trái Cây (Apple Classification System)
 
-Dự án sử dụng Python (Tkinter) để tạo giao diện giám sát và điều khiển hệ thống phân loại trái cây, kết nối với PLC Siemens S7-1200.
+Hệ thống giám sát và phân loại trái cây (táo) tự động kết hợp xử lý ảnh (Computer Vision) và điều khiển công nghiệp (PLC S7-1200).
 
-## 🌟 Tính năng chính (Features)
-*   **Giao diện chuyên nghiệp**: Hiển thị thông tin đồ án, khoa và thành viên.
-*   **Camera Stream**: Tự động bật camera khi chạy, hiển thị song song ảnh màu và ảnh xám (Grayscale).
-*   **Thống kê phân loại**: Theo dõi số lượng 3 hạng (Good, Medium, Bad) thời gian thực.
-*   **Điều khiển PLC S7-1200**: Hỗ trợ kết nối qua Snap7, nút START/STOP và đọc dữ liệu từ Merker.
+## 🚀 Tính Năng Chính
+- **Giám sát thời gian thực:** Stream camera tốc độ cao với bộ đệm Live Buffer (0.1s/khung hình) tạo hiệu ứng film-strip.
+- **Phân tích chất lượng táo:**
+    - **Độ chín (Ripeness):** Tính toán % diện tích vỏ đỏ để đánh giá độ chín đều.
+    - **Phát hiện lỗi (Defects):** Tự động khoanh vùng và nhận diện các vết thâm đen, bầm dập trên vỏ táo.
+- **Phân hạng tự động:**
+    - **LOẠI 1 (GOOD):** Chín > 90%, không vết thâm.
+    - **LOẠI 2 (MEDIUM):** Chín 60-90% hoặc có vết thâm nhỏ.
+    - **LOẠI 3 (BAD):** Chưa chín (< 60%) hoặc có vết thâm lớn.
+- **Quản lý dữ liệu:**
+    - Lưu lịch sử phân loại vào CSDL **SQLite**.
+    - Chụp ảnh minh chứng cho từng sản phẩm.
+    - Xuất danh sách lịch sử trực tiếp trên giao diện.
+- **Hỗ trợ đa nguồn:** 
+    - Camera (Astra Pro, Webcam).
+    - Phân tích trực tiếp từ **File Ảnh** hoặc **File Video** có sẵn trong máy.
+- **Kết nối PLC S7-1200:** Giao tiếp qua Snap7 để điều khiển băng chuyền và nhận tín hiệu cảm biến.
 
----
+## 🛠 Công Nghệ Sử Dụng
+- **Ngôn ngữ:** Python 3.11
+- **Giao diện:** Tkinter (Modern Flat UI)
+- **Xử lý ảnh:** OpenCV, Pillow
+- **Cơ sở dữ liệu:** SQLite3
+- **Kết nối PLC:** Snap7 (S7-1200)
 
-## 🛠 Yêu cầu hệ thống (Prerequisites)
-1.  **Python 3.10+**
-2.  **Thư viện cần thiết**:
-    *   `Pillow` (Xử lý ảnh hiển thị trên GUI)
-    *   `opencv-python` (Xử lý stream camera)
-    *   `python-snap7` (Giao tiếp với PLC Siemens)
+## 📂 Cấu Trúc Thư Mục
+- `giaodien/main.py`: File chạy chính của ứng dụng.
+- `giaodien/Processing/`: Chứa thuật toán xử lý ảnh (`analyzer.py`).
+- `giaodien/history_images/`: Thư mục lưu trữ ảnh chụp lịch sử.
+- `giaodien/database.db`: File cơ sở dữ liệu SQLite.
 
----
-
-## 🚀 Hướng dẫn cài đặt và chạy (Chi tiết cho người mới)
-
-Nếu bạn không biết sử dụng Git, hãy làm theo các bước đơn giản dưới đây:
-
-### Bước 1: Tải mã nguồn về máy
-*   **Cách 1 (Đơn giản nhất):** Truy cập link GitHub [DoAn_PLC_Phanloaitao](https://github.com/hoangnha999/DoAn_PLC_Phanloaitao). Nhấn vào nút xanh **Code** -> Chọn **Download ZIP**. Sau khi tải về, hãy giải nén file ra thư mục.
-*   **Cách 2 (Dùng Git):** Chạy lệnh `git clone https://github.com/hoangnha999/DoAn_PLC_Phanloaitao.git`
-
-### Bước 2: Cài đặt Python
-*   Nếu máy bạn chưa có Python, hãy tải tại [python.org](https://www.python.org/downloads/) (Chọn bản 3.10 hoặc mới hơn). 
-*   **Lưu ý quan trọng:** Khi cài đặt, hãy tích chọn vào ô **"Add Python to PATH"**.
-
-### Bước 3: Cài đặt các thư viện hỗ trợ
-Mở thư mục dự án vừa giải nén. Nhấn phím `Shift` + `Chuột phải` vào vùng trống trong thư mục và chọn **"Open PowerShell window here"** (hoặc Terminal), sau đó copy và dán lệnh sau:
-```bash
-pip install Pillow opencv-python python-snap7
-```
-
-### Bước 4: Chạy chương trình
-Vẫn tại cửa sổ đó, nhập lệnh sau để mở giao diện:
-```bash
-python giaodien/main.py
-```
-*(Hoặc bạn có thể chuột phải vào file `main.py` trong thư mục `giaodien` và chọn "Open with Python")*
+## 📖 Hướng Dẫn Sử Dụng
+1. **Khởi động:** Chạy lệnh `python giaodien/main.py`.
+2. **Chọn nguồn:** Vào tab **CÀI ĐẶT** để chọn Camera hoặc dùng nút **📂 MỞ FILE** ở sidebar để chọn ảnh/video.
+3. **Phân tích:** Đưa táo vào vùng **ANALYSIS ZONE** để hệ thống tự động soi lỗi và độ chín.
+4. **Lưu trữ:** Bấm **CHỤP LƯU SQL** để ghi lại kết quả vào nhật ký.
 
 ---
-
-## 🔌 Hướng dẫn kết nối PLC S7-1200 (PLC Connection Guide)
-
-1.  **Cấu hình PLC trên TIA Portal**:
-    *   Vào **Properties** của CPU -> **Protection & Security** -> **Connection mechanisms**.
-    *   Tích chọn: **"Permit access with PUT/GET communication from remote partner"**.
-2.  **Cấu hình IP**:
-    *   Đảm bảo máy tính và PLC cùng lớp mạng (Ví dụ: PLC `192.168.0.1`, PC `192.168.0.100`).
-3.  **Địa chỉ dữ liệu (Mặc định trong code)**:
-    *   **MW10**: Số lượng hạng GOOD (Kiểu Int)
-    *   **MW12**: Số lượng hạng MEDIUM (Kiểu Int)
-    *   **MW14**: Số lượng hạng BAD (Kiểu Int)
-    *   **M0.0**: Lệnh START (Boolean)
-    *   **M0.1**: Lệnh STOP (Boolean)
-
----
-
-## 📊 Kết quả và Giải thích Giao diện (Interface Explained)
-
-Hệ thống bao gồm 2 màn hình chính với các chức năng riêng biệt:
-
-### 1. Màn hình Giới thiệu (Presentation Screen)
-Đây là màn hình đầu tiên khi khởi động ứng dụng:
-*   **Header**: Hiển thị Logo và tên Trường, Khoa, Ngành đào tạo.
-*   **Tên Đề tài**: "Hệ thống phân loại hạng chất lượng trái cây" (Chữ đỏ nổi bật).
-*   **Hình ảnh minh họa**: Hệ thống băng chuyền phân loại thực tế.
-*   **Thông tin**: Tên GV hướng dẫn và các sinh viên thực hiện.
-*   **Nút điều khiển**: 
-    *   `Chạy chương trình`: Để chuyển sang giao diện điều khiển chính.
-    *   `Kết thúc`: Đóng ứng dụng.
-
-### 2. Màn hình Dashboard Điều khiển (Bản nâng cấp Xanh biển)
-Màn hình này có hệ thống **Menu bên (Sidebar)** cho phép chuyển đổi giữa:
-
-*   **📊 Trang Phân loại (Monitoring)**: Hiển thị Thống kê, Camera Stream và cụm nút **START/STOP** căn giữa để điều khiển PLC.
-*   **⚙️ Trang Cài đặt (Settings)**: Nơi cấu hình IP PLC, chọn Nguồn Camera và Reset dữ liệu.
-
----
-
-## 📁 Cấu trúc thư mục (Project Structure)
-*   `giaodien/main.py`: File code chính của ứng dụng.
-*   `giaodien/images/`: Thư mục chứa logo và hình ảnh minh họa.
-*   `README.md`: File hướng dẫn này.
-
----
-
-## 👤 Thông tin tác giả
-*   **GVHD**: TS. Lê Chí Kiên
-*   **Sinh viên thực hiện**:
-    *   Mai Hoàng Nhã (23151284)
-    *   Mai Nguyễn Minh Nhật (23151287)
+*Dồ án được thực hiện bởi hoangnha999.*
