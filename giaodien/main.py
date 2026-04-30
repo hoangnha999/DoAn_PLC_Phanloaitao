@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, filedialog
 from PIL import Image, ImageTk
 import os
 import sys
@@ -294,6 +294,8 @@ class CameraWindow:
         "Webcam rời 1 (Cổng USB)",
         "Webcam rời 2 (Cổng USB)",
         "Luồng RTSP / IP Camera",
+        "📂 Mở File Ảnh (.jpg, .png)",
+        "🎞️ Mở File Video (.mp4, .avi)"
     ]
 
     GRADE_CFG = {
@@ -345,10 +347,10 @@ class CameraWindow:
         self._init_db()
         self._build_ui()
 
-        # Tự động bật camera ngay sau khi mở cửa sổ
-        self.win.after(500, self._start_camera)
+        # KHÔNG tự động bật camera – chờ người dùng chọn loại đầu báo camera rồi bấm "BẬT CAMERA"
         self._log_event("Hệ thống Vision đã khởi động.")
         self._log_event("Đã tải xong CSDL Lịch sử (SQLite).")
+        self._log_event("⚠️ Vui lòng chọn nguồn Camera ở tab CÀI ĐẶT rồi bấm ▶ BẬT CAMERA.")
 
     # ═══════════════════════════════════════════════════════
     #  DATABASE (SQLITE) & LƯU ẢNH
@@ -398,6 +400,44 @@ class CameraWindow:
         except Exception as e:
             self._log_event(f"SQL Error: {e}")
 
+        # Cập nhật khung hình 10 ảnh
+        if hasattr(self, 'win'):
+            self.win.after(0, self._update_snapshot_gallery, filepath, None)
+
+    def _update_snapshot_gallery(self, filepath=None, cv2_frame=None):
+        try:
+            if filepath:
+                img = Image.open(filepath)
+            elif cv2_frame is not None:
+                rgb_frame = cv2.cvtColor(cv2_frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(rgb_frame)
+            else:
+                return
+            
+            # Khung nhỏ (dưới camera)
+            img_small = img.resize((85, 60), Image.LANCZOS)
+            photo_small = ImageTk.PhotoImage(img_small)
+            self.snapshot_images.insert(0, photo_small)
+            if len(self.snapshot_images) > 10:
+                self.snapshot_images.pop()
+            for i, p in enumerate(self.snapshot_images):
+                self.snapshot_labels[i].config(image=p, width=85, height=60)
+                self.snapshot_labels[i].image = p
+                
+            # Khung lớn (Trang Gallery)
+            if hasattr(self, 'gallery_images') and hasattr(self, 'gallery_labels'):
+                img_large = img.resize((200, 150), Image.LANCZOS)
+                photo_large = ImageTk.PhotoImage(img_large)
+                self.gallery_images.insert(0, photo_large)
+                if len(self.gallery_images) > 10:
+                    self.gallery_images.pop()
+                for i, p in enumerate(self.gallery_images):
+                    self.gallery_labels[i].config(image=p, width=200, height=150)
+                    self.gallery_labels[i].image = p
+        except Exception as e:
+            print(f"Lỗi cập nhật ảnh Gallery: {e}")
+            self._log_event(f"Lỗi cập nhật Gallery: {e}")
+
     def _manual_snapshot(self):
         """Gọi khi nhấn nút Chụp Ảnh Thủ Công."""
         if not self._cam_running:
@@ -409,7 +449,39 @@ class CameraWindow:
             return
             
         self._save_to_sql("MANUAL")
-        messagebox.showinfo("Thành công", "Đã lưu ảnh thủ công vào CSDL Lịch sử (SQL)!")
+
+    def _on_view_mode_change(self, event=None):
+        """Cập nhật tiêu đề khi đổi chế độ hiển thị."""
+        mode = self.view_mode_var.get()
+        if mode == "Color & Gray":
+            self.lbl_view1.config(text="📷  CAMERA (COLOR)")
+            self.lbl_view2.config(text="🔲  MACHINE VISION (GRAYSCALE)")
+        elif mode == "Color & Binary":
+            self.lbl_view1.config(text="📷  CAMERA (COLOR)")
+            self.lbl_view2.config(text="🔳  MACHINE VISION (BINARY/THRESHOLD)")
+        elif mode == "Gray & Binary":
+            self.lbl_view1.config(text="🔲  MACHINE VISION (GRAYSCALE)")
+            self.lbl_view2.config(text="🔳  MACHINE VISION (BINARY/THRESHOLD)")
+
+    def _clear_buffer(self):
+        """Xóa sạch bộ nhớ đệm hình ảnh (Buffer)."""
+        self.snapshot_images = []
+        if hasattr(self, 'gallery_images'):
+            self.gallery_images = []
+            
+        # Reset các label ở màn hình chính
+        for lbl in self.snapshot_labels:
+            lbl.config(image='')
+            lbl.image = None
+            
+        # Reset các label ở trang Gallery
+        if hasattr(self, 'gallery_labels'):
+            for lbl in self.gallery_labels:
+                lbl.config(image='')
+                lbl.image = None
+                
+        self._log_event("🧹 Đã xóa sạch bộ nhớ đệm (Buffer Cleared).")
+
 
     # ═══════════════════════════════════════════════════════
     #  GIAO DIỆN & NAVIGATION
@@ -482,9 +554,13 @@ class CameraWindow:
         # 4. Tạo các Trang (Frames)
         self.page_phanloai = tk.Frame(self.main_container, bg="#F1F5F9")
         self.page_setting = tk.Frame(self.main_container, bg="#F1F5F9")
+        self.page_gallery = tk.Frame(self.main_container, bg="#F1F5F9")
+        self.page_history = tk.Frame(self.main_container, bg="#F1F5F9")
 
         self._build_phanloai_page()
         self._build_setting_page()
+        self._build_gallery_page()
+        self._build_history_page()
 
         # Hiển thị trang mặc định
         self._show_page("PHANLOAI")
@@ -542,6 +618,7 @@ class CameraWindow:
 
         menu_items = [
             ("📊  PHÂN LOẠI", "PHANLOAI"),
+            ("🖼️  10 ẢNH GẦN NHẤT", "GALLERY"),
             ("⚙️  CÀI ĐẶT", "SETTING"),
             ("📂  LỊCH SỬ SQL", "HISTORY")
         ]
@@ -556,19 +633,26 @@ class CameraWindow:
 
     def _show_page(self, page_id):
         """Chuyển đổi giữa các trang."""
-        if page_id == "HISTORY":
-            self._show_history_window()
-            return
-
         self.current_page = page_id
         
         # Ẩn tất cả trang
         self.page_phanloai.pack_forget()
         self.page_setting.pack_forget()
+        if hasattr(self, 'page_gallery'): self.page_gallery.pack_forget()
+        if hasattr(self, 'page_history'): self.page_history.pack_forget()
 
         if page_id == "PHANLOAI":
             self.page_phanloai.pack(fill="both", expand=True, padx=10, pady=10)
             self.title_lbl.config(text="🍎 HỆ THỐNG PHÂN LOẠI TRÁI CÂY - GIÁM SÁT")
+        elif page_id == "GALLERY":
+            if hasattr(self, 'page_gallery'):
+                self.page_gallery.pack(fill="both", expand=True, padx=10, pady=10)
+            self.title_lbl.config(text="🖼️ BỘ SƯU TẬP 10 ẢNH GẦN NHẤT")
+        elif page_id == "HISTORY":
+            if hasattr(self, 'page_history'):
+                self.page_history.pack(fill="both", expand=True, padx=10, pady=10)
+                self._refresh_history_table() # Tải lại dữ liệu mỗi khi mở trang
+            self.title_lbl.config(text="📂 LỊCH SỬ PHÂN LOẠI SQL")
         else:
             self.page_setting.pack(fill="both", expand=True, padx=10, pady=10)
             self.title_lbl.config(text="⚙️ HỆ THỐNG PHÂN LOẠI TRÁI CÂY - CÀI ĐẶT")
@@ -577,44 +661,84 @@ class CameraWindow:
         if self.sidebar_visible:
             self._toggle_sidebar()
 
-    def _show_history_window(self):
-        """Mở cửa sổ xem lịch sử lưu trong CSDL SQLite."""
-        hw = tk.Toplevel(self.win)
-        hw.title("Lịch sử Phân loại (SQLite)")
-        hw.geometry("900x500")
-        hw.configure(bg="#F1F5F9")
+    def _build_history_page(self):
+        """Trang Lịch sử phân loại (SQL Database)."""
+        container = tk.Frame(self.page_history, bg="#FFFFFF", bd=1, relief="ridge")
+        container.pack(fill="both", expand=True, padx=5, pady=5)
         
-        # Header
-        tk.Label(hw, text="📂 LỊCH SỬ PHÂN LOẠI & HÌNH ẢNH", font=("Arial", 14, "bold"), fg="#0F172A", bg="#F1F5F9").pack(pady=10)
+        tk.Label(container, text="📂 DANH SÁCH LỊCH SỬ PHÂN LOẠI (SQL DATABASE)", 
+                 font=("Arial", 12, "bold"), fg="#0F172A", bg="#FFFFFF", pady=15).pack()
+
+        # Bảng dữ liệu
+        cols = ("ID", "Thời gian", "Kết quả", "Tỷ lệ", "Đường dẫn ảnh")
+        self.history_tree = ttk.Treeview(container, columns=cols, show="headings", height=15)
         
-        # Bảng (Treeview)
-        columns = ("ID", "Thời gian", "Kết quả", "Tỷ lệ", "Đường dẫn ảnh")
-        tree = ttk.Treeview(hw, columns=columns, show="headings", height=15)
+        # Cấu hình cột
+        self.history_tree.heading("ID", text="ID")
+        self.history_tree.column("ID", width=50, anchor="center")
+        self.history_tree.heading("Thời gian", text="Thời gian")
+        self.history_tree.column("Thời gian", width=150, anchor="center")
+        self.history_tree.heading("Kết quả", text="Kết quả")
+        self.history_tree.column("Kết quả", width=100, anchor="center")
+        self.history_tree.heading("Tỷ lệ", text="Tỷ lệ Yield")
+        self.history_tree.column("Tỷ lệ", width=100, anchor="center")
+        self.history_tree.heading("Đường dẫn ảnh", text="Đường dẫn file ảnh")
+        self.history_tree.column("Đường dẫn ảnh", width=400, anchor="w")
         
-        tree.heading("ID", text="ID")
-        tree.column("ID", width=50, anchor="center")
-        tree.heading("Thời gian", text="Thời gian")
-        tree.column("Thời gian", width=150, anchor="center")
-        tree.heading("Kết quả", text="Kết quả")
-        tree.column("Kết quả", width=100, anchor="center")
-        tree.heading("Tỷ lệ", text="Tỷ lệ Yield")
-        tree.column("Tỷ lệ", width=100, anchor="center")
-        tree.heading("Đường dẫn ảnh", text="Đường dẫn file ảnh lưu trữ")
-        tree.column("Đường dẫn ảnh", width=450, anchor="w")
+        self.history_tree.pack(fill="both", expand=True, padx=15, pady=10)
         
-        tree.pack(fill="both", expand=True, padx=15, pady=10)
+        # Nút điều khiển
+        btn_frame = tk.Frame(container, bg="#FFFFFF")
+        btn_frame.pack(pady=10)
         
-        # Load dữ liệu
+        tk.Button(btn_frame, text="🔄 LÀM MỚI", font=("Arial", 10, "bold"),
+                  bg="#0284C7", fg="white", width=15, pady=8, cursor="hand2",
+                  command=self._refresh_history_table).pack(side="left", padx=10)
+                  
+        tk.Button(btn_frame, text="🗑️ XÓA SẠCH DỮ LIỆU", font=("Arial", 10, "bold"),
+                  bg="#EF4444", fg="white", width=20, pady=8, cursor="hand2",
+                  command=self._clear_sql_history).pack(side="left", padx=10)
+
+    def _refresh_history_table(self):
+        """Tải lại dữ liệu từ CSDL vào bảng."""
+        if not hasattr(self, 'history_tree'): return
+        
+        for item in self.history_tree.get_children():
+            self.history_tree.delete(item)
+            
         try:
             conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
             c.execute("SELECT * FROM phan_loai_history ORDER BY id DESC LIMIT 100")
             rows = c.fetchall()
             for row in rows:
-                tree.insert("", "end", values=row)
+                self.history_tree.insert("", "end", values=row)
             conn.close()
         except Exception as e:
-            messagebox.showerror("Lỗi CSDL", f"Không thể đọc dữ liệu:\n{e}")
+            self._log_event(f"Lỗi đọc DB: {e}")
+
+    def _clear_sql_history(self):
+        """Xóa toàn bộ dữ liệu trong bảng và xóa sạch file ảnh trong thư mục."""
+        if messagebox.askyesno("Xác nhận", "Bạn có chắc muốn xóa TOÀN BỘ lịch sử và hình ảnh?\n(Hành động này không thể hoàn tác!)"):
+            try:
+                conn = sqlite3.connect(self.db_path)
+                c = conn.cursor()
+                c.execute("DELETE FROM phan_loai_history")
+                conn.commit()
+                conn.close()
+                
+                if os.path.exists(self.img_dir):
+                    for f in os.listdir(self.img_dir):
+                        file_path = os.path.join(self.img_dir, f)
+                        try:
+                            if os.path.isfile(file_path): os.unlink(file_path)
+                        except: pass
+                
+                self._refresh_history_table()
+                messagebox.showinfo("Thành công", "Đã dọn dẹp sạch sẽ CSDL và thư mục ảnh!")
+                self._log_event("🗑️ Đã xóa sạch toàn bộ lịch sử SQL.")
+            except Exception as e:
+                messagebox.showerror("Lỗi", f"Không thể xóa dữ liệu: {e}")
 
     def _build_phanloai_page(self):
         """Trang Phân loại: Thống kê + Camera + Start/Stop + Log."""
@@ -625,6 +749,26 @@ class CameraWindow:
         # 2. Sau đó mới chia layout Trái (Stats) / Phải (Camera) ở phần còn lại
         self._build_left(self.page_phanloai)
         self._build_right(self.page_phanloai)
+
+    def _build_gallery_page(self):
+        """Trang Bộ Sưu Tập 10 Ảnh Gần Nhất."""
+        self.gallery_labels = []
+        self.gallery_images = []
+        
+        title_frame = tk.Frame(self.page_gallery, bg="#F1F5F9")
+        title_frame.pack(fill="x", pady=(20, 30))
+        tk.Label(title_frame, text="📸 BỘ SƯU TẬP 10 ẢNH GẦN NHẤT", font=("Arial", 16, "bold"), fg="#0F172A", bg="#F1F5F9").pack()
+        
+        grid_frame = tk.Frame(self.page_gallery, bg="#F1F5F9")
+        grid_frame.pack(expand=True)
+        
+        for row in range(2):
+            row_frame = tk.Frame(grid_frame, bg="#F1F5F9")
+            row_frame.pack(pady=0)
+            for col in range(5):
+                lbl = tk.Label(row_frame, bg="#E2E8F0", bd=0, highlightthickness=0)
+                lbl.pack(side="left", padx=1, pady=1) # Giữ 1px để phân biệt nhẹ hoặc 0 để dính liền
+                self.gallery_labels.append(lbl)
 
     def _build_setting_page(self):
         """Trang Cài đặt: PLC IP, Nguồn Camera, Reset."""
@@ -661,7 +805,7 @@ class CameraWindow:
         cam_box.pack(fill="x", pady=10)
         
         tk.Label(cam_box, text="Chế độ Hoạt động (Mode):", fg="#475569", bg="#FFFFFF").pack(anchor="w")
-        self.cam_var = tk.StringVar(value=self.CAM_SOURCES[0])
+        self.cam_var = tk.StringVar(value=self.CAM_SOURCES[1]) # Mặc định chọn Camera máy tính
         self.combo = ttk.Combobox(cam_box, textvariable=self.cam_var, values=self.CAM_SOURCES, state="readonly", width=35)
         self.combo.pack(pady=(0, 15), anchor="w")
 
@@ -710,6 +854,12 @@ class CameraWindow:
                                        fg="#FFFFFF", bg="#F59E0B", width=16, pady=5,
                                        relief="flat", cursor="hand2", command=self._manual_snapshot)
         self.btn_snapshot.pack(side="left")
+
+        # Nút XÓA BUFFER
+        self.btn_clear_buffer = tk.Button(ctrl, text="🧹 XÓA BUFFER", font=("Arial", 11, "bold"),
+                                        fg="#FFFFFF", bg="#64748B", width=14, pady=5,
+                                        relief="flat", cursor="hand2", command=self._clear_buffer)
+        self.btn_clear_buffer.pack(side="left", padx=(10, 0))
 
         self.lbl_plc_status = tk.Label(bar, text="⚫ PLC chưa kết nối", font=("Arial", 10),
                                         fg="#64748B", bg="#FFFFFF")
@@ -777,18 +927,29 @@ class CameraWindow:
         rf = tk.Frame(parent, bg="#FFFFFF", bd=1, relief="ridge")
         rf.pack(side="left", fill="both", expand=True)
 
-        # ── Canvas màu (trên) ──
-        tk.Label(rf, text="📷  CAMERA (COLOR)",
-                 font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF",
-                 ).pack(anchor="w", padx=6, pady=(4, 0))
+        # ── Thanh điều khiển chế độ xem ──
+        view_ctrl = tk.Frame(rf, bg="#F1F5F9", pady=3)
+        view_ctrl.pack(fill="x")
+        tk.Label(view_ctrl, text="📺 CHẾ ĐỘ HIỂN THỊ:", font=("Arial", 9, "bold"), fg="#475569", bg="#F1F5F9").pack(side="left", padx=10)
+        
+        self.view_mode_var = tk.StringVar(value="Color & Gray")
+        view_modes = ["Color & Gray", "Color & Binary", "Gray & Binary"]
+        self.view_combo = ttk.Combobox(view_ctrl, textvariable=self.view_mode_var, values=view_modes, state="readonly", width=18)
+        self.view_combo.pack(side="left", padx=5)
+        self.view_combo.bind("<<ComboboxSelected>>", self._on_view_mode_change)
+
+        # ── Canvas 1 (trên) ──
+        self.lbl_view1 = tk.Label(rf, text="📷  CAMERA (COLOR)",
+                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
+        self.lbl_view1.pack(anchor="w", padx=6, pady=(4, 0))
         self.canvas = tk.Canvas(rf, width=850, height=240,
                                 bg="#000000", highlightthickness=1, highlightbackground="#CBD5E1")
         self.canvas.pack(padx=4, pady=(0, 2))
 
-        # ── Canvas xám (dưới) ──
-        tk.Label(rf, text="🔲  MACHINE VISION (DEPTH MAP / GRAYSCALE)",
-                 font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF",
-                 ).pack(anchor="w", padx=6, pady=(2, 0))
+        # ── Canvas 2 (dưới) ──
+        self.lbl_view2 = tk.Label(rf, text="🔲  MACHINE VISION (DEPTH MAP / GRAYSCALE)",
+                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
+        self.lbl_view2.pack(anchor="w", padx=6, pady=(2, 0))
         self.canvas_gray = tk.Canvas(rf, width=850, height=240,
                                      bg="#000000", highlightthickness=1, highlightbackground="#CBD5E1")
         self.canvas_gray.pack(padx=4, pady=(0, 4))
@@ -797,6 +958,19 @@ class CameraWindow:
         self.btn_3d = tk.Button(rf, text="🌌 MỞ POINT CLOUD 3D", font=("Arial", 9, "bold"),
                                 bg="#4F46E5", fg="white", cursor="hand2", pady=4, command=self._show_point_cloud)
         self.btn_3d.pack(pady=5)
+
+        # ── Frame Snapshot 10 hình (dưới cùng) ──
+        tk.Label(rf, text="📸 10 ẢNH GẦN NHẤT (LIVE BUFFER)", font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF").pack(anchor="w", padx=6, pady=(5, 0))
+        self.snapshot_frame = tk.Frame(rf, bg="#0F172A", height=60)
+        self.snapshot_frame.pack(fill="x", padx=4, pady=2)
+        
+        self.snapshot_labels = []
+        self.snapshot_images = [] # Tránh garbage collection
+        
+        for i in range(10):
+            lbl = tk.Label(self.snapshot_frame, bg="#0F172A", bd=0, highlightthickness=0)
+            lbl.pack(side="left")
+            self.snapshot_labels.append(lbl)
 
         self._draw_placeholder()
 
@@ -831,8 +1005,24 @@ class CameraWindow:
 
     def _start_camera(self):
         val = self.cam_var.get()
+        self.is_single_image = False # Reset mặc định
+        
         if "Astra Pro" in val:
             self._start_astra_camera()
+            return
+            
+        # Mở File Ảnh
+        if "Mở File Ảnh" in val:
+            path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp")])
+            if not path: return
+            self._start_file_mode(path, is_video=False)
+            return
+            
+        # Mở File Video
+        if "Mở File Video" in val:
+            path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4 *.avi *.mkv *.mov")])
+            if not path: return
+            self._start_file_mode(path, is_video=True)
             return
             
         # Code cũ cho OpenCV bình thường
@@ -846,6 +1036,28 @@ class CameraWindow:
         self._cam_running = True
         self.btn_cam.config(text="⏹  Tắt Camera", bg="#B71C1C", activebackground="#7F0000")
         self.lbl_cam_status.config(text="🟢  Đang phát", fg="#69F0AE")
+        self.combo.config(state="disabled")
+        self._cam_thread = threading.Thread(target=self._stream_loop, daemon=True)
+        self._cam_thread.start()
+
+    def _start_file_mode(self, path, is_video=False):
+        """Khởi tạo chế độ đọc file ảnh hoặc video."""
+        if is_video:
+            self.cap = cv2.VideoCapture(path)
+            if not self.cap.isOpened():
+                messagebox.showerror("Lỗi", "Không thể mở file video này!")
+                return
+        else:
+            img = cv2.imread(path)
+            if img is None:
+                messagebox.showerror("Lỗi", "Không thể mở file ảnh này!")
+                return
+            self.single_image_frame = img
+            self.is_single_image = True
+            
+        self._cam_running = True
+        self.btn_cam.config(text="⏹  Dừng File", bg="#B71C1C")
+        self.lbl_cam_status.config(text="🟢  Đang phát File", fg="#69F0AE")
         self.combo.config(state="disabled")
         self._cam_thread = threading.Thread(target=self._stream_loop, daemon=True)
         self._cam_thread.start()
@@ -875,25 +1087,66 @@ class CameraWindow:
 
 
     def _stream_loop(self):
+        import time
+        last_buffer_time = time.time()
+        is_single = getattr(self, 'is_single_image', False)
+        
         while self._cam_running:
-            ret, frame = self.cap.read()
-            if not ret:
-                break
+            if is_single:
+                frame = self.single_image_frame.copy()
+                ret = True
+                time.sleep(0.05) # Giảm tải CPU cho ảnh tĩnh
+            else:
+                ret, frame = self.cap.read()
+                if not ret:
+                    # Nếu là video thì lặp lại (Loop video)
+                    if self.cap.get(cv2.CAP_PROP_FRAME_COUNT) > 1:
+                        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        continue
+                    break
                 
             self.frame_to_save = frame.copy() # Lưu lại frame hiện hành để chụp ảnh
             
-            # ── Frame màu ──
-            color = cv2.resize(frame, (850, 240))
-            color_rgb = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
-            imgtk_color = ImageTk.PhotoImage(image=Image.fromarray(color_rgb))
-            # ── Frame xám ──
-            gray = cv2.cvtColor(color, cv2.COLOR_BGR2GRAY)
-            gray_rgb = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)  # convert để PhotoImage dùng được
-            imgtk_gray = ImageTk.PhotoImage(image=Image.fromarray(gray_rgb))
+            # --- VẼ KHUNG PHÂN TÍCH ---
+            h_f, w_f = frame.shape[:2]
+            cv2.rectangle(frame, (w_f//2 - 100, 20), (w_f//2 + 100, h_f - 20), (255, 255, 255), 2)
+            cv2.putText(frame, "ANALYSIS ZONE", (w_f//2 - 95, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+            # Auto buffer update (tự động đẩy khung hình) theo thời gian thực (0.1s/lần)
+            current_time = time.time()
+            if current_time - last_buffer_time >= 0.1:
+                last_buffer_time = current_time
+                self.canvas.after(0, self._update_snapshot_gallery, None, self.frame_to_save.copy())
+            
+            # ── Tạo 3 loại khung hình ──
+            # 1. Màu
+            color_res = cv2.resize(frame, (850, 240))
+            color_rgb = cv2.cvtColor(color_res, cv2.COLOR_BGR2RGB)
+            
+            # 2. Xám
+            gray_res = cv2.cvtColor(color_res, cv2.COLOR_BGR2GRAY)
+            gray_rgb = cv2.cvtColor(gray_res, cv2.COLOR_GRAY2RGB)
+            
+            # 3. Nhị phân (Binary)
+            _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
+            binary_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+            
+            # Chọn khung hình hiển thị dựa trên View Mode
+            mode = self.view_mode_var.get()
+            if mode == "Color & Gray":
+                f1_rgb, f2_rgb = color_rgb, gray_rgb
+            elif mode == "Color & Binary":
+                f1_rgb, f2_rgb = color_rgb, binary_rgb
+            else: # Gray & Binary
+                f1_rgb, f2_rgb = gray_rgb, binary_rgb
+                
+            imgtk1 = ImageTk.PhotoImage(image=Image.fromarray(f1_rgb))
+            imgtk2 = ImageTk.PhotoImage(image=Image.fromarray(f2_rgb))
+            
             try:
-                self.canvas.imgtk = imgtk_color
-                self.canvas_gray.imgtk = imgtk_gray
-                self.canvas.after(0, self._update_canvas, imgtk_color, imgtk_gray)
+                self.canvas.imgtk = imgtk1
+                self.canvas_gray.imgtk = imgtk2
+                self.canvas.after(0, self._update_canvas, imgtk1, imgtk2)
             except Exception:
                 break
 
@@ -949,8 +1202,10 @@ class CameraWindow:
     def _stream_astra_loop(self):
         import numpy as np
         from openni import openni2
+        import time
         self.win.after(0, self._log_event, "Đã vào luồng Astra. Đang đồng bộ hóa RGB và Depth...")
         
+        last_buffer_time = time.time()
         while self._cam_running:
             try:
                 # Đọc Color Frame từ OpenCV (UVC)
@@ -998,17 +1253,45 @@ class CameraWindow:
                     color_img = cv2.cvtColor(depth_colormap, cv2.COLOR_BGR2RGB)
                     self.frame_to_save = depth_colormap.copy()
                 
+                # --- VẼ KHUNG PHÂN TÍCH LÊN COLOR IMG ---
+                h_c, w_c = color_img.shape[:2]
+                cv2.rectangle(color_img, (w_c//2 - 100, 20), (w_c//2 + 100, h_c - 20), (255, 255, 255), 2)
+                cv2.putText(color_img, "ANALYSIS ZONE", (w_c//2 - 95, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+                
                 # Resize và hiển thị
                 color_resized = cv2.resize(color_img, (850, 240))
-                imgtk_color = ImageTk.PhotoImage(image=Image.fromarray(color_resized))
+                color_rgb = cv2.cvtColor(color_resized, cv2.COLOR_BGR2RGB)
                 
-                depth_resized = cv2.resize(depth_colormap, (850, 240))
-                depth_rgb = cv2.cvtColor(depth_resized, cv2.COLOR_BGR2RGB)
-                imgtk_gray = ImageTk.PhotoImage(image=Image.fromarray(depth_rgb))
+                # Gray từ Astra
+                gray_astra = cv2.cvtColor(color_resized, cv2.COLOR_BGR2GRAY)
+                gray_rgb = cv2.cvtColor(gray_astra, cv2.COLOR_GRAY2RGB)
                 
-                self.canvas.imgtk = imgtk_color
-                self.canvas_gray.imgtk = imgtk_gray
-                self.canvas.after(0, self._update_canvas, imgtk_color, imgtk_gray)
+                # Binary từ Astra
+                _, binary_astra = cv2.threshold(gray_astra, 127, 255, cv2.THRESH_BINARY)
+                binary_rgb = cv2.cvtColor(binary_astra, cv2.COLOR_GRAY2RGB)
+                
+                # Chọn View Mode cho Astra
+                mode = self.view_mode_var.get()
+                if mode == "Color & Gray":
+                    f1_rgb, f2_rgb = color_rgb, gray_rgb
+                elif mode == "Color & Binary":
+                    f1_rgb, f2_rgb = color_rgb, binary_rgb
+                else:
+                    f1_rgb, f2_rgb = gray_rgb, binary_rgb
+                
+                imgtk1 = ImageTk.PhotoImage(image=Image.fromarray(f1_rgb))
+                imgtk2 = ImageTk.PhotoImage(image=Image.fromarray(f2_rgb))
+                
+                # Auto buffer update
+                current_time = time.time()
+                if current_time - last_buffer_time >= 0.1:
+                    last_buffer_time = current_time
+                    self.canvas.after(0, self._update_snapshot_gallery, None, self.frame_to_save.copy())
+                
+                self.canvas.imgtk = imgtk1
+                self.canvas_gray.imgtk = imgtk2
+                self.canvas.after(0, self._update_canvas, imgtk1, imgtk2)
             except Exception as e:
                 # Tránh in lỗi timeout liên tục khi chờ stream
                 if "OniStatus.ONI_STATUS_TIME_OUT" not in str(e):
