@@ -280,7 +280,8 @@ class FruitClassificationApp:
 
     # ─── Xử lý sự kiện ───────────────────────────────────────────────
     def _on_run(self):
-        """Mở cửa sổ chương trình chính với màn hình camera."""
+        """Mở cửa sổ chương trình chính và ẩn màn hình chào mừng."""
+        self.root.withdraw() # Ẩn màn hình chào mừng
         CameraWindow(self.root)
 
     def _on_stop(self):
@@ -509,6 +510,9 @@ class CameraWindow:
         elif mode == "Gray & Binary":
             self.lbl_view1.config(text="🔲  MACHINE VISION (GRAYSCALE)")
             self.lbl_view2.config(text="🔳  MACHINE VISION (BINARY/THRESHOLD)")
+        elif mode == "Color & BG Removal":
+            self.lbl_view1.config(text="📷  CAMERA (COLOR)")
+            self.lbl_view2.config(text="👤  FOREGROUND MASK (BG REMOVAL)")
 
     def _clear_buffer(self):
         """Xóa sạch bộ nhớ đệm hình ảnh (Buffer)."""
@@ -991,7 +995,7 @@ class CameraWindow:
         tk.Label(view_ctrl, text="📺 CHẾ ĐỘ HIỂN THỊ:", font=("Arial", 9, "bold"), fg="#475569", bg="#F1F5F9").pack(side="left", padx=10)
         
         self.view_mode_var = tk.StringVar(value="Color & Gray")
-        view_modes = ["Color & Gray", "Color & Binary", "Gray & Binary"]
+        view_modes = ["Color & Gray", "Color & Binary", "Gray & Binary", "Color & BG Removal"]
         self.view_combo = ttk.Combobox(view_ctrl, textvariable=self.view_mode_var, values=view_modes, state="readonly", width=18)
         self.view_combo.pack(side="left", padx=5)
         self.view_combo.bind("<<ComboboxSelected>>", self._on_view_mode_change)
@@ -1035,6 +1039,7 @@ class CameraWindow:
     def _quick_open_file(self):
         """Hàm mở file nhanh từ nút bấm ở sidebar."""
         file_path = filedialog.askopenfilename(
+            parent=self.win, # Gắn hộp thoại vào cửa sổ chính
             title="Chọn file ảnh hoặc video để phân tích",
             filetypes=[("Tất cả tệp media", "*.jpg *.jpeg *.png *.bmp *.mp4 *.avi *.mkv *.mov"),
                        ("Ảnh", "*.jpg *.jpeg *.png *.bmp"),
@@ -1186,17 +1191,10 @@ class CameraWindow:
                 
             self.frame_to_save = frame.copy() # Lưu lại frame hiện hành để chụp ảnh
             
-            # --- VẼ KHUNG PHÂN TÍCH & XỬ LÝ ---
-            h_f, w_f = frame.shape[:2]
-            x1, y1, x2, y2 = w_f//2 - 100, 20, w_f//2 + 100, h_f - 20
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 255, 255), 2)
-            cv2.putText(frame, "ANALYSIS ZONE", (x1 + 5, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
-            # --- GỌI LOGIC PHÂN LOẠI THÂM ĐEN ---
+            # --- GỌI LOGIC PHÂN LOẠI (TRÊN TOÀN BỘ KHUNG HÌNH) ---
             try:
-                roi = frame[y1:y2, x1:x2]
-                processed_roi, defect_area, ripeness, grade = self.analyzer.analyze_apple(roi)
-                frame[y1:y2, x1:x2] = processed_roi
+                processed_frame, defect_area, ripeness, grade = self.analyzer.analyze_apple(frame)
+                frame = processed_frame
                 self.current_grade = grade # Cập nhật grade vào biến toàn cục
                 
                 # Hiển thị kết quả lên GUI (Panel trái)
@@ -1208,7 +1206,7 @@ class CameraWindow:
 
                 # Hiển thị kết quả lên khung hình Camera
                 color_map_bgr = {"GOOD": (0, 255, 0), "MEDIUM": (0, 255, 255), "BAD": (0, 0, 255)}
-                cv2.putText(frame, f"STATUS: {grade}", (x1, y2 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_map_bgr.get(grade, (255,255,255)), 2)
+                cv2.putText(frame, f"STATUS: {grade}", (20, h_f - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color_map_bgr.get(grade, (255,255,255)), 2)
             except:
                 pass
 
@@ -1231,12 +1229,18 @@ class CameraWindow:
             _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
             binary_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
             
+            # 4. Tách nền (Background Removal)
+            fg_mask = self.analyzer.get_foreground_mask(color_res)
+            fg_rgb = cv2.cvtColor(fg_mask, cv2.COLOR_GRAY2RGB)
+            
             # Chọn khung hình hiển thị dựa trên View Mode
             mode = self.view_mode_var.get()
             if mode == "Color & Gray":
                 f1_rgb, f2_rgb = color_rgb, gray_rgb
             elif mode == "Color & Binary":
                 f1_rgb, f2_rgb = color_rgb, binary_rgb
+            elif mode == "Color & BG Removal":
+                f1_rgb, f2_rgb = color_rgb, fg_rgb
             else: # Gray & Binary
                 f1_rgb, f2_rgb = gray_rgb, binary_rgb
                 
@@ -1581,8 +1585,10 @@ class CameraWindow:
     # ═══════════════════════════════════════════════════════
     def _on_close(self):
         self._stop_camera()
-        self._disconnect_plc()
+        if self._plc:
+            self._plc.disconnect()
         self.win.destroy()
+        self.parent.deiconify() # Hiện lại màn hình chào mừng khi tắt app chính
 
 
 # ─── Điểm khởi chạy ──────────────────────────────────────────────────

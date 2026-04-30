@@ -3,30 +3,38 @@ import numpy as np
 
 class FruitAnalyzer:
     def __init__(self):
-        # Ngưỡng màu để nhận diện quả táo đỏ (HSV)
-        self.lower_red1 = np.array([0, 100, 100])
+        # 1. Ngưỡng màu ĐỎ (Táo chín) - 2 dải trong HSV
+        self.lower_red1 = np.array([0, 100, 80])
         self.upper_red1 = np.array([10, 255, 255])
-        self.lower_red2 = np.array([160, 100, 100])
+        self.lower_red2 = np.array([160, 100, 80])
         self.upper_red2 = np.array([180, 255, 255])
+        
+        # 2. Ngưỡng màu VÀNG/XANH (Táo chưa chín hoặc đang chín)
+        self.lower_yellow = np.array([15, 50, 50])
+        self.upper_yellow = np.array([35, 255, 255]) # Dải màu vàng/xanh nhạt
+        
+        # Bộ trừ nền (Background Subtractor)
+        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=50, detectShadows=False)
 
     def analyze_apple(self, frame):
         """
-        Phân tích quả táo: Phát hiện thâm đen + Độ chín (độ đỏ).
-        Trả về: (frame_result, defect_area, ripeness_percent, grade)
+        Phân tích theo lộ trình: Tách nền -> Tính tỉ lệ Đỏ/Vàng -> Phân loại.
         """
         if frame is None:
             return None, 0, 0, "UNKNOWN"
 
-        # 1. Tiền xử lý
+        # 1. Tiền xử lý: Làm mượt để giảm nhiễu (GaussianBlur)
         blurred = cv2.GaussianBlur(frame, (5, 5), 0)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
-        # 2. Nhận diện TOÀN BỘ QUẢ TÁO (để tính diện tích tổng)
-        # Dùng Value channel để tách vật thể khỏi nền dễ hơn
+        # 2. Tách quả táo khỏi nền (Segmentation)
+        # Sử dụng Value channel kết hợp Morphological để lấy form quả táo
         gray = hsv[:,:,2]
-        _, broad_mask = cv2.threshold(gray, 40, 255, cv2.THRESH_BINARY)
+        _, broad_mask = cv2.threshold(gray, 35, 255, cv2.THRESH_BINARY)
         
-        # Tìm contour lớn nhất
+        kernel = np.ones((5, 5), np.uint8)
+        broad_mask = cv2.morphologyEx(broad_mask, cv2.MORPH_CLOSE, kernel) # Lấp lỗ hổng
+        
         contours_apple, _ = cv2.findContours(broad_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours_apple:
             return frame, 0, 0, "NO_APPLE"
@@ -34,62 +42,65 @@ class FruitAnalyzer:
         main_apple_cnt = max(contours_apple, key=cv2.contourArea)
         apple_area = cv2.contourArea(main_apple_cnt)
         
-        if apple_area < 1000:
+        if apple_area < 800:
             return frame, 0, 0, "NO_APPLE"
 
-        # Mask quả táo
         apple_mask = np.zeros_like(broad_mask)
         cv2.drawContours(apple_mask, [main_apple_cnt], -1, 255, -1)
 
-        # 3. Tính ĐỘ CHÍN (Độ đỏ chín đều)
-        mask_red1 = cv2.inRange(hsv, self.lower_red1, self.upper_red1)
-        mask_red2 = cv2.inRange(hsv, self.lower_red2, self.upper_red2)
-        red_mask = cv2.add(mask_red1, mask_red2)
-        red_mask = cv2.bitwise_and(red_mask, apple_mask)
+        # 3. Trích xuất đặc trưng màu sắc (Feature Extraction)
+        # --- Màu Đỏ ---
+        mask_red = cv2.add(cv2.inRange(hsv, self.lower_red1, self.upper_red1),
+                           cv2.inRange(hsv, self.lower_red2, self.upper_red2))
+        mask_red = cv2.bitwise_and(mask_red, apple_mask)
+        red_pixels = cv2.countNonZero(mask_red)
         
-        red_area = np.sum(red_mask > 0)
-        ripeness_percent = (red_area / apple_area) * 100
+        # --- Màu Vàng/Xanh ---
+        mask_yellow = cv2.inRange(hsv, self.lower_yellow, self.upper_yellow)
+        mask_yellow = cv2.bitwise_and(mask_yellow, apple_mask)
+        yellow_pixels = cv2.countNonZero(mask_yellow)
+        
+        # Tính tỉ lệ %
+        red_ratio = (red_pixels / apple_area) * 100
+        yellow_ratio = (yellow_pixels / apple_area) * 100
 
-        # 4. Phát hiện VẾT THÂM ĐEN
-        _, dark_mask = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY_INV)
+        # 4. Phát hiện vết thâm đen (Defects)
+        _, dark_mask = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
         dark_mask = cv2.bitwise_and(dark_mask, apple_mask)
+        dark_mask = cv2.morphologyEx(dark_mask, cv2.MORPH_OPEN, np.ones((3,3), np.uint8))
         
-        kernel = np.ones((3, 3), np.uint8)
-        dark_mask = cv2.morphologyEx(dark_mask, cv2.MORPH_OPEN, kernel)
-        
-        contours_defect, _ = cv2.findContours(dark_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        defect_area = 0
+        defect_area = cv2.countNonZero(dark_mask)
         res_frame = frame.copy()
-        
-        for cnt in contours_defect:
-            area = cv2.contourArea(cnt)
-            if area > 40:
-                defect_area += area
-                x, y, w, h = cv2.boundingRect(cnt)
-                cv2.rectangle(res_frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
-        # 5. PHÂN LOẠI TỔNG HỢP (Chín đều + Thâm đen)
-        # Tiêu chuẩn phân hạng (Có thể tùy chỉnh):
-        # - LOẠI 1 (GOOD): Chín > 90% diện tích VÀ Thâm < 30
-        # - LOẠI 2 (MEDIUM): Chín 60% - 90% HOẶC Thâm 30 - 200
-        # - LOẠI 3 (BAD): Chín < 60% (còn xanh) HOẶC Thâm > 200
+        # 5. Phân loại theo Logic yêu cầu
+        # Good: Red > 80%
+        # Medium: Red 40% - 80%
+        # Bad: Red < 40% hoặc có vết thâm lớn
         
-        if ripeness_percent >= 90 and defect_area < 30:
+        if red_ratio > 80 and defect_area < 50:
             grade = "GOOD"
-            color_res = (0, 255, 0) # Xanh lá
-        elif ripeness_percent < 60 or defect_area > 200:
-            grade = "BAD"
-            color_res = (0, 0, 255) # Đỏ
-        else:
+            color = (0, 255, 0)
+        elif red_ratio > 40 and defect_area < 200:
             grade = "MEDIUM"
-            color_res = (0, 255, 255) # Vàng
+            color = (0, 255, 255)
+        else:
+            grade = "BAD"
+            color = (0, 0, 255)
 
-        # Hiển thị thông số chi tiết lên Frame
-        cv2.putText(res_frame, f"DO CHIN: {ripeness_percent:.1f}%", (5, 15), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
-        cv2.putText(res_frame, f"VET THAM: {int(defect_area)}", (5, 30), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-        cv2.putText(res_frame, f"PHAN LOAI: {grade}", (5, 45), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_res, 2)
+        # Hiển thị thông tin visual
+        cv2.drawContours(res_frame, [main_apple_cnt], -1, color, 2)
+        cv2.putText(res_frame, f"CHIN (DO): {red_ratio:.1f}%", (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        cv2.putText(res_frame, f"CHUA CHIN (VANG): {yellow_ratio:.1f}%", (5, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+        cv2.putText(res_frame, f"KET QUA: {grade}", (5, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
-        return res_frame, defect_area, ripeness_percent, grade
+        return res_frame, defect_area, red_ratio, grade
+
+    def get_foreground_mask(self, frame):
+        """Tách nền (Background) và vật thể (Foreground)."""
+        if frame is None: return None
+        mask = self.bg_subtractor.apply(frame)
+        # Khử nhiễu
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.dilate(mask, kernel, iterations=2)
+        return mask
