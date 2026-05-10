@@ -50,7 +50,7 @@ class FruitAnalyzer:
         self.history_cx = []
         self.history_cy = []
         self.history_r = []
-        self.MAX_HISTORY = 5 # Số khung hình để lấy trung bình
+        self.MAX_HISTORY = 10 # Số khung hình để lấy trung bình
         
         # Background Subtractor (cho chức năng tách nền)
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
@@ -138,6 +138,7 @@ class FruitAnalyzer:
         cx = sum(self.history_cx)/len(self.history_cx)
         cy = sum(self.history_cy)/len(self.history_cy)
         radius_px = sum(self.history_r)/len(self.history_r)
+        diameter_px = radius_px * 2
 
         # Tính toán mm (Ưu tiên dùng Depth nếu có Astra Pro)
         if depth_frame is not None:
@@ -146,12 +147,12 @@ class FruitAnalyzer:
             if dist_mm > 0:
                 # Công thức: Real_Size = (Pixel_Size * Distance) / Focal_Length
                 # Hệ số 0.0015 là hằng số tiêu cự giả định cho Astra Pro, cần tinh chỉnh
-                diameter_mm = (radius_px * 2) * dist_mm * 0.0015 
+                diameter_mm = diameter_px * dist_mm * 0.0015 
             else:
-                diameter_mm = (radius_px * 2) * self.PIXEL_TO_MM
+                diameter_mm = diameter_px * self.PIXEL_TO_MM
         else:
             # Nếu dùng Webcam thường: Dùng hệ số Calib cố định
-            diameter_mm = (radius_px * 2) * self.PIXEL_TO_MM
+            diameter_mm = diameter_px * self.PIXEL_TO_MM
 
         size_label, size_grade = self._classify_size(diameter_mm)
 
@@ -228,16 +229,18 @@ class FruitAnalyzer:
 
         # 3. LOẠI BỎ BÓNG TỐI & VÙNG QUÁ TỐI (LAB Lightness)
         lab = cv2.cvtColor(blurred, cv2.COLOR_BGR2LAB)
-        _, mask_bright = cv2.threshold(lab[:, :, 0], 85, 255, cv2.THRESH_BINARY) 
+        _, mask_bright = cv2.threshold(lab[:, :, 0], 40, 255, cv2.THRESH_BINARY) 
 
         # 4. KẾT HỢP TỔNG LỰC (Hybrid Consensus)
         # Ưu tiên màu táo, nhưng phải đủ sáng và không phải màu xanh băng chuyền
         combined = cv2.bitwise_and(mask_apple_colors, cv2.bitwise_and(mask_not_green, mask_bright))
 
         # 5. LÀM SẠCH (Morphology)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
         closed = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel, iterations=2)
         opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel, iterations=1)
+        # Thêm một chút giãn nở để bù đắp các pixel bị mất ở rìa
+        opened = cv2.dilate(opened, np.ones((3,3), np.uint8), iterations=1)
 
         # 6. TÌM HÌNH TRÒN (Hough Circles) - Ưu tiên hàng đầu nếu có
         gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)

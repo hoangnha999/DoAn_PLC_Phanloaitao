@@ -1146,7 +1146,7 @@ class CameraWindow:
         self.lbl_view1 = tk.Label(rf, text="📷  CAMERA (COLOR)",
                                   font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
         self.lbl_view1.pack(anchor="w", padx=6, pady=(4, 0))
-        self.canvas = tk.Canvas(rf, width=850, height=240,
+        self.canvas = tk.Canvas(rf, width=640, height=280,
                                 bg="#000000", highlightthickness=1, highlightbackground="#CBD5E1")
         self.canvas.pack(padx=4, pady=(0, 2))
 
@@ -1154,7 +1154,7 @@ class CameraWindow:
         self.lbl_view2 = tk.Label(rf, text="🔲  MACHINE VISION (DEPTH MAP / GRAYSCALE)",
                                   font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
         self.lbl_view2.pack(anchor="w", padx=6, pady=(2, 0))
-        self.canvas_gray = tk.Canvas(rf, width=850, height=240,
+        self.canvas_gray = tk.Canvas(rf, width=640, height=280,
                                      bg="#000000", highlightthickness=1, highlightbackground="#CBD5E1")
         self.canvas_gray.pack(padx=4, pady=(0, 4))
         
@@ -1356,32 +1356,37 @@ class CameraWindow:
             self.last_buffer_time = current_time
             self.canvas.after(0, self._update_snapshot_gallery, None, self.frame_to_save.copy())
             
-        color_res = cv2.resize(frame, (850, 240))
+        # ─── HIỂN THỊ LÊN CANVAS ───
+        # Kích thước canvas mới để giảm biến dạng ảnh
+        cw, ch = 640, 280
+        color_res = cv2.resize(frame, (cw, ch))
         color_rgb = cv2.cvtColor(color_res, cv2.COLOR_BGR2RGB)
         
+        # Xử lý frame thứ 2 (Machine Vision)
         if is_astra and depth_colormap is not None:
-            gray_res = cv2.cvtColor(color_res, cv2.COLOR_BGR2GRAY)
-            gray_rgb = cv2.cvtColor(gray_res, cv2.COLOR_GRAY2RGB)
-            _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
-            binary_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+            # Nếu dùng Astra, hiển thị bản đồ độ sâu (Depth Map) ở khung dưới
+            f2_raw = cv2.resize(depth_colormap, (cw, ch))
+            f2_rgb = cv2.cvtColor(f2_raw, cv2.COLOR_BGR2RGB)
         else:
+            # Nếu dùng webcam thường, hiển thị theo chế độ chọn
             gray_res = cv2.cvtColor(color_res, cv2.COLOR_BGR2GRAY)
-            gray_rgb = cv2.cvtColor(gray_res, cv2.COLOR_GRAY2RGB)
-            _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
-            binary_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+            if self.view_mode_var.get() == "Color & Binary":
+                _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
+                f2_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+            elif self.view_mode_var.get() == "Color & BG Removal":
+                fg_mask = self.analyzer.get_foreground_mask(color_res)
+                f2_rgb = cv2.cvtColor(fg_mask, cv2.COLOR_GRAY2RGB)
+            else:
+                f2_rgb = cv2.cvtColor(gray_res, cv2.COLOR_GRAY2RGB)
             
-        fg_mask = self.analyzer.get_foreground_mask(color_res)
-        fg_rgb = cv2.cvtColor(fg_mask, cv2.COLOR_GRAY2RGB)
-        
         mode = self.view_mode_var.get()
-        if mode == "Color & Gray":
-            f1_rgb, f2_rgb = color_rgb, gray_rgb
-        elif mode == "Color & Binary":
-            f1_rgb, f2_rgb = color_rgb, binary_rgb
-        elif mode == "Color & BG Removal":
-            f1_rgb, f2_rgb = color_rgb, fg_rgb
-        else: 
-            f1_rgb, f2_rgb = gray_rgb, binary_rgb
+        if mode == "Gray & Binary":
+            gray_res = cv2.cvtColor(color_res, cv2.COLOR_BGR2GRAY)
+            f1_rgb = cv2.cvtColor(gray_res, cv2.COLOR_GRAY2RGB)
+            _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
+            f2_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+        else:
+            f1_rgb = color_rgb
             
         imgtk1 = ImageTk.PhotoImage(image=Image.fromarray(f1_rgb))
         imgtk2 = ImageTk.PhotoImage(image=Image.fromarray(f2_rgb))
