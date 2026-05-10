@@ -306,9 +306,9 @@ class CameraWindow:
     ]
 
     GRADE_CFG = {
-        "GOOD":   {"label": "GOOD",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 & TC2 đều GOOD (≥80% & ≥75mm)"},
-        "MEDIUM": {"label": "MEDIUM", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "Có MEDIUM (60-80% hoặc 60-75mm)"},
-        "BAD":    {"label": "BAD",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "Chỉ cần 1 cái BAD (<60% hoặc <60mm)"},
+        "GOOD":   {"label": "GOOD",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 & TC2 đều GOOD (≥50% & ≥35mm)"},
+        "MEDIUM": {"label": "MEDIUM", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "Có MEDIUM (30-50% hoặc 20-35mm)"},
+        "BAD":    {"label": "BAD",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "Chỉ cần 1 cái BAD (<30% hoặc <20mm)"},
     }
 
     # Địa chỉ Merker PLC S7-1200 (1214C)
@@ -335,6 +335,7 @@ class CameraWindow:
         self.plc = PLCManager()
         self._plc_poll_id   = None
         self._count_vars    = {}
+        self._percent_vars  = {}
 
         # ── Quản lý Trang & Menu ──
         self.sidebar_visible = False
@@ -385,15 +386,23 @@ class CameraWindow:
         if not hasattr(self, 'win') or not self.win.winfo_exists(): return
         try:
             stats = self.db.get_stats()
+            total = stats["TOTAL"]
+            
             for grade in ["GOOD", "MEDIUM", "BAD"]:
                 if grade in getattr(self, "_count_vars", {}):
-                    self._count_vars[grade].set(str(stats[grade]))
+                    count = stats[grade]
+                    self._count_vars[grade].set(str(count))
+                    
+                    # Cập nhật % từng loại
+                    if grade in getattr(self, "_percent_vars", {}):
+                        p = (count / total * 100) if total > 0 else 0
+                        self._percent_vars[grade].set(f"({p:.1f}%)")
                     
             if hasattr(self, '_total_var'):
-                self._total_var.set(str(stats["TOTAL"]))
+                self._total_var.set(str(total))
                 
-            if stats["TOTAL"] > 0:
-                y_rate = (stats["GOOD"] / stats["TOTAL"]) * 100
+            if total > 0:
+                y_rate = (stats["GOOD"] / total) * 100
                 if hasattr(self, '_yield_var'):
                     self._yield_var.set(f"{y_rate:.1f}%")
         except Exception as e:
@@ -1059,14 +1068,14 @@ class CameraWindow:
 
         # ── TC2: Kích thước quả ──
         tc2_frame = tk.Frame(criteria_frame, bg="#F0F4F8")
-        tc2_frame.pack(fill="x", pady=(0, 2))
+        tc2_frame.pack(fill="x", pady=(0, 0))
 
         tk.Label(tc2_frame, text="TC2  KÍCH THƯỚC QUẢ",
-                 font=("Arial", 9, "bold"), fg="#E65100", bg="#F0F4F8").pack(anchor="w")
+                 font=("Arial", 8, "bold"), fg="#E65100", bg="#F0F4F8").pack(anchor="w")
 
         # Thanh tiến trình TC2 (kích thước)
         self._tc2_progress = ttk.Progressbar(tc2_frame, length=260, mode='determinate', maximum=120)
-        self._tc2_progress.pack(fill="x", pady=(2, 0))
+        self._tc2_progress.pack(fill="x", pady=(1, 0))
 
         tc2_detail = tk.Frame(tc2_frame, bg="#F0F4F8")
         tc2_detail.pack(fill="x")
@@ -1077,43 +1086,63 @@ class CameraWindow:
 
         self._tc2_grade_var = tk.StringVar(value="---")
         self._tc2_grade_lbl = tk.Label(tc2_detail, textvariable=self._tc2_grade_var,
-                 font=("Arial", 9, "bold"), fg="#616161", bg="#F0F4F8")
+                 font=("Arial", 8, "bold"), fg="#616161", bg="#F0F4F8")
         self._tc2_grade_lbl.pack(side="right")
 
         # ═══════════════════════════════════════════════════
         #  THỐNG KÊ 3 HẠNG
         # ═══════════════════════════════════════════════════
 
-        # Thẻ 3 hạng
+        # Thẻ 3 hạng (Tối ưu hóa không gian)
         for grade, cfg in self.GRADE_CFG.items():
             card = tk.Frame(lf, bg=cfg["bg"])
-            card.pack(fill="x", padx=8, pady=2)
-            tk.Label(card, text=f"{cfg['icon']}  {cfg['label']}",
-                     font=("Arial", 11, "bold"), fg=cfg["color"], bg=cfg["bg"],
-                     ).pack(anchor="w", padx=10, pady=(2, 0))
+            card.pack(fill="x", padx=8, pady=1)
             
-            # Dòng chú thích tiêu chí (Mới thêm)
-            tk.Label(card, text=cfg.get("desc", ""),
-                     font=("Arial", 8, "italic"), fg="#94A3B8", bg=cfg["bg"],
-                     ).pack(anchor="w", padx=35, pady=(0, 2))
-
+            # Hàng tiêu đề + Số lượng
+            header_row = tk.Frame(card, bg=cfg["bg"])
+            header_row.pack(fill="x", padx=10, pady=(2, 0))
+            
+            tk.Label(header_row, text=f"{cfg['icon']}  {cfg['label']}",
+                     font=("Arial", 10, "bold"), fg=cfg["color"], bg=cfg["bg"]
+                     ).pack(side="left")
+            
             var = tk.StringVar(value="0")
+            p_var = tk.StringVar(value="(0.0%)")
             self._count_vars[grade] = var
-            tk.Label(card, textvariable=var,
-                     font=("Consolas", 22, "bold"), fg="#FFFFFF", bg=cfg["bg"],
-                     ).pack(anchor="e", padx=14, pady=(0, 2))
+            self._percent_vars[grade] = p_var
+            
+            tk.Label(header_row, textvariable=p_var,
+                     font=("Arial", 8, "bold"), fg="#94A3B8", bg=cfg["bg"]
+                     ).pack(side="right", padx=(0, 5))
+            
+            tk.Label(header_row, textvariable=var,
+                     font=("Consolas", 16, "bold"), fg="#FFFFFF", bg=cfg["bg"]
+                     ).pack(side="right")
+            
+            # Dòng chú thích tiêu chí
+            tk.Label(card, text=cfg.get("desc", ""),
+                     font=("Arial", 7, "italic"), fg="#94A3B8", bg=cfg["bg"],
+                     ).pack(anchor="w", padx=30, pady=(0, 2))
 
-        # Tổng
-        tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=3)
-        total_card = tk.Frame(lf, bg="#F8FAFC")
-        total_card.pack(fill="x", padx=8)
-        tk.Label(total_card, text="TỔNG SỐ",
-                 font=("Arial", 10, "bold"), fg="#475569", bg="#F8FAFC",
-                 ).pack(pady=(2, 0))
+        # ── TỔNG HỢP & HIỆU SUẤT ──
+        tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=4)
+        
+        summary_frame = tk.Frame(lf, bg="#FFFFFF")
+        summary_frame.pack(fill="x", padx=8, pady=2)
+        
+        # Ô Tổng số
+        total_card = tk.Frame(summary_frame, bg="#F8FAFC", bd=1, relief="groove")
+        total_card.pack(side="left", fill="both", expand=True, padx=(0, 4))
+        tk.Label(total_card, text="TỔNG CỘNG", font=("Arial", 8, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(2, 0))
         self._total_var = tk.StringVar(value="0")
-        tk.Label(total_card, textvariable=self._total_var,
-                 font=("Consolas", 18, "bold"), fg="#0F172A", bg="#F8FAFC",
-                 ).pack(pady=(0, 2))
+        tk.Label(total_card, textvariable=self._total_var, font=("Consolas", 16, "bold"), fg="#0F172A", bg="#F8FAFC").pack(pady=(0, 2))
+        
+        # Ô Tỷ lệ đạt (Yield)
+        yield_card = tk.Frame(summary_frame, bg="#F8FAFC", bd=1, relief="groove")
+        yield_card.pack(side="left", fill="both", expand=True)
+        tk.Label(yield_card, text="TỶ LỆ ĐẠT", font=("Arial", 8, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(2, 0))
+        self._yield_var = tk.StringVar(value="0.0%")
+        tk.Label(yield_card, textvariable=self._yield_var, font=("Consolas", 16, "bold"), fg="#10B981", bg="#F8FAFC").pack(pady=(0, 2))
 
 
 
@@ -1142,26 +1171,41 @@ class CameraWindow:
                                   cursor="hand2", padx=10, command=self._toggle_histogram)
         self.btn_hist.pack(side="left", padx=15)
 
-        # ── Canvas 1 (trên) ──
-        self.lbl_view1 = tk.Label(rf, text="📷  CAMERA (COLOR)",
-                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
-        self.lbl_view1.pack(anchor="w", padx=6, pady=(4, 0))
-        self.canvas = tk.Canvas(rf, width=640, height=280,
-                                bg="#000000", highlightthickness=1, highlightbackground="#CBD5E1")
-        self.canvas.pack(padx=4, pady=(0, 2))
+        # ── Vùng hiển thị Camera (Cân bằng kích thước) ──
+        display_area = tk.Frame(rf, bg="#FFFFFF")
+        display_area.pack(fill="both", expand=True, padx=6, pady=2)
+        display_area.rowconfigure(0, weight=1)
+        display_area.rowconfigure(1, weight=1)
+        display_area.columnconfigure(0, weight=1)
 
-        # ── Canvas 2 (dưới) ──
-        self.lbl_view2 = tk.Label(rf, text="🔲  MACHINE VISION (DEPTH MAP / GRAYSCALE)",
-                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
-        self.lbl_view2.pack(anchor="w", padx=6, pady=(2, 0))
-        self.canvas_gray = tk.Canvas(rf, width=640, height=280,
-                                     bg="#000000", highlightthickness=1, highlightbackground="#CBD5E1")
-        self.canvas_gray.pack(padx=4, pady=(0, 4))
+        # --- Khung hiển thị 1 ---
+        f1 = tk.Frame(display_area, bg="#FFFFFF")
+        f1.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
         
-        # Nút bật 3D Point Cloud
-        self.btn_3d = tk.Button(rf, text="🌌 MỞ POINT CLOUD 3D", font=("Arial", 9, "bold"),
-                                bg="#4F46E5", fg="white", cursor="hand2", pady=4, command=self._show_point_cloud)
-        self.btn_3d.pack(pady=5)
+        self.lbl_view1 = tk.Label(f1, text="📷  CAMERA (COLOR)",
+                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
+        self.lbl_view1.pack(anchor="w")
+        
+        self.canvas = tk.Canvas(f1, bg="#000000", highlightthickness=1, 
+                                highlightbackground="#CBD5E1", cursor="cross")
+        self.canvas.pack(fill="both", expand=True)
+
+        # --- Khung hiển thị 2 ---
+        f2 = tk.Frame(display_area, bg="#FFFFFF")
+        f2.grid(row=1, column=0, sticky="nsew", pady=(0, 2))
+        
+        self.lbl_view2 = tk.Label(f2, text="🔲  MACHINE VISION (DEPTH MAP / GRAYSCALE)",
+                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
+        self.lbl_view2.pack(anchor="w")
+        
+        self.canvas_gray = tk.Canvas(f2, bg="#000000", highlightthickness=1, 
+                                     highlightbackground="#CBD5E1", cursor="cross")
+        self.canvas_gray.pack(fill="both", expand=True)
+        
+        # Nút bật 3D Point Cloud (Thu nhỏ lại một chút để tiết kiệm diện tích)
+        self.btn_3d = tk.Button(rf, text="🌌 MỞ POINT CLOUD 3D", font=("Arial", 8, "bold"),
+                                bg="#4F46E5", fg="white", cursor="hand2", pady=2, command=self._show_point_cloud)
+        self.btn_3d.pack(pady=2)
 
         # ── Frame Snapshot 10 hình (dưới cùng) ──
         tk.Label(rf, text="📸 10 ẢNH GẦN NHẤT (LIVE BUFFER)", font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF").pack(anchor="w", padx=6, pady=(5, 0))
@@ -1205,17 +1249,17 @@ class CameraWindow:
 
     def _draw_placeholder(self):
         self.canvas.delete("all")
-        self.canvas.create_rectangle(0, 0, 850, 240, fill="#0A0A0A")
-        self.canvas.create_text(425, 105, text="📷", font=("Arial", 36), fill="#424242")
-        self.canvas.create_text(425, 155,
+        self.canvas.create_rectangle(0, 0, 1000, 1000, fill="#0A0A0A")
+        self.canvas.create_text(320, 100, text="📷", font=("Arial", 36), fill="#424242")
+        self.canvas.create_text(320, 150,
                                 text="[SYSTEM READY - WAITING FOR CAMERA]",
-                                font=("Consolas", 12), fill="#00E676")
+                                font=("Consolas", 10), fill="#00E676")
         self.canvas_gray.delete("all")
-        self.canvas_gray.create_rectangle(0, 0, 850, 240, fill="#0A0A0A")
-        self.canvas_gray.create_text(425, 105, text="🔲", font=("Arial", 36), fill="#333333")
-        self.canvas_gray.create_text(425, 155,
-                                     text="Ảnh xám sẽ hiển thị khi camera hoạt động",
-                                     font=("Arial", 12), fill="#333344")
+        self.canvas_gray.create_rectangle(0, 0, 1000, 1000, fill="#0A0A0A")
+        self.canvas_gray.create_text(320, 100, text="🔲", font=("Arial", 36), fill="#333333")
+        self.canvas_gray.create_text(320, 150,
+                                     text="Ảnh xử lý sẽ hiển thị tại đây",
+                                     font=("Arial", 10), fill="#333344")
         
         # Đặt lại ID để vẽ frame mới khi bật camera
         self.img_id_color = None
@@ -1357,8 +1401,12 @@ class CameraWindow:
             self.canvas.after(0, self._update_snapshot_gallery, None, self.frame_to_save.copy())
             
         # ─── HIỂN THỊ LÊN CANVAS ───
-        # Kích thước canvas mới để giảm biến dạng ảnh
-        cw, ch = 640, 280
+        # Lấy kích thước thực tế của canvas để resize ảnh cho khớp, nếu chưa có thì dùng mặc định
+        cw = self.canvas.winfo_width()
+        ch = self.canvas.winfo_height()
+        
+        if cw < 10 or ch < 10:
+            cw, ch = 640, 240 # Giá trị mặc định an toàn
         color_res = cv2.resize(frame, (cw, ch))
         color_rgb = cv2.cvtColor(color_res, cv2.COLOR_BGR2RGB)
         
@@ -1534,8 +1582,24 @@ class CameraWindow:
         self._count_vars["GOOD"].set(str(good))
         self._count_vars["MEDIUM"].set(str(medium))
         self._count_vars["BAD"].set(str(bad))
+        
         total = good + medium + bad
         self._total_var.set(str(total))
+        
+        # Cập nhật % từng loại
+        if total > 0:
+            for g_name, val in [("GOOD", good), ("MEDIUM", medium), ("BAD", bad)]:
+                if g_name in self._percent_vars:
+                    p = (val / total) * 100
+                    self._percent_vars[g_name].set(f"({p:.1f}%)")
+            
+            y_rate = (good / total) * 100
+            if hasattr(self, '_yield_var'):
+                self._yield_var.set(f"{y_rate:.1f}%")
+        else:
+            for g_name in ["GOOD", "MEDIUM", "BAD"]:
+                if g_name in self._percent_vars: self._percent_vars[g_name].set("(0.0%)")
+            if hasattr(self, '_yield_var'): self._yield_var.set("0.0%")
         
 
 

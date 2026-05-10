@@ -10,39 +10,36 @@ class FruitAnalyzer:
             Đỏ đều → GOOD | Pha trộn → MEDIUM | Xanh/vàng nhiều → BAD
       - Tiêu chí 2 (TC2): Kích cỡ (đường kính mm)
             Đo từ đường viền quả bằng minEnclosingCircle.
-            Lớn (≥75mm) → A | Vừa (55-75mm) → B | Nhỏ (<55mm) → C
+            Lớn (≥35mm) → A | Vừa (20-35mm) → B | Nhỏ (<20mm) → C
 
     Chỉ dùng OpenCV, không cần YOLO hay Deep Learning.
     """
 
     # ─── TC1 - Ngưỡng phân hạng độ chín (% vùng đỏ) ──────────
-    RIPENESS_GOOD_THRESH = 80     # ≥ 80% đỏ → Chín đều (Đỏ đều là tốt nhất)
-    RIPENESS_MEDIUM_THRESH = 60   # 60-80% đỏ → Vừa chín (Giảm dần)
-                                  # < 60% đỏ → Chưa chín (Xanh nhiều)
+    RIPENESS_GOOD_THRESH = 50     # ≥ 50% đỏ → GOOD
+    RIPENESS_MEDIUM_THRESH = 30   # 30-50% đỏ → MEDIUM
+                                  # < 30% đỏ → BAD
 
     # ─── TC2 - Kích thước (đường kính mm) ─────────────────────
-    SIZE_THRESHOLDS = {"large": 75, "medium": 60}
+    SIZE_THRESHOLDS = {"large": 35, "medium": 20}
     PIXEL_TO_MM = 0.09  # Calibrate lại: 1 pixel ~ 0.09mm (kích thước thực tế khoảng 60-80mm)
 
     # ─── Ngưỡng HSV cho táo ĐỎ ────────────────────────────────
-    # Dải ĐỎ 1 (H = 0..12)
-    LOWER_RED1 = np.array([0, 50, 50])
-    UPPER_RED1 = np.array([12, 255, 255])
-    # Dải ĐỎ 2 (H = 155..180, vòng tròn HSV)
-    LOWER_RED2 = np.array([155, 50, 50])
+    # ─── Ngưỡng HSV cho táo ĐỎ & VÀNG (Mở rộng để bắt được mọi loại táo) ─────
+    LOWER_RED1 = np.array([0, 50, 40])
+    UPPER_RED1 = np.array([20, 255, 255])
+    LOWER_RED2 = np.array([160, 40, 40])
     UPPER_RED2 = np.array([180, 255, 255])
-    # Dải VÀNG (H = 13..35)
-    LOWER_YELLOW = np.array([13, 40, 50])
+    LOWER_YELLOW = np.array([21, 40, 40])
     UPPER_YELLOW = np.array([35, 255, 255])
-    # Dải XANH LÁ (H = 36..85)
-    LOWER_GREEN = np.array([36, 30, 40])
-    UPPER_GREEN = np.array([85, 255, 255])
+    LOWER_GREEN = np.array([36, 30, 30])
+    UPPER_GREEN = np.array([95, 255, 255])
 
     # ─── Ngưỡng tách nền (segmentation) ──────────────────────
     MIN_APPLE_AREA_RATIO = 0.02   # Quả táo phải ≥ 2% diện tích ảnh
     DEFECT_DARK_THRESH = 35       # Phải thật sự tối (đen/nâu sẫm) mới tính là vết thâm
-    DEFECT_BAD_RATIO = 8.0        # Vết thâm > 8% diện tích → đánh BAD
-    DEFECT_MEDIUM_RATIO = 2.5     # Vết thâm > 2.5% diện tích → hạ xuống MEDIUM
+    DEFECT_BAD_RATIO = 20.0       # Vết thâm > 20% diện tích mới đánh BAD
+    DEFECT_MEDIUM_RATIO = 10.0      # Vết thâm > 10% diện tích hạ xuống MEDIUM
 
     def __init__(self):
         """Khởi tạo FruitAnalyzer - chế độ xử lý ảnh truyền thống."""
@@ -107,10 +104,11 @@ class FruitAnalyzer:
         mask_red = cv2.bitwise_and(mask_red, apple_mask)
         red_pixels = cv2.countNonZero(mask_red)
 
-        # Đếm pixel VÀNG
+        # Đếm pixel VÀNG và tìm vùng để khoanh
         mask_yellow = cv2.inRange(hsv, self.LOWER_YELLOW, self.UPPER_YELLOW)
         mask_yellow = cv2.bitwise_and(mask_yellow, apple_mask)
         yellow_pixels = cv2.countNonZero(mask_yellow)
+        yellow_cnts, _ = cv2.findContours(mask_yellow, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # Đếm pixel XANH LÁ
         mask_green = cv2.inRange(hsv, self.LOWER_GREEN, self.UPPER_GREEN)
@@ -178,7 +176,7 @@ class FruitAnalyzer:
             frame, main_contour, cx, cy, radius_px,
             red_ratio, yellow_ratio, green_ratio,
             ripeness_label, size_label, diameter_mm,
-            grade, defect_area
+            grade, defect_area, yellow_cnts=yellow_cnts
         )
 
         # ══════════════════════════════════════════════
@@ -213,18 +211,18 @@ class FruitAnalyzer:
         # Tiền xử lý
         blurred = cv2.GaussianBlur(frame, (9, 9), 0)
         
-        # 1. MASK MÀU SẮC (HSV) - Cải tiến dải màu
-        # 1. MASK MÀU TÁO (HSV - Đỏ, Hồng, Cam, Vàng)
+        # 1. MASK MÀU TÁO (HSV - Kết hợp Đỏ tươi, Đỏ thẫm, Hồng, Cam, Vàng)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-        # Kết hợp nhiều dải màu để bắt được cả táo đỏ nhạt, táo hồng
-        mask_apple_colors = cv2.add(
-            cv2.inRange(hsv, (0, 50, 40), (20, 255, 255)),   # Đỏ tươi, Cam
-            cv2.inRange(hsv, (160, 40, 40), (180, 255, 255)) # Đỏ thẫm, Hồng
-        )
-        mask_apple_colors = cv2.add(mask_apple_colors, cv2.inRange(hsv, (21, 40, 40), (35, 255, 255))) # Vàng
+        
+        mask_r1 = cv2.inRange(hsv, self.LOWER_RED1, self.UPPER_RED1)
+        mask_r2 = cv2.inRange(hsv, self.LOWER_RED2, self.UPPER_RED2)
+        mask_y  = cv2.inRange(hsv, self.LOWER_YELLOW, self.UPPER_YELLOW)
+        
+        # Tổng hợp các dải màu ấm
+        mask_apple_colors = cv2.bitwise_or(mask_r1, cv2.bitwise_or(mask_r2, mask_y))
 
-        # 2. LOẠI BỎ MÀU XANH LÁ (Nếu có băng chuyền)
-        mask_green = cv2.inRange(hsv, (36, 30, 30), (95, 255, 255))
+        # 2. LOẠI BỎ MÀU XANH LÁ (Băng chuyền hoặc lá cây)
+        mask_green = cv2.inRange(hsv, self.LOWER_GREEN, self.UPPER_GREEN)
         mask_not_green = cv2.bitwise_not(mask_green)
 
         # 3. LOẠI BỎ BÓNG TỐI & VÙNG QUÁ TỐI (LAB Lightness)
@@ -349,7 +347,7 @@ class FruitAnalyzer:
     def _draw_results(self, frame, contour, cx, cy, radius_px,
                       red_r, yellow_r, green_r,
                       ripeness_label, size_label, diameter_mm,
-                      grade, defect_area):
+                      grade, defect_area, yellow_cnts=None):
         """Vẽ kết quả phân tích lên khung hình."""
         res = frame.copy()
         h_f, w_f = res.shape[:2]
@@ -360,6 +358,10 @@ class FruitAnalyzer:
 
         # Vẽ đường viền quả táo
         cv2.drawContours(res, [contour], -1, color, 2)
+
+        # Vẽ khoanh vùng màu vàng (nếu có)
+        if yellow_cnts:
+            cv2.drawContours(res, yellow_cnts, -1, (0, 255, 255), 1)
 
         # Vẽ vòng tròn bao quanh (thể hiện kích cỡ)
         cv2.circle(res, (int(cx), int(cy)), int(radius_px), (255, 255, 0), 2)
