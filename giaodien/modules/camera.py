@@ -105,7 +105,8 @@ class CameraManager:
                     break
             
             if self.on_frame_callback and self._cam_running:
-                self.on_frame_callback(frame.copy(), is_astra=False, depth_colormap=None)
+                # Đối với camera thường hoặc file, raw_depth = None
+                self.on_frame_callback(frame.copy(), is_astra=False, depth_colormap=None, raw_depth=None)
 
     def start_astra_camera(self, color_idx_preference):
         self.stop()
@@ -183,7 +184,7 @@ class CameraManager:
                     cv2.putText(depth_colormap, "NEAR", (x1 - 42, y1 + bar_h), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 
                 if self.on_frame_callback and self._cam_running:
-                    self.on_frame_callback(color_img, is_astra=True, depth_colormap=depth_colormap)
+                    self.on_frame_callback(color_img, is_astra=True, depth_colormap=depth_colormap, raw_depth=depth_img.copy())
             except Exception as e:
                 if "OniStatus.ONI_STATUS_TIME_OUT" not in str(e):
                     self._log(f"Astra Error: {e}")

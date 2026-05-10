@@ -15,7 +15,7 @@ from Processing.analyzer import FruitAnalyzer
 from modules.database import AppDatabase
 from modules.plc import PLCManager
 from modules.camera import CameraManager
-from modules.visualizer import DataVisualizer
+
 
 
 class FruitClassificationApp:
@@ -306,9 +306,9 @@ class CameraWindow:
     ]
 
     GRADE_CFG = {
-        "GOOD":   {"label": "GOOD",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 & TC2 đều GOOD (≥50% & ≥35mm)"},
-        "MEDIUM": {"label": "MEDIUM", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "Có MEDIUM (30-50% hoặc 20-35mm)"},
-        "BAD":    {"label": "BAD",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "Chỉ cần 1 cái BAD (<30% hoặc <20mm)"},
+        "GOOD":   {"label": "GOOD",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 (≥80%) & TC2 (≥30mm)"},
+        "MEDIUM": {"label": "MEDIUM", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "TC1 (60-79%) hoặc TC2 (20-29mm)"},
+        "BAD":    {"label": "BAD",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "TC1 (<60%) hoặc TC2 (<20mm)"},
     }
 
     # Địa chỉ Merker PLC S7-1200 (1214C)
@@ -339,7 +339,12 @@ class CameraWindow:
 
         # ── Quản lý Trang & Menu ──
         self.sidebar_visible = False
-        self.current_page = "PHANLOAI" # Mặc định trang phân loại
+        self.current_page = "PHANLOAI" 
+        
+        # ── Biến cấu hình hệ thống (Có thể chỉnh sửa từ UI) ──
+        self.cfg_smooth_frames = tk.StringVar(value="10")
+        self.cfg_analysis_ms = tk.StringVar(value="100")
+        self._last_analysis_time = 0
 
         self.win = tk.Toplevel(parent)
         self.win.title("Hệ thống phân loại hạng chất lượng trái cây")
@@ -358,7 +363,6 @@ class CameraWindow:
         self.current_grade = "UNKNOWN"
         self._refresh_stats_ui() # Tải thống kê từ CSDL cũ (nếu có)
         self._build_ui()
-
         self._log_event("Hệ thống Vision đã khởi động.", "INFO")
         
         # Thẻ để Windows nhận diện là một ứng dụng riêng biệt trên Taskbar (quan trọng cho cửa sổ borderless)
@@ -685,7 +689,6 @@ class CameraWindow:
         menu_items = [
             ("📊  PHÂN LOẠI", "PHANLOAI"),
             ("🖼️  10 ẢNH GẦN NHẤT", "GALLERY"),
-            ("📈  BIỂU ĐỒ THỐNG KÊ", "STATS"),
             ("⚙️  CÀI ĐẶT", "SETTING"),
             ("📂  LỊCH SỬ SQL", "HISTORY")
         ]
@@ -700,9 +703,7 @@ class CameraWindow:
 
     def _show_page(self, page_id):
         """Chuyển đổi giữa các trang."""
-        if page_id == "STATS":
-            self._show_stats_dashboard()
-            return
+
         
         self.current_page = page_id
         
@@ -732,27 +733,7 @@ class CameraWindow:
         if self.sidebar_visible:
             self._toggle_sidebar()
 
-    def _show_stats_dashboard(self):
-        """Lấy dữ liệu từ SQL và hiển thị dashboard biểu đồ."""
-        try:
-            # Lấy toàn bộ lịch sử từ database
-            history = self.db.get_history(limit=1000)
-            if not history:
-                from tkinter import messagebox
-                messagebox.showinfo("Thông báo", "Chưa có dữ liệu lịch sử để vẽ biểu đồ.")
-                return
-            
-            # Chuyển đổi dữ liệu sang dạng list of dict để visualizer dễ xử lý
-            data = []
-            for row in history:
-                data.append({
-                    "grade": row[2],      # Giả định cột 2 là Grade
-                    "diameter_mm": row[3] # Giả định cột 3 là Diameter
-                })
-            
-            DataVisualizer.show_stats_dashboard(data)
-        except Exception as e:
-            print(f"[GUI] Lỗi khi mở dashboard: {e}")
+
 
     def _build_history_page(self):
         """Trang Lịch sử phân loại (SQL Database)."""
@@ -911,10 +892,25 @@ class CameraWindow:
         self.combo_astra_color = ttk.Combobox(cam_box, textvariable=self.astra_color_var, values=self.astra_color_list, state="readonly", width=35)
         self.combo_astra_color.pack(pady=(0, 5), anchor="w")
 
-        # 3. Khác
+        # 3. Cấu hình xử lý ảnh (MỚI CHUYỂN VÀO ĐÂY)
+        proc_box = tk.LabelFrame(container, text=" CẤU HÌNH XỬ LÝ HÌNH ẢNH ", font=("Arial", 10, "bold"),
+                                 fg="#0284C7", bg="#FFFFFF", padx=20, pady=15)
+        proc_box.pack(fill="x", pady=10)
+
+        # Số khung hình mượt
+        tk.Label(proc_box, text="Số khung hình mượt (Smoothing):", bg="#FFFFFF").grid(row=0, column=0, sticky="w", pady=5)
+        tk.Entry(proc_box, textvariable=self.cfg_smooth_frames, width=10, justify="center", font=("Arial", 10, "bold")).grid(row=0, column=1, padx=10)
+
+        # Tốc độ quét
+        tk.Label(proc_box, text="Tốc độ chụp/quét (ms):", bg="#FFFFFF").grid(row=1, column=0, sticky="w", pady=5)
+        tk.Entry(proc_box, textvariable=self.cfg_analysis_ms, width=10, justify="center", font=("Arial", 10, "bold")).grid(row=1, column=1, padx=10)
+
+        # Nút Lưu Cấu Hình
+        tk.Button(proc_box, text="💾 LƯU VÀ CẬP NHẬT CẤU HÌNH", font=("Arial", 9, "bold"), bg="#0EA5E9", fg="white", 
+                  padx=15, command=self._save_system_config).grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="we")
 
         tk.Button(container, text="🔄 RESET BỘ ĐẾM DỮ LIỆU", bg="#3949AB", fg="white", 
-                  font=("Arial", 10, "bold"), pady=8, command=self._reset_counts).pack(fill="x", pady=20)
+                  font=("Arial", 10, "bold"), pady=8, command=self._reset_counts).pack(fill="x", pady=10)
 
     def _build_log_area(self, parent):
         """Khung hiển thị Log."""
@@ -1130,26 +1126,16 @@ class CameraWindow:
         summary_frame = tk.Frame(lf, bg="#FFFFFF")
         summary_frame.pack(fill="x", padx=8, pady=2)
         
-        # Ô Tổng số
+        # Ô Tổng số (Chiếm toàn bộ chiều ngang)
         total_card = tk.Frame(summary_frame, bg="#F8FAFC", bd=1, relief="groove")
-        total_card.pack(side="left", fill="both", expand=True, padx=(0, 4))
-        tk.Label(total_card, text="TỔNG CỘNG", font=("Arial", 8, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(2, 0))
+        total_card.pack(fill="both", expand=True)
+        tk.Label(total_card, text="TỔNG CỘNG", font=("Arial", 9, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(2, 0))
         self._total_var = tk.StringVar(value="0")
-        tk.Label(total_card, textvariable=self._total_var, font=("Consolas", 16, "bold"), fg="#0F172A", bg="#F8FAFC").pack(pady=(0, 2))
-        
-        # Ô Tỷ lệ đạt (Yield)
-        yield_card = tk.Frame(summary_frame, bg="#F8FAFC", bd=1, relief="groove")
-        yield_card.pack(side="left", fill="both", expand=True)
-        tk.Label(yield_card, text="TỶ LỆ ĐẠT", font=("Arial", 8, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(2, 0))
-        self._yield_var = tk.StringVar(value="0.0%")
-        tk.Label(yield_card, textvariable=self._yield_var, font=("Consolas", 16, "bold"), fg="#10B981", bg="#F8FAFC").pack(pady=(0, 2))
+        tk.Label(total_card, textvariable=self._total_var, font=("Consolas", 18, "bold"), fg="#0F172A", bg="#F8FAFC").pack(pady=(0, 2))
 
 
 
-
-
-
-    # ─── Panel phải: camera màu + ảnh xám ─────────────────
+# ─── Panel phải: camera màu + ảnh xám ─────────────────
     def _build_right(self, parent):
         rf = tk.Frame(parent, bg="#FFFFFF", bd=1, relief="ridge")
         rf.pack(side="left", fill="both", expand=True)
@@ -1165,11 +1151,7 @@ class CameraWindow:
         self.view_combo.pack(side="left", padx=5)
         self.view_combo.bind("<<ComboboxSelected>>", self._on_view_mode_change)
 
-        # Nút Histogram
-        self.btn_hist = tk.Button(view_ctrl, text="📊 Xem Histogram", font=("Arial", 9, "bold"),
-                                  fg="#FFFFFF", bg="#0891B2", activebackground="#0E7490", bd=0, 
-                                  cursor="hand2", padx=10, command=self._toggle_histogram)
-        self.btn_hist.pack(side="left", padx=15)
+
 
         # ── Vùng hiển thị Camera (Cân bằng kích thước) ──
         display_area = tk.Frame(rf, bg="#FFFFFF")
@@ -1314,8 +1296,15 @@ class CameraWindow:
         self.combo.config(state="readonly")
         self._draw_placeholder()
 
-    def _on_frame_received(self, frame, is_astra=False, depth_colormap=None):
+    def _on_frame_received(self, frame, is_astra=False, depth_colormap=None, raw_depth=None):
         import time
+        # Kiểm tra tốc độ chụp theo cấu hình (Analysis Interval)
+        curr_time = time.time() * 1000 # Convert to ms
+        interval = float(self.cfg_analysis_ms.get() or 100)
+        if curr_time - self._last_analysis_time < interval:
+            return # Bỏ qua frame này để giữ đúng tốc độ chụp yêu cầu
+        
+        self._last_analysis_time = curr_time
         self.frame_to_save = frame.copy()
         
         # Kiểm tra xem đang chạy ảnh tĩnh hay video
@@ -1326,8 +1315,7 @@ class CameraWindow:
             return
         
         try:
-            # Lấy bản đồ độ sâu thô nếu đang dùng Astra Pro để bù trừ kích thước
-            raw_depth = getattr(self.camera, "last_depth_map", None) if is_astra else None
+            # Sử dụng raw_depth được truyền trực tiếp từ CameraManager
             processed_frame, defect_area, ripeness, grade, detail_info = self.analyzer.analyze_apple(frame, depth_frame=raw_depth)
             frame = processed_frame
             self.current_grade = grade
@@ -1385,9 +1373,7 @@ class CameraWindow:
             self.lbl_grading_status.config(text=status_text, fg=color_map_hex.get(grade, "#64748B"))
             self._update_criteria_panels(detail_info)
 
-            # Cập nhật Histogram nếu đang mở
-            if getattr(self, "_show_live_hist", False):
-                self._update_histogram(frame)
+
 
             h_f = frame.shape[0]
             color_map_bgr = {"GOOD": (0, 255, 0), "MEDIUM": (0, 255, 255), "BAD": (0, 0, 255)}
@@ -1630,6 +1616,24 @@ class CameraWindow:
             self.log_text.config(state="disabled")
             self._log_event("🗑️ Đã dọn dẹp khung Log.", "WARNING")
 
+    def _save_system_config(self):
+        """Cập nhật các thông số từ UI vào bộ xử lý."""
+        try:
+            smooth_val = int(self.cfg_smooth_frames.get())
+            # Cập nhật vào analyzer
+            self.analyzer.MAX_HISTORY = smooth_val
+            
+            # Xóa buffer cũ để áp dụng smoothing mới ngay lập tức
+            self.analyzer.history_cx = []
+            self.analyzer.history_cy = []
+            self.analyzer.history_r = []
+            
+            interval = int(self.cfg_analysis_ms.get())
+            self._log_event(f"⚙️ Đã lưu cấu hình: Smoothing={smooth_val} frames, Interval={interval}ms", "SUCCESS")
+            messagebox.showinfo("Thành công", "Đã cập nhật cấu hình hệ thống!")
+        except ValueError:
+            messagebox.showerror("Lỗi", "Vui lòng nhập số nguyên hợp lệ cho các thông số cấu hình!")
+
     # ═══════════════════════════════════════════════════════
     #  ĐÓNG
     # ═══════════════════════════════════════════════════════
@@ -1643,36 +1647,7 @@ class CameraWindow:
             # Thoát toàn bộ ứng dụng
             self.parent.destroy()
 
-    def _toggle_histogram(self):
-        self._show_live_hist = not getattr(self, "_show_live_hist", False)
-        if self._show_live_hist:
-            self._hist_win = tk.Toplevel(self.win)
-            self._hist_win.title("Biểu đồ Histogram Màu")
-            self._hist_win.geometry("500x400")
-            self._hist_canvas_frame = tk.Frame(self._hist_win)
-            self._hist_canvas_frame.pack(fill="both", expand=True)
-            self.btn_hist.config(bg="#EF4444", text="📊 Đóng Histogram")
-        else:
-            if hasattr(self, "_hist_win"):
-                self._hist_win.destroy()
-            self.btn_hist.config(bg="#0891B2", text="📊 Xem Histogram")
 
-    def _update_histogram(self, frame):
-        if not hasattr(self, "_hist_canvas_frame") or not self._hist_canvas_frame.winfo_exists():
-            return
-        
-        # Clear frame
-        for widget in self._hist_canvas_frame.winfo_children():
-            widget.destroy()
-            
-        # Vẽ histogram
-        fig = DataVisualizer.plot_color_histogram(frame)
-        canvas = FigureCanvasTkAgg(fig, master=self._hist_canvas_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-        
-        # Tránh leak memory: giải phóng plot sau khi vẽ
-        plt.close(fig)
 
 
 # ─── Điểm khởi chạy ──────────────────────────────────────────────────

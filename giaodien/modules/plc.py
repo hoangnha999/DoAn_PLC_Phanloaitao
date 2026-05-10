@@ -102,10 +102,19 @@ class PLCManager:
         return False
 
     def reset_grades(self):
-        """Tắt tất cả các bit phân loại."""
+        """Tắt tất cả các bit phân loại (M1.0, M1.1, M1.2) bằng 1 lần ghi duy nhất."""
         if not self.connected:
             return False
-        self.write_bit(self.PLC_GRADE_BYTE, self.PLC_BIT_GOOD, False)
-        self.write_bit(self.PLC_GRADE_BYTE, self.PLC_BIT_MEDIUM, False)
-        self.write_bit(self.PLC_GRADE_BYTE, self.PLC_BIT_BAD, False)
-        return True
+        try:
+            # Đọc byte cấu hình phân loại (M1)
+            data = self.client.read_area(self._s7t.Areas.MK, 0, self.PLC_GRADE_BYTE, 1)
+            # Tắt 3 bit GOOD, MEDIUM, BAD
+            self._snap7_lib.util.set_bool(data, 0, self.PLC_BIT_GOOD, False)
+            self._snap7_lib.util.set_bool(data, 0, self.PLC_BIT_MEDIUM, False)
+            self._snap7_lib.util.set_bool(data, 0, self.PLC_BIT_BAD, False)
+            # Ghi lại 1 lần duy nhất để tối ưu tốc độ
+            self.client.write_area(self._s7t.Areas.MK, 0, self.PLC_GRADE_BYTE, data)
+            return True
+        except Exception as e:
+            print(f"[PLC] Lỗi reset phân loại: {e}")
+            return False

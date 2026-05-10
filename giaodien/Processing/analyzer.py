@@ -16,24 +16,29 @@ class FruitAnalyzer:
     """
 
     # ─── TC1 - Ngưỡng phân hạng độ chín (% vùng đỏ) ──────────
-    RIPENESS_GOOD_THRESH = 50     # ≥ 50% đỏ → GOOD
-    RIPENESS_MEDIUM_THRESH = 30   # 30-50% đỏ → MEDIUM
-                                  # < 30% đỏ → BAD
+    RIPENESS_GOOD_THRESH = 80     # ≥ 80% đỏ → GOOD
+    RIPENESS_MEDIUM_THRESH = 60   # 60-79% đỏ → MEDIUM
+                                  # < 60% đỏ → BAD
 
     # ─── TC2 - Kích thước (đường kính mm) ─────────────────────
-    SIZE_THRESHOLDS = {"large": 35, "medium": 20}
-    PIXEL_TO_MM = 0.09  # Calibrate lại: 1 pixel ~ 0.09mm (kích thước thực tế khoảng 60-80mm)
+    SIZE_THRESHOLDS = {"large": 30, "medium": 20}
+    # Tăng từ 0.09 lên 0.32 để táo hiện ~65-75mm khi dùng webcam/không có depth
+    PIXEL_TO_MM = 0.32  
+    
+    # Thông số tiêu cự (Focal Length) của Astra Pro (xấp xỉ cho 640x480)
+    # Dùng để tính: Kích_thước_thật = (Kích_thước_pixel * Khoảng_cách) / Tiêu_cự_pixel
+    H_FOCAL_LENGTH = 570.0 
 
     # ─── Ngưỡng HSV cho táo ĐỎ ────────────────────────────────
-    # ─── Ngưỡng HSV cho táo ĐỎ & VÀNG (Mở rộng để bắt được mọi loại táo) ─────
-    LOWER_RED1 = np.array([0, 50, 40])
-    UPPER_RED1 = np.array([20, 255, 255])
-    LOWER_RED2 = np.array([160, 40, 40])
+    # ─── Ngưỡng HSV cho táo ĐỎ & VÀNG (Cân bằng lại để bắt nhạy hơn) ─────
+    LOWER_RED1 = np.array([0, 65, 40])
+    UPPER_RED1 = np.array([15, 255, 255])
+    LOWER_RED2 = np.array([160, 65, 40])
     UPPER_RED2 = np.array([180, 255, 255])
-    LOWER_YELLOW = np.array([21, 40, 40])
-    UPPER_YELLOW = np.array([35, 255, 255])
-    LOWER_GREEN = np.array([36, 30, 30])
-    UPPER_GREEN = np.array([95, 255, 255])
+    LOWER_YELLOW = np.array([17, 75, 40])
+    UPPER_YELLOW = np.array([32, 255, 255])
+    LOWER_GREEN = np.array([35, 40, 30])
+    UPPER_GREEN = np.array([90, 255, 255])
 
     # ─── Ngưỡng tách nền (segmentation) ──────────────────────
     MIN_APPLE_AREA_RATIO = 0.02   # Quả táo phải ≥ 2% diện tích ảnh
@@ -59,6 +64,7 @@ class FruitAnalyzer:
         print(f"[ANALYZER]    TC2: Kích cỡ (≥{self.SIZE_THRESHOLDS['large']}mm→A, "
               f"≥{self.SIZE_THRESHOLDS['medium']}mm→B, còn lại→C)")
 
+
     # ═══════════════════════════════════════════════════════════
     #  HÀM PHÂN TÍCH CHÍNH
     # ═══════════════════════════════════════════════════════════
@@ -83,7 +89,8 @@ class FruitAnalyzer:
         h_img, w_img = frame.shape[:2]
 
         # ── BƯỚC 1: Tách quả táo khỏi nền ──
-        apple_mask, main_contour = self._segment_apple(frame)
+        # Truyền thêm depth_frame để lọc 3D nếu có
+        apple_mask, main_contour = self._segment_apple(frame, depth_frame)
 
         if apple_mask is None or main_contour is None:
             return frame, 0, 0, "NO_APPLE", empty_detail
@@ -139,17 +146,33 @@ class FruitAnalyzer:
         diameter_px = radius_px * 2
 
         # Tính toán mm (Ưu tiên dùng Depth nếu có Astra Pro)
+        dist_mm_debug = 0
+        used_3d = False
+        
         if depth_frame is not None:
-            # Lấy khoảng cách tại tâm quả táo (mm)
-            dist_mm = depth_frame[int(cy), int(cx)]
-            if dist_mm > 0:
-                # Công thức: Real_Size = (Pixel_Size * Distance) / Focal_Length
-                # Hệ số 0.0015 là hằng số tiêu cự giả định cho Astra Pro, cần tinh chỉnh
-                diameter_mm = diameter_px * dist_mm * 0.0015 
-            else:
+            # Astra Pro Depth và RGB thường có độ lệch.
+            # Thay vì lấy 1 điểm, ta lấy trung bình của toàn bộ vùng quả táo để tăng độ chính xác
+            try:
+                # Đảm bảo depth_frame và apple_mask cùng kích thước
+                if depth_frame.shape[:2] != apple_mask.shape[:2]:
+                    depth_frame = cv2.resize(depth_frame, (w_img, h_img), interpolation=cv2.INTER_NEAREST)
+                
+                # Chỉ lấy các điểm có chiều sâu > 0 bên trong quả táo
+                valid_mask = cv2.bitwise_and(apple_mask, (depth_frame > 0).astype(np.uint8) * 255)
+                
+                # Lấy giá trị các điểm chiều sâu hợp lệ bên trong vùng táo
+                vals = depth_frame[valid_mask > 0]
+                
+                if len(vals) > 50: # Cần ít nhất 50 điểm để tin cậy
+                    dist_mm = np.median(vals)
+                    dist_mm_debug = dist_mm
+                    used_3d = True
+                    diameter_mm = (diameter_px * dist_mm) / self.H_FOCAL_LENGTH
+                else:
+                    diameter_mm = diameter_px * self.PIXEL_TO_MM
+            except:
                 diameter_mm = diameter_px * self.PIXEL_TO_MM
         else:
-            # Nếu dùng Webcam thường: Dùng hệ số Calib cố định
             diameter_mm = diameter_px * self.PIXEL_TO_MM
 
         size_label, size_grade = self._classify_size(diameter_mm)
@@ -176,7 +199,8 @@ class FruitAnalyzer:
             frame, main_contour, cx, cy, radius_px,
             red_ratio, yellow_ratio, green_ratio,
             ripeness_label, size_label, diameter_mm,
-            grade, defect_area, yellow_cnts=yellow_cnts
+            grade, defect_area, yellow_cnts=yellow_cnts,
+            dist_mm=dist_mm_debug, used_3d=used_3d
         )
 
         # ══════════════════════════════════════════════
@@ -196,30 +220,40 @@ class FruitAnalyzer:
 
         return res_frame, defect_area, red_ratio, grade, detail_info
 
-    def _segment_apple(self, frame):
+    def _segment_apple(self, frame, depth_frame=None):
         """
-        THUẬT TOÁN TỔNG HỢP (Consensus Master Algorithm):
-        Kết hợp ưu điểm của tất cả các thuật toán phổ biến trên mạng:
-        1. YCrCb: Kênh Cr cực kỳ nhạy với màu Đỏ, giúp tách táo khỏi nền nâu/trắng.
-        2. HSV: Lọc màu sắc đa dạng (Đỏ, Vàng, Xanh).
-        3. Saturation: Loại bỏ hoàn toàn các vùng xỉn màu (nền, bóng đổ).
-        4. Geometric Scoring: Chấm điểm dựa trên độ tròn và diện tích.
+        THUẬT TOÁN TỔNG HỢP (Consensus Master Algorithm) cải tiến:
+        - Sử dụng Depth Map để loại bỏ nền 3D.
+        - Sử dụng Màu lấy mẫu (Sampling) để tự thích nghi ánh sáng.
         """
         h, w = frame.shape[:2]
         min_area = h * w * self.MIN_APPLE_AREA_RATIO
 
         # Tiền xử lý
         blurred = cv2.GaussianBlur(frame, (9, 9), 0)
-        
-        # 1. MASK MÀU TÁO (HSV - Kết hợp Đỏ tươi, Đỏ thẫm, Hồng, Cam, Vàng)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
         
+        # 0. MASK CHIỀU SÂU (3D Background Subtraction)
+        # Tôi đã mở rộng toàn bộ dải để bạn có thể cầm táo ở bất kỳ đâu
+        mask_depth = np.ones((h, w), dtype=np.uint8) * 255
+        if depth_frame is not None:
+            try:
+                if depth_frame.shape[:2] != (h, w):
+                    d_res = cv2.resize(depth_frame, (w, h), interpolation=cv2.INTER_NEAREST)
+                else:
+                    d_res = depth_frame
+                # Chỉ loại bỏ các điểm có Depth = 0 (vùng mù)
+                mask_depth = (d_res > 0).astype(np.uint8) * 255
+            except: pass
+
+        # 1. MASK MÀU TÁO (Mặc định - Cân bằng lại)
         mask_r1 = cv2.inRange(hsv, self.LOWER_RED1, self.UPPER_RED1)
         mask_r2 = cv2.inRange(hsv, self.LOWER_RED2, self.UPPER_RED2)
         mask_y  = cv2.inRange(hsv, self.LOWER_YELLOW, self.UPPER_YELLOW)
-        
-        # Tổng hợp các dải màu ấm
         mask_apple_colors = cv2.bitwise_or(mask_r1, cv2.bitwise_or(mask_r2, mask_y))
+            
+        # Kết hợp Màu + Chiều sâu
+        mask_apple_colors = cv2.bitwise_and(mask_apple_colors, mask_depth)
 
         # 2. LOẠI BỎ MÀU XANH LÁ (Băng chuyền hoặc lá cây)
         mask_green = cv2.inRange(hsv, self.LOWER_GREEN, self.UPPER_GREEN)
@@ -277,14 +311,21 @@ class FruitAnalyzer:
             
             # Tính độ đặc (Solidity)
             hull = cv2.convexHull(cnt)
-            solidity = area / cv2.contourArea(hull) if cv2.contourArea(hull) > 0 else 0
+            hull_area = cv2.contourArea(hull)
+            solidity = area / hull_area if hull_area > 0 else 0
             
-            # Score = Diện tích * Độ tròn * Độ đặc
-            score = area * circularity * solidity
+            # Tính tỷ lệ cạnh (Aspect Ratio)
+            x, y, w, h_rect = cv2.boundingRect(cnt)
+            aspect_ratio = float(w) / h_rect
             
-            if circularity > 0.35 and score > max_score:
-                max_score = score
-                best_cnt = cnt
+            # ĐIỀU KIỆN CÂN BẰNG: Tròn > 0.6 và tỷ lệ cạnh hợp lý
+            if circularity > 0.62 and solidity > 0.82 and (0.7 < aspect_ratio < 1.4):
+                # Score = Diện tích (nhưng không được quá to so với ảnh)
+                if area < (h * w * 0.35): # Loại bỏ vật thể chiếm > 35% khung hình
+                    score = area * circularity
+                    if score > max_score:
+                        max_score = score
+                        best_cnt = cnt
 
         if best_cnt is not None:
             hull = cv2.convexHull(best_cnt)
@@ -347,7 +388,8 @@ class FruitAnalyzer:
     def _draw_results(self, frame, contour, cx, cy, radius_px,
                       red_r, yellow_r, green_r,
                       ripeness_label, size_label, diameter_mm,
-                      grade, defect_area, yellow_cnts=None):
+                      grade, defect_area, yellow_cnts=None,
+                      dist_mm=0, used_3d=False):
         """Vẽ kết quả phân tích lên khung hình."""
         res = frame.copy()
         h_f, w_f = res.shape[:2]
@@ -368,8 +410,16 @@ class FruitAnalyzer:
         
         # Hiển thị đường kính trực tiếp lên quả táo
         cv2.line(res, (int(cx - radius_px), int(cy)), (int(cx + radius_px), int(cy)), (255, 255, 0), 2)
-        cv2.putText(res, f"D = {diameter_mm:.1f} mm", (int(cx - 45), int(cy - 10)), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        
+        if used_3d:
+            info_text = f"D = {diameter_mm:.1f} mm (Z={int(dist_mm)}mm)"
+            c_text = (0, 255, 255)
+        else:
+            info_text = f"D = {diameter_mm:.1f} mm (NO DEPTH)"
+            c_text = (0, 165, 255) # Màu cam cảnh báo
+            
+        cv2.putText(res, info_text, (int(cx - 80), int(cy - 15)), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, c_text, 2)
 
         # ── Thông tin TC1 ──
         cv2.putText(res, f"TC1 MAU SAC: {ripeness_label} ({red_r:.1f}% Do)",
