@@ -46,6 +46,12 @@ class FruitAnalyzer:
 
     def __init__(self):
         """Khởi tạo FruitAnalyzer - chế độ xử lý ảnh truyền thống."""
+        # Bộ đệm để làm mượt (Temporal Smoothing) cho đối tượng dao động
+        self.history_cx = []
+        self.history_cy = []
+        self.history_r = []
+        self.MAX_HISTORY = 5 # Số khung hình để lấy trung bình
+        
         # Background Subtractor (cho chức năng tách nền)
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
             history=500, varThreshold=50, detectShadows=False
@@ -59,7 +65,7 @@ class FruitAnalyzer:
     # ═══════════════════════════════════════════════════════════
     #  HÀM PHÂN TÍCH CHÍNH
     # ═══════════════════════════════════════════════════════════
-    def analyze_apple(self, frame):
+    def analyze_apple(self, frame, depth_frame=None):
         """
         Phân tích quả táo đỏ bằng xử lý ảnh truyền thống (HSV).
 
@@ -120,11 +126,32 @@ class FruitAnalyzer:
         ripeness_label, ripeness_grade = self._classify_ripeness(red_ratio)
 
         # ══════════════════════════════════════════════
-        #  TC2: KÍCH CỠ (ĐƯỜNG KÍNH)
+        #  TC2: KÍCH CỠ (ĐƯỜNG KÍNH) + BÙ TRỪ CHIỀU SÂU
         # ══════════════════════════════════════════════
-        (cx, cy), radius_px = cv2.minEnclosingCircle(main_contour)
-        diameter_px = radius_px * 2
-        diameter_mm = diameter_px * self.PIXEL_TO_MM
+        (raw_cx, raw_cy), raw_radius = cv2.minEnclosingCircle(main_contour)
+        
+        # Làm mượt dao động
+        self.history_cx.append(raw_cx); self.history_cy.append(raw_cy); self.history_r.append(raw_radius)
+        if len(self.history_cx) > self.MAX_HISTORY:
+            self.history_cx.pop(0); self.history_cy.pop(0); self.history_r.pop(0)
+            
+        cx = sum(self.history_cx)/len(self.history_cx)
+        cy = sum(self.history_cy)/len(self.history_cy)
+        radius_px = sum(self.history_r)/len(self.history_r)
+
+        # Tính toán mm (Ưu tiên dùng Depth nếu có Astra Pro)
+        if depth_frame is not None:
+            # Lấy khoảng cách tại tâm quả táo (mm)
+            dist_mm = depth_frame[int(cy), int(cx)]
+            if dist_mm > 0:
+                # Công thức: Real_Size = (Pixel_Size * Distance) / Focal_Length
+                # Hệ số 0.0015 là hằng số tiêu cự giả định cho Astra Pro, cần tinh chỉnh
+                diameter_mm = (radius_px * 2) * dist_mm * 0.0015 
+            else:
+                diameter_mm = (radius_px * 2) * self.PIXEL_TO_MM
+        else:
+            # Nếu dùng Webcam thường: Dùng hệ số Calib cố định
+            diameter_mm = (radius_px * 2) * self.PIXEL_TO_MM
 
         size_label, size_grade = self._classify_size(diameter_mm)
 
@@ -186,33 +213,31 @@ class FruitAnalyzer:
         blurred = cv2.GaussianBlur(frame, (9, 9), 0)
         
         # 1. MASK MÀU SẮC (HSV) - Cải tiến dải màu
+        # 1. MASK MÀU TÁO (HSV - Đỏ, Hồng, Cam, Vàng)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-        mask_hsv = cv2.add(
-            cv2.add(cv2.inRange(hsv, (0, 50, 50), (15, 255, 255)), cv2.inRange(hsv, (155, 50, 50), (180, 255, 255))),
-            cv2.add(cv2.inRange(hsv, (16, 40, 50), (35, 255, 255)), cv2.inRange(hsv, (36, 30, 40), (90, 255, 255)))
+        # Kết hợp nhiều dải màu để bắt được cả táo đỏ nhạt, táo hồng
+        mask_apple_colors = cv2.add(
+            cv2.inRange(hsv, (0, 50, 40), (20, 255, 255)),   # Đỏ tươi, Cam
+            cv2.inRange(hsv, (160, 40, 40), (180, 255, 255)) # Đỏ thẫm, Hồng
         )
+        mask_apple_colors = cv2.add(mask_apple_colors, cv2.inRange(hsv, (21, 40, 40), (35, 255, 255))) # Vàng
 
-        # 2. MASK ĐỎ (YCrCb) - Cr channel là "vũ khí bí mật" để tách táo đỏ
-        ycrcb = cv2.cvtColor(blurred, cv2.COLOR_BGR2YCrCb)
-        Cr = ycrcb[:, :, 1]
-        _, mask_cr = cv2.threshold(Cr, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        # 2. LOẠI BỎ MÀU XANH LÁ (Nếu có băng chuyền)
+        mask_green = cv2.inRange(hsv, (36, 30, 30), (95, 255, 255))
+        mask_not_green = cv2.bitwise_not(mask_green)
 
-        # 3. MASK ĐỘ RỰC (Saturation) - Táo luôn rực rỡ hơn nền
-        S = hsv[:, :, 1]
-        _, mask_sat = cv2.threshold(S, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        # 3. LOẠI BỎ BÓNG TỐI & VÙNG QUÁ TỐI (LAB Lightness)
+        lab = cv2.cvtColor(blurred, cv2.COLOR_BGR2LAB)
+        _, mask_bright = cv2.threshold(lab[:, :, 0], 85, 255, cv2.THRESH_BINARY) 
 
-        # 4. KẾT HỢP (Consensus): Pixel phải thỏa mãn cả 3 tiêu chí
-        # Điều này giúp loại bỏ 99% nhiễu từ băng chuyền nâu và mặt bàn trắng
-        combined = cv2.bitwise_and(mask_hsv, cv2.bitwise_and(mask_cr, mask_sat))
+        # 4. KẾT HỢP TỔNG LỰC (Hybrid Consensus)
+        # Ưu tiên màu táo, nhưng phải đủ sáng và không phải màu xanh băng chuyền
+        combined = cv2.bitwise_and(mask_apple_colors, cv2.bitwise_and(mask_not_green, mask_bright))
 
         # 5. LÀM SẠCH (Morphology)
-        # Nối liền các lỗ trống và cắt đứt cuống táo
-        kernel_clean = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
-        combined = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel_clean)
-        
-        # Kernel 31x31 để loại bỏ cuống và nhiễu mảnh
-        kernel_stem = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
-        opened = cv2.morphologyEx(combined, cv2.MORPH_OPEN, kernel_stem)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+        closed = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel, iterations=2)
+        opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel, iterations=1)
 
         # 6. TÌM HÌNH TRÒN (Hough Circles) - Ưu tiên hàng đầu nếu có
         gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)

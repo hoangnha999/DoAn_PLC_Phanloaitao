@@ -1282,7 +1282,9 @@ class CameraWindow:
             return
         
         try:
-            processed_frame, defect_area, ripeness, grade, detail_info = self.analyzer.analyze_apple(frame)
+            # Lấy bản đồ độ sâu thô nếu đang dùng Astra Pro để bù trừ kích thước
+            raw_depth = getattr(self.camera, "last_depth_map", None) if is_astra else None
+            processed_frame, defect_area, ripeness, grade, detail_info = self.analyzer.analyze_apple(frame, depth_frame=raw_depth)
             frame = processed_frame
             self.current_grade = grade
             self.current_diameter = detail_info.get('diameter_mm', 0)
