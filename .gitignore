@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Database & History
+*.db
+giaodien/history_images/
+*.log
+analyzer_log.txt
+
+# OS
+.DS_Store
+Thumbs.db
