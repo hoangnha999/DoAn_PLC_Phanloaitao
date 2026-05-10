@@ -37,23 +37,30 @@ class AppDatabase:
             print(f"[DB] Lỗi khởi tạo DB: {e}")
 
     def save_record(self, grade, frame_to_save, diameter_mm=0):
-        """Lưu bản ghi phân loại và hình ảnh."""
+        """Lưu bản ghi phân loại và hình ảnh với tên app_x.jpg tăng dần."""
         if grade in ("NO_APPLE", "UNKNOWN", "", None):
             return False, "Không lưu các trạng thái rác", None
             
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19]
-        filename = f"{grade}_{timestamp}.jpg"
-        filepath = os.path.join(self.img_dir, filename)
-        
-        if frame_to_save is not None:
-            cv2.imwrite(filepath, frame_to_save)
-            
         try:
-            t_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # Lấy số thứ tự tiếp theo dựa trên ID hoặc số lượng bản ghi
+                cursor.execute("SELECT COUNT(*) FROM phan_loai_history")
+                next_id = cursor.fetchone()[0] + 1
+                
+                filename = f"app_{next_id}.jpg"
+                filepath = os.path.join(self.img_dir, filename)
+                
+                # Lưu ảnh xuống thư mục
+                if frame_to_save is not None:
+                    cv2.imwrite(filepath, frame_to_save)
+                
+                # Lưu thông tin vào SQL
+                t_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 conn.execute("INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield) VALUES (?, ?, ?, ?, ?)",
                           (t_str, grade, diameter_mm, filepath, ""))
-            return True, f"SQL Saved: [{grade}] ({diameter_mm:.1f}mm) -> {filename}", filepath
+                
+            return True, f"SQL Saved: [{grade}] -> {filename}", filepath
         except Exception as e:
             return False, f"SQL Error: {e}", None
 
