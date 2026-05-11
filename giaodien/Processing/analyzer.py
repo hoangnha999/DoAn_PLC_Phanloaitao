@@ -10,18 +10,24 @@ class FruitAnalyzer:
             Đỏ đều → GOOD | Pha trộn → MEDIUM | Xanh/vàng nhiều → BAD
       - Tiêu chí 2 (TC2): Kích cỡ (đường kính mm)
             Đo từ đường viền quả bằng minEnclosingCircle.
-            Lớn (≥35mm) → A | Vừa (20-35mm) → B | Nhỏ (<20mm) → C
+            Lớn (≥80mm) → A | Vừa (60-80mm) → B | Nhỏ (<60mm) → C
 
     Chỉ dùng OpenCV, không cần YOLO hay Deep Learning.
     """
 
     # ─── TC1 - Ngưỡng phân hạng độ chín (% vùng đỏ) ──────────
     RIPENESS_GOOD_THRESH = 80     # ≥ 80% đỏ → GOOD
-    RIPENESS_MEDIUM_THRESH = 60   # 60-79% đỏ → MEDIUM
+    RIPENESS_MEDIUM_THRESH = 70   # 70-79% đỏ → MEDIUM
                                   # < 60% đỏ → BAD
 
+    # ─── TC3 - Ngưỡng phân hạng hình dáng (Độ tròn) ──────────
+    # Học từ bài báo MDPI 2025: Táo càng tròn giá trị càng cao
+    SHAPE_GOOD_THRESH = 0.88      # Tròn đều → GOOD
+    SHAPE_MEDIUM_THRESH = 0.78    # Hơi méo → MEDIUM
+                                  # < 0.78 → BAD (Méo)
+
     # ─── TC2 - Kích thước (đường kính mm) ─────────────────────
-    SIZE_THRESHOLDS = {"large": 30, "medium": 20}
+    SIZE_THRESHOLDS = {"large": 80, "medium": 60}
     # Tăng từ 0.09 lên 0.32 để táo hiện ~65-75mm khi dùng webcam/không có depth
     PIXEL_TO_MM = 0.32  
     
@@ -48,11 +54,14 @@ class FruitAnalyzer:
 
     def __init__(self):
         """Khởi tạo FruitAnalyzer - chế độ xử lý ảnh truyền thống."""
-        # Bộ đệm để làm mượt (Temporal Smoothing) cho đối tượng dao động
+        # BỘ NHỚ ĐA GÓC NHÌN (Multi-Dimensional View Processing)
+        # Giúp đánh giá quả táo dựa trên mọi góc xoay trên băng chuyền
+        self.MAX_HISTORY = 10 # Số lượng góc nhìn (frames) để ghi nhớ
         self.history_cx = []
         self.history_cy = []
         self.history_r = []
-        self.MAX_HISTORY = 10 # Số khung hình để lấy trung bình
+        self.history_red = []
+        self.history_defect = []
         
         # Background Subtractor (cho chức năng tách nền)
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
@@ -61,9 +70,9 @@ class FruitAnalyzer:
         print("[ANALYZER] ✅ Khởi tạo bộ phân tích truyền thống (HSV + Contour).")
         print(f"[ANALYZER]    TC1: Độ chín đều (Đỏ ≥{self.RIPENESS_GOOD_THRESH}%→GOOD, "
               f"≥{self.RIPENESS_MEDIUM_THRESH}%→MEDIUM, còn lại→BAD)")
-        print(f"[ANALYZER]    TC2: Kích cỡ (≥{self.SIZE_THRESHOLDS['large']}mm→A, "
-              f"≥{self.SIZE_THRESHOLDS['medium']}mm→B, còn lại→C)")
-
+    def _apply_retinex(self, frame):
+        # Đã gỡ bỏ Retinex vì gây nhiễu màu nền
+        return frame
 
     # ═══════════════════════════════════════════════════════════
     #  HÀM PHÂN TÍCH CHÍNH
@@ -93,6 +102,12 @@ class FruitAnalyzer:
         apple_mask, main_contour = self._segment_apple(frame, depth_frame)
 
         if apple_mask is None or main_contour is None:
+            # QUAN TRỌNG: Táo đi qua thì phải xoá bộ nhớ góc nhìn
+            self.history_cx.clear()
+            self.history_cy.clear()
+            self.history_r.clear()
+            self.history_red.clear()
+            self.history_defect.clear()
             return frame, 0, 0, "NO_APPLE", empty_detail
 
         apple_area = cv2.contourArea(main_contour)
@@ -110,6 +125,7 @@ class FruitAnalyzer:
         )
         mask_red = cv2.bitwise_and(mask_red, apple_mask)
         red_pixels = cv2.countNonZero(mask_red)
+        red_cnts, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # Đếm pixel VÀNG và tìm vùng để khoanh
         mask_yellow = cv2.inRange(hsv, self.LOWER_YELLOW, self.UPPER_YELLOW)
@@ -122,18 +138,45 @@ class FruitAnalyzer:
         mask_green = cv2.bitwise_and(mask_green, apple_mask)
         green_pixels = cv2.countNonZero(mask_green)
 
-        # Tính tỉ lệ %
-        red_ratio = (red_pixels / apple_area) * 100 if apple_area > 0 else 0
-        yellow_ratio = (yellow_pixels / apple_area) * 100 if apple_area > 0 else 0
-        green_ratio = (green_pixels / apple_area) * 100 if apple_area > 0 else 0
+        # Tính tổng số pixel màu nhận diện được (Để chuẩn hóa 100%)
+        total_detected = red_pixels + yellow_pixels + green_pixels
+        
+        # Tính tỉ lệ % (Dựa trên tổng vùng màu đã thấy ở khung hình hiện tại)
+        if total_detected > 0:
+            current_red_ratio = (red_pixels / total_detected) * 100
+            yellow_ratio = (yellow_pixels / total_detected) * 100
+            green_ratio = (green_pixels / total_detected) * 100
+        else:
+            current_red_ratio = yellow_ratio = green_ratio = 0
+            
+        # [MULTI-VIEW] Lấy Trung bình tỉ lệ Đỏ qua nhiều góc quay để đánh giá tổng thể bề mặt
+        self.history_red.append(current_red_ratio)
+        if len(self.history_red) > self.MAX_HISTORY: self.history_red.pop(0)
+        red_ratio = sum(self.history_red) / len(self.history_red)
 
-        # Phân hạng TC1
         ripeness_label, ripeness_grade = self._classify_ripeness(red_ratio)
+
+        # ── BỔ SUNG TC3: HÌNH DÁNG (SHAPE) ──
+        # Tính độ tròn của viền thực tế
+        perimeter = cv2.arcLength(main_contour, True)
+        area = cv2.contourArea(main_contour)
+        circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
+        shape_label, shape_grade = self._classify_shape(circularity)
 
         # ══════════════════════════════════════════════
         #  TC2: KÍCH CỠ (ĐƯỜNG KÍNH) + BÙ TRỪ CHIỀU SÂU
         # ══════════════════════════════════════════════
         (raw_cx, raw_cy), raw_radius = cv2.minEnclosingCircle(main_contour)
+        
+        # [AUTO-RESET cho Ảnh tĩnh / Chuyển cảnh đột ngột]
+        # Nếu đang test ảnh tĩnh, quả táo mới có thể nhảy ra ở vị trí khác hẳn quả cũ.
+        # Nếu tọa độ tâm nhảy đột ngột > 100 pixel, hiểu ngay đây là 1 quả táo khác!
+        if self.history_cx and (abs(raw_cx - self.history_cx[-1]) > 100 or abs(raw_cy - self.history_cy[-1]) > 100):
+            self.history_cx.clear()
+            self.history_cy.clear()
+            self.history_r.clear()
+            self.history_red.clear()
+            self.history_defect.clear()
         
         # Làm mượt dao động
         self.history_cx.append(raw_cx); self.history_cy.append(raw_cy); self.history_r.append(raw_radius)
@@ -144,6 +187,7 @@ class FruitAnalyzer:
         cy = sum(self.history_cy)/len(self.history_cy)
         radius_px = sum(self.history_r)/len(self.history_r)
         diameter_px = radius_px * 2
+
 
         # Tính toán mm (Ưu tiên dùng Depth nếu có Astra Pro)
         dist_mm_debug = 0
@@ -178,20 +222,46 @@ class FruitAnalyzer:
         size_label, size_grade = self._classify_size(diameter_mm)
 
         # ══════════════════════════════════════════════
-        #  KIỂM TRA VẾT THÂM / KHUYẾT TẬT
+        #  KIỂM TRA VẾT THÂM ĐA GÓC NHÌN (DEFECT)
         # ══════════════════════════════════════════════
         gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
         _, dark_mask = cv2.threshold(gray, self.DEFECT_DARK_THRESH, 255, cv2.THRESH_BINARY_INV)
         dark_mask = cv2.bitwise_and(dark_mask, apple_mask)
         dark_mask = cv2.morphologyEx(dark_mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-        defect_area = cv2.countNonZero(dark_mask)
+        
+        # -- THUẬT TOÁN ÁNH XẠ BỀ MẶT CẦU 3D (Spherical Surface Mapping) --
+        # Học từ bài báo Foods 2022: Bù đắp diện tích vết thâm bị thu nhỏ ở rìa quả táo
+        y_idx, x_idx = np.nonzero(dark_mask)
+        if len(x_idx) > 0 and radius_px > 0:
+            # Khoảng cách từ tâm quả táo đến các điểm thâm
+            distances = np.sqrt((x_idx - cx)**2 + (y_idx - cy)**2)
+            
+            # Tính hệ số bù (Weight) dựa trên độ cong của hình cầu
+            # Trọng số W = R / sqrt(R^2 - d^2). Cắt ngưỡng để tránh chia 0.
+            R2_minus_d2 = np.clip(radius_px**2 - distances**2, a_min=1.0, a_max=None)
+            weights = radius_px / np.sqrt(R2_minus_d2)
+            weights = np.clip(weights, 1.0, 3.0) # Tối đa nhân x3 diện tích ở rìa để tránh nhiễu
+            
+            current_defect_area = np.sum(weights)
+        else:
+            current_defect_area = 0
+        
+        # [MULTI-VIEW] Vết thâm có thể chỉ nằm ở 1 mặt. 
+        # Vì vậy ta lấy diện tích Vết thâm LỚN NHẤT từng thấy trong các góc quay!
+        self.history_defect.append(current_defect_area)
+        if len(self.history_defect) > self.MAX_HISTORY: self.history_defect.pop(0)
+        defect_area = max(self.history_defect)
+        
         defect_ratio = (defect_area / apple_area) * 100 if apple_area > 0 else 0
 
         # ══════════════════════════════════════════════
-        #  XẾP HẠNG TỔNG HỢP (Ưu tiên Màu sắc đỏ đều)
+        #  XẾP HẠNG TỔNG HỢP (Kết hợp 3 tiêu chí từ bài báo 2025)
         # ══════════════════════════════════════════════
-        grade = self._overall_grade(ripeness_grade, size_grade)
+        grade = self._overall_grade(ripeness_grade, size_grade, shape_grade)
 
+        # Xác định vùng bị loại bỏ (Màu khác/Bóng tối) để vẽ lên frame
+        mask_other = cv2.bitwise_and(apple_mask, cv2.bitwise_not(cv2.bitwise_or(mask_red, cv2.bitwise_or(mask_yellow, mask_green))))
+        
         # ══════════════════════════════════════════════
         #  VẼ KẾT QUẢ LÊN KHUNG HÌNH
         # ══════════════════════════════════════════════
@@ -200,7 +270,10 @@ class FruitAnalyzer:
             red_ratio, yellow_ratio, green_ratio,
             ripeness_label, size_label, diameter_mm,
             grade, defect_area, yellow_cnts=yellow_cnts,
-            dist_mm=dist_mm_debug, used_3d=used_3d
+            red_cnts=red_cnts, # Truyền thêm red_cnts
+            dist_mm=dist_mm_debug, used_3d=used_3d,
+            mask_other=mask_other,
+            shape_label=shape_label
         )
 
         # ══════════════════════════════════════════════
@@ -216,6 +289,8 @@ class FruitAnalyzer:
             "diameter_mm": diameter_mm,
             "size_label": size_label,
             "size_grade": size_grade,
+            "shape_label": shape_label,
+            "shape_grade": shape_grade,
         }
 
         return res_frame, defect_area, red_ratio, grade, detail_info
@@ -234,7 +309,6 @@ class FruitAnalyzer:
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
         
         # 0. MASK CHIỀU SÂU (3D Background Subtraction)
-        # Tôi đã mở rộng toàn bộ dải để bạn có thể cầm táo ở bất kỳ đâu
         mask_depth = np.ones((h, w), dtype=np.uint8) * 255
         if depth_frame is not None:
             try:
@@ -264,7 +338,6 @@ class FruitAnalyzer:
         _, mask_bright = cv2.threshold(lab[:, :, 0], 40, 255, cv2.THRESH_BINARY) 
 
         # 4. KẾT HỢP TỔNG LỰC (Hybrid Consensus)
-        # Ưu tiên màu táo, nhưng phải đủ sáng và không phải màu xanh băng chuyền
         combined = cv2.bitwise_and(mask_apple_colors, cv2.bitwise_and(mask_not_green, mask_bright))
 
         # 5. LÀM SẠCH (Morphology)
@@ -315,8 +388,8 @@ class FruitAnalyzer:
             solidity = area / hull_area if hull_area > 0 else 0
             
             # Tính tỷ lệ cạnh (Aspect Ratio)
-            x, y, w, h_rect = cv2.boundingRect(cnt)
-            aspect_ratio = float(w) / h_rect
+            x, y, w_rect, h_rect = cv2.boundingRect(cnt)
+            aspect_ratio = float(w_rect) / h_rect
             
             # ĐIỀU KIỆN CÂN BẰNG: Tròn > 0.6 và tỷ lệ cạnh hợp lý
             if circularity > 0.62 and solidity > 0.82 and (0.7 < aspect_ratio < 1.4):
@@ -333,9 +406,7 @@ class FruitAnalyzer:
             cv2.drawContours(apple_mask, [hull], -1, 255, -1)
             return apple_mask, hull
 
-        return None, None
-
-    # ═══════════════════════════════════════════════════════════
+        return None, None    # ═══════════════════════════════════════════════════════════
     #  PHÂN HẠNG
     # ═══════════════════════════════════════════════════════════
     def _classify_ripeness(self, red_ratio):
@@ -368,17 +439,27 @@ class FruitAnalyzer:
         else:
             return "NHỎ (C)", "BAD"
 
-    def _overall_grade(self, tc1_grade, tc2_grade):
+    def _classify_shape(self, circularity):
+        """Phân hạng TC3 - Hình dáng (độ tròn)."""
+        if circularity >= self.SHAPE_GOOD_THRESH:
+            return "TRÒN ĐỀU", "GOOD"
+        elif circularity >= self.SHAPE_MEDIUM_THRESH:
+            return "HƠI MÉO", "MEDIUM"
+        else:
+            return "MÉO / DỊ DẠNG", "BAD"
+
+    def _overall_grade(self, tc1_grade, tc2_grade, tc3_grade="GOOD"):
         """
-        Tổng hợp 2 tiêu chí theo logic:
-        - GOOD + GOOD = GOOD
+        Tổng hợp 3 tiêu chí theo logic:
         - Chỉ cần 1 cái BAD = BAD
         - Có MEDIUM và không có BAD = MEDIUM
+        - Tất cả GOOD = GOOD
         """
         # Thứ tự ưu tiên: BAD > MEDIUM > GOOD
-        if tc1_grade == "BAD" or tc2_grade == "BAD":
+        all_grades = [tc1_grade, tc2_grade, tc3_grade]
+        if "BAD" in all_grades:
             return "BAD"
-        if tc1_grade == "MEDIUM" or tc2_grade == "MEDIUM":
+        if "MEDIUM" in all_grades:
             return "MEDIUM"
         return "GOOD"
 
@@ -388,8 +469,9 @@ class FruitAnalyzer:
     def _draw_results(self, frame, contour, cx, cy, radius_px,
                       red_r, yellow_r, green_r,
                       ripeness_label, size_label, diameter_mm,
-                      grade, defect_area, yellow_cnts=None,
-                      dist_mm=0, used_3d=False):
+                      grade, defect_area, yellow_cnts=None, red_cnts=None,
+                      dist_mm=0, used_3d=False, mask_other=None,
+                      shape_label=""):
         """Vẽ kết quả phân tích lên khung hình."""
         res = frame.copy()
         h_f, w_f = res.shape[:2]
@@ -401,9 +483,17 @@ class FruitAnalyzer:
         # Vẽ đường viền quả táo
         cv2.drawContours(res, [contour], -1, color, 2)
 
-        # Vẽ khoanh vùng màu vàng (nếu có)
+        # Vẽ khoanh vùng màu vàng và đỏ
         if yellow_cnts:
             cv2.drawContours(res, yellow_cnts, -1, (0, 255, 255), 1)
+        if red_cnts:
+            cv2.drawContours(res, red_cnts, -1, (0, 0, 255), 1)
+            
+        # Vẽ vùng bị loại bỏ (Màu khác) bằng màu xám mờ
+        if mask_other is not None:
+            overlay = res.copy()
+            overlay[mask_other > 0] = (100, 100, 100) # Màu xám
+            cv2.addWeighted(overlay, 0.4, res, 0.6, 0, res)
 
         # Vẽ vòng tròn bao quanh (thể hiện kích cỡ)
         cv2.circle(res, (int(cx), int(cy)), int(radius_px), (255, 255, 0), 2)
@@ -421,29 +511,21 @@ class FruitAnalyzer:
         cv2.putText(res, info_text, (int(cx - 80), int(cy - 15)), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, c_text, 2)
 
-        # ── Thông tin TC1 ──
-        cv2.putText(res, f"TC1 MAU SAC: {ripeness_label} ({red_r:.1f}% Do)",
-                    (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        cv2.putText(res, f"    Vang: {yellow_r:.1f}%  Xanh: {green_r:.1f}%",
-                    (5, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
-
-        # ── Thông tin TC2 ──
-        cv2.putText(res, f"TC2 KICH CO: {size_label} (D={diameter_mm:.0f}mm)",
-                    (5, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 200, 0), 1)
-
-        # ── Vết thâm ──
-        if defect_area > 0:
-            cv2.putText(res, f"Vet tham: {defect_area}px",
-                        (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (180, 180, 180), 1)
-
-        # ── Kết quả tổng hợp ──
-        y_grade = 100 if defect_area > 0 else 80
-        cv2.putText(res, f"KET QUA: {grade}", (5, y_grade),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-
-        # Badge
-        cv2.putText(res, "XU LY ANH TRUYEN THONG", (w_f - 265, 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+        # ── Kết quả tổng hợp (Hiển thị 3 tiêu chí theo bài báo 2025) ──
+        text_y = 35
+        cv2.putText(res, f"KET QUA: {grade}", (15, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 3)
+        
+        text_y += 35
+        # TC1: Màu sắc
+        cv2.putText(res, f"TC1 (Chin): {ripeness_label} ({red_r:.1f}% Do)", (15, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        
+        text_y += 25
+        # TC2: Kích cỡ
+        cv2.putText(res, f"TC2 (Size): {size_label}", (15, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        
+        text_y += 25
+        # TC3: Hình dáng
+        cv2.putText(res, f"TC3 (Dang): {shape_label}", (15, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
 
         return res
 
@@ -457,6 +539,7 @@ class FruitAnalyzer:
             "ripeness_label": "---", "ripeness_grade": "---",
             "diameter_px": 0, "diameter_mm": 0,
             "size_label": "---", "size_grade": "---",
+            "shape_label": "---", "shape_grade": "---",
         }
 
     def get_foreground_mask(self, frame):

@@ -306,9 +306,9 @@ class CameraWindow:
     ]
 
     GRADE_CFG = {
-        "GOOD":   {"label": "GOOD",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 (≥80%) & TC2 (≥30mm)"},
-        "MEDIUM": {"label": "MEDIUM", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "TC1 (60-79%) hoặc TC2 (20-29mm)"},
-        "BAD":    {"label": "BAD",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "TC1 (<60%) hoặc TC2 (<20mm)"},
+        "GOOD":   {"label": "GOOD",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 (≥80%) & TC2 (≥80mm)"},
+        "MEDIUM": {"label": "MEDIUM", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "TC1 (70-79%) hoặc TC2 (60-79mm)"},
+        "BAD":    {"label": "BAD",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "TC1 (<70%) hoặc TC2 (<60mm)"},
     }
 
     # Địa chỉ Merker PLC S7-1200 (1214C)
