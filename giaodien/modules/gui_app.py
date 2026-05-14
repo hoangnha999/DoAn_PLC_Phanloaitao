@@ -306,16 +306,16 @@ class CameraWindow:
     ]
 
     GRADE_CFG = {
-        "GOOD":   {"label": "GOOD",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 (≥80%) & TC2 (≥80mm)"},
-        "MEDIUM": {"label": "MEDIUM", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "TC1 (70-79%) hoặc TC2 (60-79mm)"},
-        "BAD":    {"label": "BAD",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "TC1 (<70%) hoặc TC2 (<60mm)"},
+        "Grade-1":   {"label": "Grade-1",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 (≥80%) & TC2 (≥80mm)"},
+        "Grade-2": {"label": "Grade-2", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "TC1 (70-79%) hoặc TC2 (60-79mm)"},
+        "Grade-3":    {"label": "Grade-3",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "TC1 (<70%) hoặc TC2 (<60mm)"},
     }
 
     # Địa chỉ Merker PLC S7-1200 (1214C)
-    # MW10=Good, MW12=Medium, MW14=Bad  |  M0.0=Start, M0.1=Stop
-    PLC_MW_GOOD   = 10
-    PLC_MW_MEDIUM = 12
-    PLC_MW_BAD    = 14
+    # MW10=Grade-1, MW12=Grade-2, MW14=Grade-3  |  M0.0=Start, M0.1=Stop
+    PLC_MW_GRADE1   = 10
+    PLC_MW_GRADE2 = 12
+    PLC_MW_GRADE3    = 14
     PLC_START_BYTE, PLC_START_BIT = 0, 0
     PLC_STOP_BYTE,  PLC_STOP_BIT  = 0, 1
 
@@ -383,16 +383,16 @@ class CameraWindow:
             # self.win.withdraw()
             # self.win.deiconify()
         except Exception as e:
-            print(f"Không thể thiết lập Taskbar Icon: {e}")
+            print(f"Failed to set Taskbar Icon: {e}")
 
     def _refresh_stats_ui(self):
-        """Cập nhật các ô số GOOD/MEDIUM/BAD và Yield Rate từ CSDL."""
+        """Cập nhật các ô số Grade-1/Grade-2/Grade-3 và Yield Rate từ CSDL."""
         if not hasattr(self, 'win') or not self.win.winfo_exists(): return
         try:
             stats = self.db.get_stats()
             total = stats["TOTAL"]
             
-            for grade in ["GOOD", "MEDIUM", "BAD"]:
+            for grade in ["Grade-1", "Grade-2", "Grade-3"]:
                 if grade in getattr(self, "_count_vars", {}):
                     count = stats[grade]
                     self._count_vars[grade].set(str(count))
@@ -406,7 +406,7 @@ class CameraWindow:
                 self._total_var.set(str(total))
                 
             if total > 0:
-                y_rate = (stats["GOOD"] / total) * 100
+                y_rate = (stats["Grade-1"] / total) * 100
                 if hasattr(self, '_yield_var'):
                     self._yield_var.set(f"{y_rate:.1f}%")
         except Exception as e:
@@ -463,20 +463,9 @@ class CameraWindow:
             for i, p in enumerate(self.snapshot_images):
                 self.snapshot_labels[i].config(image=p, width=85, height=60)
                 self.snapshot_labels[i].image = p
-                
-            # Khung lớn (Trang Gallery)
-            if hasattr(self, 'gallery_images') and hasattr(self, 'gallery_labels'):
-                img_large = img.resize((200, 150), Image.LANCZOS)
-                photo_large = ImageTk.PhotoImage(img_large)
-                self.gallery_images.insert(0, photo_large)
-                if len(self.gallery_images) > 10:
-                    self.gallery_images.pop()
-                for i, p in enumerate(self.gallery_images):
-                    self.gallery_labels[i].config(image=p, width=200, height=150)
-                    self.gallery_labels[i].image = p
         except Exception as e:
-            print(f"Lỗi cập nhật ảnh Gallery: {e}")
-            self._log_event(f"Lỗi cập nhật Gallery: {e}", "ERROR")
+            print(f"Error updating snapshot: {e}")
+            self._log_event(f"Error updating snapshot: {e}", "ERROR")
 
     def _manual_snapshot(self):
         """Gọi khi nhấn nút Chụp Ảnh Thủ Công."""
@@ -509,19 +498,11 @@ class CameraWindow:
     def _clear_buffer(self):
         """Xóa sạch bộ nhớ đệm hình ảnh (Buffer)."""
         self.snapshot_images = []
-        if hasattr(self, 'gallery_images'):
-            self.gallery_images = []
             
         # Reset các label ở màn hình chính
         for lbl in self.snapshot_labels:
             lbl.config(image='')
             lbl.image = None
-            
-        # Reset các label ở trang Gallery
-        if hasattr(self, 'gallery_labels'):
-            for lbl in self.gallery_labels:
-                lbl.config(image='')
-                lbl.image = None
                 
         self._log_event("🧹 Đã xóa sạch bộ nhớ đệm (Buffer Cleared).", "WARNING")
 
@@ -622,12 +603,10 @@ class CameraWindow:
         # 4. Tạo các Trang (Frames)
         self.page_phanloai = tk.Frame(self.main_container, bg="#F1F5F9")
         self.page_setting = tk.Frame(self.main_container, bg="#F1F5F9")
-        self.page_gallery = tk.Frame(self.main_container, bg="#F1F5F9")
         self.page_history = tk.Frame(self.main_container, bg="#F1F5F9")
 
         self._build_phanloai_page()
         self._build_setting_page()
-        self._build_gallery_page()
         self._build_history_page()
 
         # Hiển thị trang mặc định
@@ -688,7 +667,6 @@ class CameraWindow:
 
         menu_items = [
             ("📊  PHÂN LOẠI", "PHANLOAI"),
-            ("🖼️  10 ẢNH GẦN NHẤT", "GALLERY"),
             ("⚙️  CÀI ĐẶT", "SETTING"),
             ("📂  LỊCH SỬ SQL", "HISTORY")
         ]
@@ -710,16 +688,11 @@ class CameraWindow:
         # Ẩn tất cả trang
         self.page_phanloai.pack_forget()
         self.page_setting.pack_forget()
-        if hasattr(self, 'page_gallery'): self.page_gallery.pack_forget()
         if hasattr(self, 'page_history'): self.page_history.pack_forget()
 
         if page_id == "PHANLOAI":
             self.page_phanloai.pack(fill="both", expand=True, padx=10, pady=10)
             self.title_lbl.config(text="🍎 HỆ THỐNG PHÂN LOẠI TRÁI CÂY - GIÁM SÁT")
-        elif page_id == "GALLERY":
-            if hasattr(self, 'page_gallery'):
-                self.page_gallery.pack(fill="both", expand=True, padx=10, pady=10)
-            self.title_lbl.config(text="🖼️ BỘ SƯU TẬP 10 ẢNH GẦN NHẤT")
         elif page_id == "HISTORY":
             if hasattr(self, 'page_history'):
                 self.page_history.pack(fill="both", expand=True, padx=10, pady=10)
@@ -827,26 +800,6 @@ class CameraWindow:
         self._build_left(self.page_phanloai)
         self._build_right(self.page_phanloai)
 
-    def _build_gallery_page(self):
-        """Trang Bộ Sưu Tập 10 Ảnh Gần Nhất."""
-        self.gallery_labels = []
-        self.gallery_images = []
-        
-        title_frame = tk.Frame(self.page_gallery, bg="#F1F5F9")
-        title_frame.pack(fill="x", pady=(20, 30))
-        tk.Label(title_frame, text="📸 BỘ SƯU TẬP 10 ẢNH GẦN NHẤT", font=("Arial", 16, "bold"), fg="#0F172A", bg="#F1F5F9").pack()
-        
-        grid_frame = tk.Frame(self.page_gallery, bg="#F1F5F9")
-        grid_frame.pack(expand=True)
-        
-        for row in range(2):
-            row_frame = tk.Frame(grid_frame, bg="#F1F5F9")
-            row_frame.pack(pady=0)
-            for col in range(5):
-                lbl = tk.Label(row_frame, bg="#E2E8F0", bd=0, highlightthickness=0)
-                lbl.pack(side="left", padx=1, pady=1) # Giữ 1px để phân biệt nhẹ hoặc 0 để dính liền
-                self.gallery_labels.append(lbl)
-
     def _build_setting_page(self):
         """Trang Cài đặt: PLC IP, Nguồn Camera, Reset."""
         container = tk.Frame(self.page_setting, bg="#F1F5F9")
@@ -882,9 +835,14 @@ class CameraWindow:
         cam_box.pack(fill="x", pady=10)
         
         tk.Label(cam_box, text="Chế độ Hoạt động (Mode):", fg="#475569", bg="#FFFFFF").pack(anchor="w")
-        self.cam_var = tk.StringVar(value=self.CAM_SOURCES[1]) # Mặc định chọn Camera máy tính
+        self.cam_var = tk.StringVar(value=self.CAM_SOURCES[0]) # Mặc định chọn Astra Pro SDK
         self.combo = ttk.Combobox(cam_box, textvariable=self.cam_var, values=self.CAM_SOURCES, state="readonly", width=35)
         self.combo.pack(pady=(0, 15), anchor="w")
+
+        # Nút Tìm Camera Tự Động
+        tk.Button(cam_box, text="🔍 TÌM TẤT CẢ CAMERA", font=("Arial", 9, "bold"),
+                  bg="#8B5CF6", fg="white", padx=15, pady=5, cursor="hand2",
+                  command=self._detect_cameras).pack(pady=(0, 15), anchor="w")
 
         tk.Label(cam_box, text="Nguồn Camera Màu (Khi dùng Astra 3D):", fg="#475569", bg="#FFFFFF").pack(anchor="w")
         self.astra_color_list = ["Cổng 0 (Laptop)", "Cổng 1 (USB Ngoài 1)", "Cổng 2 (USB Ngoài 2)"]
@@ -1120,13 +1078,14 @@ class CameraWindow:
                      font=("Arial", 7, "italic"), fg="#94A3B8", bg=cfg["bg"],
                      ).pack(anchor="w", padx=30, pady=(0, 2))
 
-        # ── TỔNG HỢP & HIỆU SUẤT ──
+        # ═══════════════════════════════════════════════════
+        #  TỔNG CỘNG (Ở dưới 3 loại)
+        # ═══════════════════════════════════════════════════
         tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=4)
         
         summary_frame = tk.Frame(lf, bg="#FFFFFF")
         summary_frame.pack(fill="x", padx=8, pady=2)
         
-        # Ô Tổng số (Chiếm toàn bộ chiều ngang)
         total_card = tk.Frame(summary_frame, bg="#F8FAFC", bd=1, relief="groove")
         total_card.pack(fill="both", expand=True)
         tk.Label(total_card, text="TỔNG CỘNG", font=("Arial", 9, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(2, 0))
@@ -1145,11 +1104,12 @@ class CameraWindow:
         view_ctrl.pack(fill="x")
         tk.Label(view_ctrl, text="📺 CHẾ ĐỘ HIỂN THỊ:", font=("Arial", 9, "bold"), fg="#475569", bg="#F1F5F9").pack(side="left", padx=10)
         
-        self.view_mode_var = tk.StringVar(value="Color & Gray")
+        self.view_mode_var = tk.StringVar(value="Color & Binary")
         view_modes = ["Color & Gray", "Color & Binary", "Gray & Binary", "Color & BG Removal"]
         self.view_combo = ttk.Combobox(view_ctrl, textvariable=self.view_mode_var, values=view_modes, state="readonly", width=18)
         self.view_combo.pack(side="left", padx=5)
         self.view_combo.bind("<<ComboboxSelected>>", self._on_view_mode_change)
+
 
 
 
@@ -1203,6 +1163,9 @@ class CameraWindow:
             self.snapshot_labels.append(lbl)
 
         self._draw_placeholder()
+        
+        # Cập nhật tiêu đề hiển thị sau khi các thành phần UI đã được tạo xong
+        self._on_view_mode_change()
 
     def _quick_open_file(self):
         """Hàm mở file nhanh từ nút bấm ở sidebar."""
@@ -1250,6 +1213,39 @@ class CameraWindow:
     # ═══════════════════════════════════════════════════════
     #  LOGIC CAMERA
     # ═══════════════════════════════════════════════════════
+    def _detect_cameras(self):
+        """Quét tất cả camera có sẵn trên hệ thống."""
+        from tkinter import messagebox
+        
+        self._log_event("🔍 Đang quét camera...", "INFO")
+        
+        # Chạy trong thread riêng để không block UI
+        def scan():
+            cameras = self.camera.detect_available_cameras(max_test=5)
+            
+            if not cameras:
+                self.win.after(0, lambda: messagebox.showwarning(
+                    "Không tìm thấy camera",
+                    "Không phát hiện camera nào!\n\nKiểm tra:\n"
+                    "• Camera đã cắm đúng cổng USB\n"
+                    "• Driver camera đã cài đặt\n"
+                    "• Không có ứng dụng nào đang dùng camera"
+                ))
+            else:
+                # Hiển thị kết quả
+                msg = "📹 DANH SÁCH CAMERA TÌM THẤY:\n\n"
+                for idx, name in cameras:
+                    msg += f"✅ Cổng {idx}: {name}\n"
+                msg += "\n💡 Gợi ý:\n"
+                msg += "• Chọn 'Camera máy tính' cho cổng 0\n"
+                msg += "• Chọn 'Webcam rời 1' cho cổng 1\n"
+                msg += "• Chọn 'Webcam rời 2' cho cổng 2"
+                
+                self.win.after(0, lambda: messagebox.showinfo("Kết quả quét", msg))
+                self._log_event(f"✅ Tìm thấy {len(cameras)} camera", "INFO")
+        
+        threading.Thread(target=scan, daemon=True).start()
+    
     def _toggle_camera(self):
         if self.camera.is_running():
             self._stop_camera()
@@ -1324,7 +1320,7 @@ class CameraWindow:
             # Khởi tạo bộ đệm tích lũy cho video nếu chưa có
             if not hasattr(self, "_video_session_buffer"): self._video_session_buffer = []
             
-            color_map_hex = {"GOOD": "#10B981", "MEDIUM": "#F59E0B", "BAD": "#EF4444", "UNKNOWN": "#64748B"}
+            color_map_hex = {"Grade-1": "#10B981", "Grade-2": "#F59E0B", "Grade-3": "#EF4444", "UNKNOWN": "#64748B"}
             status_text = f"Đang phân loại: 🍎 {grade}"
             
             # Quản lý Event Log cho người giám sát
@@ -1332,6 +1328,7 @@ class CameraWindow:
             
             if grade != "NO_APPLE" and grade != "UNKNOWN":
                 status_text += f" ({ripeness:.0f}% Đỏ)"
+                self._no_apple_counter = 0 # Reset bộ đếm khi thấy táo
                 
                 if is_static:
                     # TRƯỜNG HỢP ẢNH TĨNH: Chốt luôn
@@ -1340,10 +1337,21 @@ class CameraWindow:
                         self._save_to_sql(grade)
                         self._last_static_processed = True # Đánh dấu đã xong
                 else:
-                    # TRƯỜNG HỢP VIDEO: Tích lũy kết quả các mặt của táo
-                    self._video_session_buffer.append(grade)
-                    if self._last_detected_grade == "NO_APPLE":
-                        self._log_event("🔄 Bắt đầu theo dõi táo xoay...", "INFO")
+                    # TRƯỜNG HỢP VIDEO: Chụp đủ 10 tấm rồi chốt
+                    if not getattr(self, "_session_finalized", False):
+                        if self._last_detected_grade == "NO_APPLE":
+                            self._log_event("🔄 Bắt đầu lấy 10 mẫu phân tích...", "INFO")
+                            self._video_session_buffer = []
+                        
+                        self._video_session_buffer.append(grade)
+                        
+                        # Hiển thị tiến trình chụp 1/10, 2/10...
+                        count = len(self._video_session_buffer)
+                        status_text = f"📸 Đang chụp: {count}/10 | Hạng: {grade}"
+                        
+                        if count >= 10:
+                            self._finalize_video_session()
+                            self._session_finalized = True
                 
                 self._last_detected_grade = grade
 
@@ -1355,20 +1363,21 @@ class CameraWindow:
                     self._last_plc_send_time = current_time
             else:
                 # KHI TÁO RỜI KHỎI KHUNG HÌNH (NO_APPLE)
-                if not is_static and hasattr(self, "_video_session_buffer") and len(self._video_session_buffer) > 0:
-                    # CHỐT KẾT QUẢ VIDEO (Multi-frame Consensus)
-                    # Ưu tiên lấy kết quả tệ nhất trong các mặt đã thấy
-                    final_grade = "GOOD"
-                    if "BAD" in self._video_session_buffer:
-                        final_grade = "BAD"
-                    elif "MEDIUM" in self._video_session_buffer:
-                        final_grade = "MEDIUM"
-                    
-                    self._log_event(f"🍎 KẾT QUẢ TỔNG HỢP (Đã xoay): {final_grade}", "INFO")
-                    self._save_to_sql(final_grade)
-                    self._video_session_buffer = [] # Reset cho quả tiếp theo
+                if not hasattr(self, "_no_apple_counter"): self._no_apple_counter = 0
+                self._no_apple_counter += 1
                 
-                self._last_detected_grade = "NO_APPLE"
+                # Đợi 5 khung hình (~0.5s) mất dấu liên tục mới cho phép bắt quả tiếp theo
+                if self._no_apple_counter >= 5:
+                    if not is_static and not getattr(self, "_session_finalized", False):
+                        # Nếu táo đi qua quá nhanh mà chưa đủ 10 tấm thì vẫn chốt với những gì đã có
+                        if len(self._video_session_buffer) > 0:
+                            self._finalize_video_session()
+                    
+                    self._session_finalized = False # Reset trạng thái để bắt quả mới
+                    self._video_session_buffer = []
+                    self._last_detected_grade = "NO_APPLE"
+
+
                     
             self.lbl_grading_status.config(text=status_text, fg=color_map_hex.get(grade, "#64748B"))
             self._update_criteria_panels(detail_info)
@@ -1376,33 +1385,29 @@ class CameraWindow:
 
 
             h_f = frame.shape[0]
-            color_map_bgr = {"GOOD": (0, 255, 0), "MEDIUM": (0, 255, 255), "BAD": (0, 0, 255)}
+            color_map_bgr = {"Grade-1": (0, 255, 0), "Grade-2": (0, 255, 255), "Grade-3": (0, 0, 255)}
             cv2.putText(frame, f"STATUS: {grade}", (20, h_f - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color_map_bgr.get(grade, (255,255,255)), 2)
         except Exception:
             pass
 
+        # ─── PHẦN HIỂN THỊ CAMERA (Đưa trở lại vòng lặp chính) ───
         current_time = time.time()
         if current_time - self.last_buffer_time >= 0.1:
             self.last_buffer_time = current_time
             self.canvas.after(0, self._update_snapshot_gallery, None, self.frame_to_save.copy())
             
-        # ─── HIỂN THỊ LÊN CANVAS ───
-        # Lấy kích thước thực tế của canvas để resize ảnh cho khớp, nếu chưa có thì dùng mặc định
+        # Lấy kích thước thực tế của canvas để resize ảnh
         cw = self.canvas.winfo_width()
         ch = self.canvas.winfo_height()
+        if cw < 10 or ch < 10: cw, ch = 640, 240
         
-        if cw < 10 or ch < 10:
-            cw, ch = 640, 240 # Giá trị mặc định an toàn
         color_res = cv2.resize(frame, (cw, ch))
         color_rgb = cv2.cvtColor(color_res, cv2.COLOR_BGR2RGB)
         
-        # Xử lý frame thứ 2 (Machine Vision)
         if is_astra and depth_colormap is not None:
-            # Nếu dùng Astra, hiển thị bản đồ độ sâu (Depth Map) ở khung dưới
             f2_raw = cv2.resize(depth_colormap, (cw, ch))
             f2_rgb = cv2.cvtColor(f2_raw, cv2.COLOR_BGR2RGB)
         else:
-            # Nếu dùng webcam thường, hiển thị theo chế độ chọn
             gray_res = cv2.cvtColor(color_res, cv2.COLOR_BGR2GRAY)
             if self.view_mode_var.get() == "Color & Binary":
                 _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
@@ -1429,8 +1434,24 @@ class CameraWindow:
             self.canvas.imgtk = imgtk1
             self.canvas_gray.imgtk = imgtk2
             self.canvas.after(0, self._update_canvas, imgtk1, imgtk2)
-        except Exception:
-            pass
+        except: pass
+
+
+    def _finalize_video_session(self):
+        """Chốt kết quả phân loại sau khi đã thu thập đủ mẫu (10 tấm)."""
+        if not hasattr(self, "_video_session_buffer") or len(self._video_session_buffer) == 0:
+            return
+
+        # CHỐT KẾT QUẢ VIDEO (Multi-frame Consensus)
+        # Ưu tiên lấy kết quả tệ nhất trong các mặt đã thấy
+        final_grade = "Grade-1"
+        if "Grade-3" in self._video_session_buffer:
+            final_grade = "Grade-3"
+        elif "Grade-2" in self._video_session_buffer:
+            final_grade = "Grade-2"
+        
+        self._log_event(f"📸 ĐÃ CHỤP ĐỦ 10 MẪU. Kết quả chốt: {final_grade}", "INFO")
+        self._save_to_sql(final_grade)
 
     def _show_point_cloud(self):
         if self.camera:
@@ -1454,7 +1475,7 @@ class CameraWindow:
             self._tc1_green_var.set(f"Xanh: {green_r:.1f}%")
             self._tc1_grade_var.set(f"⇒ {r_label}")
 
-            tc1_colors = {"GOOD": "#2E7D32", "MEDIUM": "#F9A825", "BAD": "#C62828"}
+            tc1_colors = {"Grade-1": "#2E7D32", "Grade-2": "#F9A825", "Grade-3": "#C62828"}
             self._tc1_grade_lbl.config(fg=tc1_colors.get(r_grade, "#616161"))
 
             # ── TC2: Kích thước ──
@@ -1468,6 +1489,35 @@ class CameraWindow:
 
             tc2_colors = {"A": "#1B5E20", "B": "#F57F17", "C": "#B71C1C"}
             self._tc2_grade_lbl.config(fg=tc2_colors.get(s_grade, "#616161"))
+            
+            # ── Performance Metrics (Machine Vision Industrial) ──
+            fps = detail_info.get("fps", 0.0)
+            proc_time = detail_info.get("processing_time_ms", 0.0)
+            
+            self._fps_var.set(f"{fps:.1f}")
+            self._proc_time_var.set(f"{proc_time:.1f} ms")
+            
+            # ── Motion Blur Detection ──
+            blur_status = detail_info.get("blur_status", "N/A")
+            blur_score = detail_info.get("blur_score", 0.0)
+            is_blurry = detail_info.get("is_blurry", False)
+            
+            # Cập nhật text và màu theo trạng thái
+            if blur_status == "SHARP":
+                self._blur_status_var.set(f"✓ SHARP ({blur_score:.0f})")
+                self._blur_status_label.config(fg="#10B981")  # Xanh lá - Good
+            elif blur_status == "BLURRY→SHARPENED":
+                self._blur_status_var.set(f"⚠ AUTO-SHARP ({blur_score:.0f})")
+                self._blur_status_label.config(fg="#F59E0B")  # Cam - Warning
+            elif blur_status == "BLURRY":
+                self._blur_status_var.set(f"✗ BLURRY ({blur_score:.0f})")
+                self._blur_status_label.config(fg="#EF4444")  # Đỏ - Bad
+            else:
+                self._blur_status_var.set("N/A")
+                self._blur_status_label.config(fg="#6B7280")  # Xám
+            
+            # ── 3D Shape Analysis - REMOVED ──
+            # Section removed by user request
         except Exception:
             pass
 
@@ -1481,6 +1531,11 @@ class CameraWindow:
             else:
                 self.canvas.itemconfig(self.img_id_color, image=imgtk_color)
                 self.canvas_gray.itemconfig(self.img_id_gray, image=imgtk_gray)
+
+    # ═══════════════════════════════════════════════════════
+    #  3D VISUALIZATION - REMOVED
+    # ═══════════════════════════════════════════════════════
+    # Function removed by user request
 
     # ═══════════════════════════════════════════════════════
     #  LOGIC PLC S7-1200 (snap7)
@@ -1521,26 +1576,34 @@ class CameraWindow:
         
         counters = self.plc.read_counters()
         if counters:
-            good, medium, bad = counters
-            self._update_counts(good, medium, bad)
+            grade1, grade2, grade3 = counters
+            self._update_counts(grade1, grade2, grade3)
             
         self._plc_poll_id = self.win.after(1000, self._poll_plc)
 
     def _plc_start(self):
-        """Ghi M0.0 = True → PLC bắt đầu chạy."""
+        """Ghi DB1.DBX0.0 = True → Tạo xung Start."""
         success = self.plc.start_machine()
         if success:
-            self.lbl_plc_status.config(text="🟢 PLC: Đang chạy (M0.0)", fg="#2E7D32")
+            self.lbl_plc_status.config(text="🟢 PLC: Đang chạy (Pulse DB1.0.0)", fg="#2E7D32")
+            self._log_event("▶️ Đã gửi lệnh START (DB1.DBX0.0)", "INFO")
+            # Tự động tắt bit sau 500ms (tạo xung)
+            self.win.after(500, lambda: self.plc.write_db_bit(1, 0, 0, False))
         else:
             self.lbl_plc_status.config(text="🔴 Lỗi ghi START", fg="#D32F2F")
+            self._log_event("❌ Lỗi khi gửi lệnh START xuống PLC", "ERROR")
 
     def _plc_stop(self):
-        """Ghi M0.1 = True → PLC dừng."""
+        """Ghi DB1.DBX0.1 = True → Tạo xung Stop."""
         success = self.plc.stop_machine()
         if success:
-            self.lbl_plc_status.config(text="🟡 PLC: Đã dừng (M0.1)", fg="#C62828")
+            self.lbl_plc_status.config(text="🟡 PLC: Đã dừng (Pulse DB1.0.1)", fg="#C62828")
+            self._log_event("⏹️ Đã gửi lệnh STOP (DB1.DBX0.1)", "WARNING")
+            # Tự động tắt bit sau 500ms (tạo xung)
+            self.win.after(500, lambda: self.plc.write_db_bit(1, 0, 1, False))
         else:
             self.lbl_plc_status.config(text="🔴 Lỗi ghi STOP", fg="#D32F2F")
+            self._log_event("❌ Lỗi khi gửi lệnh STOP xuống PLC", "ERROR")
 
     def send_grade_to_plc(self, grade):
         """Gửi tín hiệu phân loại xuống PLC (Tạo xung 500ms)."""
@@ -1549,7 +1612,7 @@ class CameraWindow:
             
         success = self.plc.set_grade(grade)
         if success:
-            print(f"[PLC] Đã gửi tín hiệu phân loại: {grade}")
+            print(f"[PLC] Sent grade signal: {grade}")
             self.win.after(500, self._reset_grade_bits_plc)
 
     def _reset_grade_bits_plc(self):
@@ -1560,42 +1623,42 @@ class CameraWindow:
     # ═══════════════════════════════════════════════════════
     #  BỘ ĐẾM PHÂN LOẠI
     # ═══════════════════════════════════════════════════════
-    def _update_counts(self, good, medium, bad):
-        old_good = int(self._count_vars["GOOD"].get())
-        old_medium = int(self._count_vars["MEDIUM"].get())
-        old_bad = int(self._count_vars["BAD"].get())
+    def _update_counts(self, grade1, grade2, grade3):
+        old_grade1 = int(self._count_vars["Grade-1"].get())
+        old_grade2 = int(self._count_vars["Grade-2"].get())
+        old_grade3 = int(self._count_vars["Grade-3"].get())
 
-        self._count_vars["GOOD"].set(str(good))
-        self._count_vars["MEDIUM"].set(str(medium))
-        self._count_vars["BAD"].set(str(bad))
+        self._count_vars["Grade-1"].set(str(grade1))
+        self._count_vars["Grade-2"].set(str(grade2))
+        self._count_vars["Grade-3"].set(str(grade3))
         
-        total = good + medium + bad
+        total = grade1 + grade2 + grade3
         self._total_var.set(str(total))
         
         # Cập nhật % từng loại
         if total > 0:
-            for g_name, val in [("GOOD", good), ("MEDIUM", medium), ("BAD", bad)]:
+            for g_name, val in [("Grade-1", grade1), ("Grade-2", grade2), ("Grade-3", grade3)]:
                 if g_name in self._percent_vars:
                     p = (val / total) * 100
                     self._percent_vars[g_name].set(f"({p:.1f}%)")
             
-            y_rate = (good / total) * 100
+            y_rate = (grade1 / total) * 100
             if hasattr(self, '_yield_var'):
                 self._yield_var.set(f"{y_rate:.1f}%")
         else:
-            for g_name in ["GOOD", "MEDIUM", "BAD"]:
+            for g_name in ["Grade-1", "Grade-2", "Grade-3"]:
                 if g_name in self._percent_vars: self._percent_vars[g_name].set("(0.0%)")
             if hasattr(self, '_yield_var'): self._yield_var.set("0.0%")
         
 
 
         # LƯU LỊCH SỬ (Tự động kích hoạt khi có táo mới được phân loại)
-        if good > old_good:
-            self._save_to_sql("GOOD")
-        if medium > old_medium:
-            self._save_to_sql("MEDIUM")
-        if bad > old_bad:
-            self._save_to_sql("BAD")
+        if grade1 > old_grade1:
+            self._save_to_sql("Grade-1")
+        if grade2 > old_grade2:
+            self._save_to_sql("Grade-2")
+        if grade3 > old_grade3:
+            self._save_to_sql("Grade-3")
 
     def _reset_counts(self):
         self._update_counts(0, 0, 0)

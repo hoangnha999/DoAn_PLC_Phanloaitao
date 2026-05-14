@@ -1,5 +1,20 @@
 import cv2
 import numpy as np
+import time
+from collections import deque
+import sys
+import os
+
+# Import Apple3DAnalyzer từ modules (optional - không crash nếu thiếu thư viện)
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from modules.apple_3d import Apple3DAnalyzer
+    APPLE_3D_AVAILABLE = True
+except ImportError as e:
+    print(f"[ANALYZER] Warning: 3D Analysis not available: {e}")
+    print("[ANALYZER] -> Install: pip install open3d scipy")
+    APPLE_3D_AVAILABLE = False
+    Apple3DAnalyzer = None
 
 
 class FruitAnalyzer:
@@ -16,24 +31,25 @@ class FruitAnalyzer:
     """
 
     # ─── TC1 - Ngưỡng phân hạng độ chín (% vùng đỏ) ──────────
-    RIPENESS_GOOD_THRESH = 80     # ≥ 80% đỏ → GOOD
-    RIPENESS_MEDIUM_THRESH = 70   # 70-79% đỏ → MEDIUM
-                                  # < 60% đỏ → BAD
+    RIPENESS_GOOD_THRESH = 80     # ≥ 80% đỏ → Grade-1
+    RIPENESS_MEDIUM_THRESH = 70   # 70-79% đỏ → Grade-2
+                                  # < 60% đỏ → Grade-3
 
     # ─── TC3 - Ngưỡng phân hạng hình dáng (Độ tròn) ──────────
     # Học từ bài báo MDPI 2025: Táo càng tròn giá trị càng cao
-    SHAPE_GOOD_THRESH = 0.88      # Tròn đều → GOOD
-    SHAPE_MEDIUM_THRESH = 0.78    # Hơi méo → MEDIUM
-                                  # < 0.78 → BAD (Méo)
+    SHAPE_GOOD_THRESH = 0.88      # Tròn đều → Grade-1
+    SHAPE_MEDIUM_THRESH = 0.78    # Hơi méo → Grade-2
+                                  # < 0.78 → Grade-3 (Méo)
 
     # ─── TC2 - Kích thước (đường kính mm) ─────────────────────
     SIZE_THRESHOLDS = {"large": 80, "medium": 60}
     # Tăng từ 0.09 lên 0.32 để táo hiện ~65-75mm khi dùng webcam/không có depth
     PIXEL_TO_MM = 0.32  
     
-    # Thông số tiêu cự (Focal Length) của Astra Pro (xấp xỉ cho 640x480)
-    # Dùng để tính: Kích_thước_thật = (Kích_thước_pixel * Khoảng_cách) / Tiêu_cự_pixel
-    H_FOCAL_LENGTH = 570.0 
+    # Thông số tiêu cự (Focal Length) chuẩn của Astra Pro (640x480)
+    # H_FOV = 60 độ -> f = 320 / tan(30) = 554.26
+    # Thực tế OpenNI thường calibration ở mức ~580 cho kết quả mm chính xác hơn
+    H_FOCAL_LENGTH = 580.0 
 
     # ─── Ngưỡng HSV cho táo ĐỎ ────────────────────────────────
     # ─── Ngưỡng HSV cho táo ĐỎ & VÀNG (Cân bằng lại để bắt nhạy hơn) ─────
@@ -49,30 +65,142 @@ class FruitAnalyzer:
     # ─── Ngưỡng tách nền (segmentation) ──────────────────────
     MIN_APPLE_AREA_RATIO = 0.02   # Quả táo phải ≥ 2% diện tích ảnh
     DEFECT_DARK_THRESH = 35       # Phải thật sự tối (đen/nâu sẫm) mới tính là vết thâm
-    DEFECT_BAD_RATIO = 20.0       # Vết thâm > 20% diện tích mới đánh BAD
-    DEFECT_MEDIUM_RATIO = 10.0      # Vết thâm > 10% diện tích hạ xuống MEDIUM
+    DEFECT_BAD_RATIO = 20.0       # Vết thâm > 20% diện tích mới đánh Grade-3
+    DEFECT_MEDIUM_RATIO = 10.0      # Vết thâm > 10% diện tích hạ xuống Grade-2
+
+    # ─── ROI (Region of Interest) ──────────────────────────
+    ROI_WIDTH_RATIO = 0.4         # ROI chiếm 40% chiều ngang (giảm từ 60%)
+    ROI_HEIGHT_RATIO = 0.6        # ROI chiếm 60% chiều dọc (giảm từ 80%)
 
     def __init__(self):
         """Khởi tạo FruitAnalyzer - chế độ xử lý ảnh truyền thống."""
-        # BỘ NHỚ ĐA GÓC NHÌN (Multi-Dimensional View Processing)
-        # Giúp đánh giá quả táo dựa trên mọi góc xoay trên băng chuyền
-        self.MAX_HISTORY = 10 # Số lượng góc nhìn (frames) để ghi nhớ
-        self.history_cx = []
-        self.history_cy = []
-        self.history_r = []
-        self.history_red = []
-        self.history_defect = []
-        
         # Background Subtractor (cho chức năng tách nền)
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
             history=500, varThreshold=50, detectShadows=False
         )
-        print("[ANALYZER] ✅ Khởi tạo bộ phân tích truyền thống (HSV + Contour).")
-        print(f"[ANALYZER]    TC1: Độ chín đều (Đỏ ≥{self.RIPENESS_GOOD_THRESH}%→GOOD, "
-              f"≥{self.RIPENESS_MEDIUM_THRESH}%→MEDIUM, còn lại→BAD)")
+        
+        # ─── Performance Monitoring (Machine Vision Industrial Standard) ───
+        self.frame_times = deque(maxlen=30)  # Lưu 30 frame gần nhất để tính FPS
+        self.last_frame_time = time.perf_counter()
+        self.current_fps = 0.0
+        self.avg_processing_time_ms = 0.0
+        
+        # ═══ MOTION BLUR DETECTION & DEBLURRING ═══════════════════════════
+        self.blur_threshold = 100.0       # Laplacian variance < 100 = Blurry
+        self.blur_scores = deque(maxlen=10)  # Lưu 10 blur scores gần nhất
+        self.frame_buffer = deque(maxlen=5)  # Buffer 5 frames để chọn frame tốt nhất
+        self.auto_sharpen = True          # Tự động sharpen khi detect blur
+        print("[ANALYZER] Anti-Motion Blur: ENABLED (Blur Detection + Auto Sharpening)")
+        
+        # ─── 3D Analysis Module (Astra Pro Depth) ───
+        if APPLE_3D_AVAILABLE:
+            try:
+                self.analyzer_3d = Apple3DAnalyzer()
+                self.last_point_cloud = None  # Lưu point cloud gần nhất để visualization
+                self.last_depth_frame = None  # Lưu depth frame
+                self.last_apple_mask = None   # Lưu mask
+                print("[ANALYZER] 3D Shape Analysis: ENABLED (Sphericity + Dent Detection)")
+            except Exception as e:
+                print(f"[ANALYZER] Warning: 3D Analysis init failed: {e}")
+                self.analyzer_3d = None
+                self.last_point_cloud = None
+        else:
+            self.analyzer_3d = None
+            self.last_point_cloud = None
+            print("[ANALYZER] 3D Shape Analysis: DISABLED (missing library)")
+        
+        print("[ANALYZER] OK: Traditional analyzer initialized (HSV + Contour).")
+        print(f"[ANALYZER]    TC1: Ripeness (Red >= {self.RIPENESS_GOOD_THRESH}% -> Grade-1, "
+              f">= {self.RIPENESS_MEDIUM_THRESH}% -> Grade-2, else -> Grade-3)")
+        print("[ANALYZER] Performance Monitoring: ENABLED (FPS + Processing Time)")
     def _apply_retinex(self, frame):
         # Đã gỡ bỏ Retinex vì gây nhiễu màu nền
         return frame
+
+    # ═══════════════════════════════════════════════════════════
+    #  MOTION BLUR DETECTION & DEBLURRING
+    # ═══════════════════════════════════════════════════════════
+    def detect_blur(self, frame):
+        """
+        Phát hiện ảnh mờ (motion blur) bằng phương pháp Laplacian Variance.
+        Trả về điểm số và trạng thái (True nếu mờ).
+        """
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
+        
+        # Lưu vào buffer để theo dõi xu hướng
+        self.blur_scores.append(blur_score)
+        
+        # Ngưỡng phân loại
+        is_blurry = blur_score < self.blur_threshold
+        
+        return blur_score, is_blurry
+    
+    def sharpen_image(self, frame, strength=1.5):
+        """
+        Làm sắc nét ảnh để giảm motion blur (Unsharp Masking).
+        
+        Phương pháp: 
+         # Downsample mạnh để đạt tốc độ Real-time (mỗi 4 pixels lấy 1)
+        # 640x480 / 16 = ~19,200 points (đủ cho Convex Hull chạy nhanh)
+        step = 4
+. Tính hiệu ảnh gốc - ảnh mờ = Chi tiết cạnh (mask)
+          3. Cộng mask vào ảnh gốc với trọng số
+          
+        Args:
+            frame: khung hình BGR
+            strength: hệ số sharpening (1.0-3.0)
+                     1.0 = nhẹ, 1.5 = trung bình, 2.0+ = mạnh
+        
+        Returns:
+            sharpened: ảnh đã làm sắc nét
+        """
+        # Làm mờ ảnh
+        blurred = cv2.GaussianBlur(frame, (0, 0), 3)
+        
+        # Unsharp masking: sharp = original + strength * (original - blurred)
+        sharpened = cv2.addWeighted(frame, 1.0 + strength, blurred, -strength, 0)
+        
+        return sharpened
+    
+    def advanced_deblur(self, frame):
+        """
+        Deblurring nâng cao sử dụng Wiener Filter approximation.
+        Hiệu quả hơn với motion blur nhưng tốn thời gian hơn.
+        
+        Args:
+            frame: khung hình BGR bị blur
+            
+        Returns:
+            deblurred: ảnh đã khử blur
+        """
+        # Chuyển sang grayscale để xử lý nhanh hơn
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Tạo Motion Blur Kernel (giả định blur theo phương ngang - băng chuyền)
+        # Kích thước kernel phụ thuộc vào tốc độ băng chuyền
+        kernel_size = 15
+        kernel_motion_blur = np.zeros((kernel_size, kernel_size))
+        kernel_motion_blur[int((kernel_size-1)/2), :] = np.ones(kernel_size)
+        kernel_motion_blur = kernel_motion_blur / kernel_size
+        
+        # Deconvolution bằng Wiener Filter (OpenCV không có sẵn, dùng xấp xỉ)
+        # Thay vào đó dùng bilateral filter + sharpening
+        deblurred_gray = cv2.bilateralFilter(gray, 9, 75, 75)
+        
+        # Sharpen
+        kernel_sharpen = np.array([[-1,-1,-1],
+                                   [-1, 9,-1],
+                                   [-1,-1,-1]])
+        deblurred_gray = cv2.filter2D(deblurred_gray, -1, kernel_sharpen)
+        
+        # Convert lại BGR (dùng ảnh gốc cho màu, chỉ thay channel sáng)
+        deblurred = frame.copy()
+        hsv = cv2.cvtColor(deblurred, cv2.COLOR_BGR2HSV)
+        hsv[:, :, 2] = deblurred_gray  # Thay channel V (Value/Brightness)
+        deblurred = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        
+        return deblurred
 
     # ═══════════════════════════════════════════════════════════
     #  HÀM PHÂN TÍCH CHÍNH
@@ -91,9 +219,35 @@ class FruitAnalyzer:
             grade          : hạng tổng hợp (GOOD / MEDIUM / BAD)
             detail_info    : dict chứa thông tin chi tiết 2 tiêu chí
         """
+        # ══════════════════════════════════════════════
+        #  PERFORMANCE TIMING START (Industrial Standard)
+        # ══════════════════════════════════════════════
+        t_start = time.perf_counter()
+        
         empty_detail = self._empty_detail()
         if frame is None:
             return None, 0, 0, "UNKNOWN", empty_detail
+
+        # ══════════════════════════════════════════════
+        #  MOTION BLUR DETECTION & AUTO-SHARPENING
+        # ══════════════════════════════════════════════
+        blur_score, is_blurry = self.detect_blur(frame)
+        
+        # Nếu ảnh bị blur và bật auto-sharpen → Sharpen
+        if is_blurry and self.auto_sharpen:
+            frame = self.sharpen_image(frame, strength=1.5)
+            blur_status = "BLURRY→SHARPENED"
+        elif is_blurry:
+            blur_status = "BLURRY"
+        else:
+            blur_status = "SHARP"
+        
+        # Lưu blur info để hiển thị
+        blur_info = {
+            "blur_score": blur_score,
+            "is_blurry": is_blurry,
+            "status": blur_status
+        }
 
         h_img, w_img = frame.shape[:2]
 
@@ -102,12 +256,6 @@ class FruitAnalyzer:
         apple_mask, main_contour = self._segment_apple(frame, depth_frame)
 
         if apple_mask is None or main_contour is None:
-            # QUAN TRỌNG: Táo đi qua thì phải xoá bộ nhớ góc nhìn
-            self.history_cx.clear()
-            self.history_cy.clear()
-            self.history_r.clear()
-            self.history_red.clear()
-            self.history_defect.clear()
             return frame, 0, 0, "NO_APPLE", empty_detail
 
         apple_area = cv2.contourArea(main_contour)
@@ -143,16 +291,11 @@ class FruitAnalyzer:
         
         # Tính tỉ lệ % (Dựa trên tổng vùng màu đã thấy ở khung hình hiện tại)
         if total_detected > 0:
-            current_red_ratio = (red_pixels / total_detected) * 100
+            red_ratio = (red_pixels / total_detected) * 100
             yellow_ratio = (yellow_pixels / total_detected) * 100
             green_ratio = (green_pixels / total_detected) * 100
         else:
-            current_red_ratio = yellow_ratio = green_ratio = 0
-            
-        # [MULTI-VIEW] Lấy Trung bình tỉ lệ Đỏ qua nhiều góc quay để đánh giá tổng thể bề mặt
-        self.history_red.append(current_red_ratio)
-        if len(self.history_red) > self.MAX_HISTORY: self.history_red.pop(0)
-        red_ratio = sum(self.history_red) / len(self.history_red)
+            red_ratio = yellow_ratio = green_ratio = 0
 
         ripeness_label, ripeness_grade = self._classify_ripeness(red_ratio)
 
@@ -166,26 +309,7 @@ class FruitAnalyzer:
         # ══════════════════════════════════════════════
         #  TC2: KÍCH CỠ (ĐƯỜNG KÍNH) + BÙ TRỪ CHIỀU SÂU
         # ══════════════════════════════════════════════
-        (raw_cx, raw_cy), raw_radius = cv2.minEnclosingCircle(main_contour)
-        
-        # [AUTO-RESET cho Ảnh tĩnh / Chuyển cảnh đột ngột]
-        # Nếu đang test ảnh tĩnh, quả táo mới có thể nhảy ra ở vị trí khác hẳn quả cũ.
-        # Nếu tọa độ tâm nhảy đột ngột > 100 pixel, hiểu ngay đây là 1 quả táo khác!
-        if self.history_cx and (abs(raw_cx - self.history_cx[-1]) > 100 or abs(raw_cy - self.history_cy[-1]) > 100):
-            self.history_cx.clear()
-            self.history_cy.clear()
-            self.history_r.clear()
-            self.history_red.clear()
-            self.history_defect.clear()
-        
-        # Làm mượt dao động
-        self.history_cx.append(raw_cx); self.history_cy.append(raw_cy); self.history_r.append(raw_radius)
-        if len(self.history_cx) > self.MAX_HISTORY:
-            self.history_cx.pop(0); self.history_cy.pop(0); self.history_r.pop(0)
-            
-        cx = sum(self.history_cx)/len(self.history_cx)
-        cy = sum(self.history_cy)/len(self.history_cy)
-        radius_px = sum(self.history_r)/len(self.history_r)
+        (cx, cy), radius_px = cv2.minEnclosingCircle(main_contour)
         diameter_px = radius_px * 2
 
 
@@ -242,15 +366,9 @@ class FruitAnalyzer:
             weights = radius_px / np.sqrt(R2_minus_d2)
             weights = np.clip(weights, 1.0, 3.0) # Tối đa nhân x3 diện tích ở rìa để tránh nhiễu
             
-            current_defect_area = np.sum(weights)
+            defect_area = np.sum(weights)
         else:
-            current_defect_area = 0
-        
-        # [MULTI-VIEW] Vết thâm có thể chỉ nằm ở 1 mặt. 
-        # Vì vậy ta lấy diện tích Vết thâm LỚN NHẤT từng thấy trong các góc quay!
-        self.history_defect.append(current_defect_area)
-        if len(self.history_defect) > self.MAX_HISTORY: self.history_defect.pop(0)
-        defect_area = max(self.history_defect)
+            defect_area = 0
         
         defect_ratio = (defect_area / apple_area) * 100 if apple_area > 0 else 0
 
@@ -277,6 +395,39 @@ class FruitAnalyzer:
         )
 
         # ══════════════════════════════════════════════
+        #  PERFORMANCE TIMING END & FPS CALCULATION
+        # ══════════════════════════════════════════════
+        t_end = time.perf_counter()
+        processing_time_ms = (t_end - t_start) * 1000  # Chuyển sang milliseconds
+        
+        # Tính FPS từ khoảng thời gian giữa các frame
+        current_time = time.perf_counter()
+        frame_interval = current_time - self.last_frame_time
+        if frame_interval > 0:
+            instant_fps = 1.0 / frame_interval
+            self.frame_times.append(instant_fps)
+            # FPS trung bình của 30 frame gần nhất (làm mượt)
+            self.current_fps = sum(self.frame_times) / len(self.frame_times)
+        self.last_frame_time = current_time
+        
+        # ══════════════════════════════════════════════
+        #  PHÂN TÍCH 3D (NẾU CÓ DEPTH DATA)
+        # ══════════════════════════════════════════════
+        result_3d = {}
+        if depth_frame is not None and apple_mask is not None and self.analyzer_3d is not None:
+            try:
+                result_3d = self.analyzer_3d.analyze_complete(depth_frame, apple_mask)
+                if result_3d["success"]:
+                    # Lưu dữ liệu để visualization sau
+                    self.last_point_cloud = result_3d.get("point_cloud", None)
+                    self.last_depth_frame = depth_frame
+                    self.last_apple_mask = apple_mask
+                    print(f"[3D] OK: Sphericity={result_3d['sphericity']:.3f}, Dents={result_3d['dent_count']}, Volume={result_3d['volume_cm3']:.1f}cm3")
+            except Exception as e:
+                print(f"[3D] Warning: Error: {e}")
+                result_3d = {"success": False}
+        
+        # ══════════════════════════════════════════════
         #  THÔNG TIN CHI TIẾT (dict cho GUI)
         # ══════════════════════════════════════════════
         detail_info = {
@@ -291,6 +442,15 @@ class FruitAnalyzer:
             "size_grade": size_grade,
             "shape_label": shape_label,
             "shape_grade": shape_grade,
+            # Performance Metrics (Machine Vision Industrial Standard)
+            "processing_time_ms": processing_time_ms,
+            "fps": self.current_fps,
+            # Motion Blur Detection (Anti-Blur System)
+            "blur_score": blur_info["blur_score"],
+            "blur_status": blur_info["status"],
+            "is_blurry": blur_info["is_blurry"],
+            # 3D Metrics (Astra Pro Depth Analysis)
+            "3d_analysis": result_3d,
         }
 
         return res_frame, defect_area, red_ratio, grade, detail_info
@@ -307,6 +467,14 @@ class FruitAnalyzer:
         # Tiền xử lý
         blurred = cv2.GaussianBlur(frame, (9, 9), 0)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+        
+        # 0. ROI (Region of Interest) - Chỉ bắt táo ở trung tâm
+        roi_w = int(w * self.ROI_WIDTH_RATIO)
+        roi_h = int(h * self.ROI_HEIGHT_RATIO)
+        roi_x = (w - roi_w) // 2
+        roi_y = (h - roi_h) // 2
+        mask_roi = np.zeros((h, w), dtype=np.uint8)
+        cv2.rectangle(mask_roi, (roi_x, roi_y), (roi_x + roi_w, roi_y + roi_h), 255, -1)
         
         # 0. MASK CHIỀU SÂU (3D Background Subtraction)
         mask_depth = np.ones((h, w), dtype=np.uint8) * 255
@@ -339,6 +507,9 @@ class FruitAnalyzer:
 
         # 4. KẾT HỢP TỔNG LỰC (Hybrid Consensus)
         combined = cv2.bitwise_and(mask_apple_colors, cv2.bitwise_and(mask_not_green, mask_bright))
+        
+        # 4.1 Áp dụng ROI để chỉ bắt táo ở trung tâm
+        combined = cv2.bitwise_and(combined, mask_roi)
 
         # 5. LÀM SẠCH (Morphology)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
@@ -415,14 +586,14 @@ class FruitAnalyzer:
         
         Returns: (label, grade)
             label: tên hiển thị ("CHÍN ĐỀU" / "VỪA CHÍN" / "CHƯA CHÍN")
-            grade: hạng ("GOOD" / "MEDIUM" / "BAD")
+            grade: hạng ("Grade-1" / "Grade-2" / "Grade-3")
         """
         if red_ratio >= self.RIPENESS_GOOD_THRESH:
-            return "CHÍN ĐỀU", "GOOD"
+            return "CHÍN ĐỀU", "Grade-1"
         elif red_ratio >= self.RIPENESS_MEDIUM_THRESH:
-            return "VỪA CHÍN", "MEDIUM"
+            return "VỪA CHÍN", "Grade-2"
         else:
-            return "CHƯA CHÍN", "BAD"
+            return "CHƯA CHÍN", "Grade-3"
 
     def _classify_size(self, diameter_mm):
         """
@@ -433,35 +604,35 @@ class FruitAnalyzer:
             grade: hạng ("A" / "B" / "C")
         """
         if diameter_mm >= self.SIZE_THRESHOLDS["large"]:
-            return "LỚN (A)", "GOOD"
+            return "LỚN (A)", "Grade-1"
         elif diameter_mm >= self.SIZE_THRESHOLDS["medium"]:
-            return "VỪA (B)", "MEDIUM"
+            return "VỪA (B)", "Grade-2"
         else:
-            return "NHỎ (C)", "BAD"
+            return "NHỎ (C)", "Grade-3"
 
     def _classify_shape(self, circularity):
         """Phân hạng TC3 - Hình dáng (độ tròn)."""
         if circularity >= self.SHAPE_GOOD_THRESH:
-            return "TRÒN ĐỀU", "GOOD"
+            return "TRÒN ĐỀU", "Grade-1"
         elif circularity >= self.SHAPE_MEDIUM_THRESH:
-            return "HƠI MÉO", "MEDIUM"
+            return "HƠI MÉO", "Grade-2"
         else:
-            return "MÉO / DỊ DẠNG", "BAD"
+            return "MÉO / DỊ DẠNG", "Grade-3"
 
-    def _overall_grade(self, tc1_grade, tc2_grade, tc3_grade="GOOD"):
+    def _overall_grade(self, tc1_grade, tc2_grade, tc3_grade="Grade-1"):
         """
         Tổng hợp 3 tiêu chí theo logic:
-        - Chỉ cần 1 cái BAD = BAD
-        - Có MEDIUM và không có BAD = MEDIUM
-        - Tất cả GOOD = GOOD
+        - Chỉ cần 1 cái Grade-3 = Grade-3
+        - Có Grade-2 và không có Grade-3 = Grade-2
+        - Tất cả Grade-1 = Grade-1
         """
-        # Thứ tự ưu tiên: BAD > MEDIUM > GOOD
+        # Thứ tự ưu tiên: Grade-3 > Grade-2 > Grade-1
         all_grades = [tc1_grade, tc2_grade, tc3_grade]
-        if "BAD" in all_grades:
-            return "BAD"
-        if "MEDIUM" in all_grades:
-            return "MEDIUM"
-        return "GOOD"
+        if "Grade-3" in all_grades:
+            return "Grade-3"
+        if "Grade-2" in all_grades:
+            return "Grade-2"
+        return "Grade-1"
 
     # ═══════════════════════════════════════════════════════════
     #  VẼ KẾT QUẢ LÊN KHUNG HÌNH
@@ -477,7 +648,7 @@ class FruitAnalyzer:
         h_f, w_f = res.shape[:2]
 
         # Màu theo hạng
-        color_map = {"GOOD": (0, 255, 0), "MEDIUM": (0, 255, 255), "BAD": (0, 0, 255)}
+        color_map = {"Grade-1": (0, 255, 0), "Grade-2": (0, 255, 255), "Grade-3": (0, 0, 255)}
         color = color_map.get(grade, (255, 255, 255))
 
         # Vẽ đường viền quả táo
@@ -501,6 +672,7 @@ class FruitAnalyzer:
         # Hiển thị đường kính trực tiếp lên quả táo
         cv2.line(res, (int(cx - radius_px), int(cy)), (int(cx + radius_px), int(cy)), (255, 255, 0), 2)
         
+        # Hiển thị thông tin đường kính
         if used_3d:
             info_text = f"D = {diameter_mm:.1f} mm (Z={int(dist_mm)}mm)"
             c_text = (0, 255, 255)
@@ -511,21 +683,15 @@ class FruitAnalyzer:
         cv2.putText(res, info_text, (int(cx - 80), int(cy - 15)), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, c_text, 2)
 
-        # ── Kết quả tổng hợp (Hiển thị 3 tiêu chí theo bài báo 2025) ──
-        text_y = 35
-        cv2.putText(res, f"KET QUA: {grade}", (15, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 3)
-        
-        text_y += 35
-        # TC1: Màu sắc
-        cv2.putText(res, f"TC1 (Chin): {ripeness_label} ({red_r:.1f}% Do)", (15, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-        
-        text_y += 25
-        # TC2: Kích cỡ
-        cv2.putText(res, f"TC2 (Size): {size_label}", (15, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-        
-        text_y += 25
-        # TC3: Hình dáng
-        cv2.putText(res, f"TC3 (Dang): {shape_label}", (15, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        # ─── VẼ ROI (Region of Interest) ───
+        roi_w = int(w_f * self.ROI_WIDTH_RATIO)
+        roi_h = int(h_f * self.ROI_HEIGHT_RATIO)
+        roi_x = (w_f - roi_w) // 2
+        roi_y = (h_f - roi_h) // 2
+        # Vẽ hình chữ nhật nét đứt (giả lập bằng 1 pixel)
+        cv2.rectangle(res, (roi_x, roi_y), (roi_x + roi_w, roi_y + roi_h), (200, 200, 200), 1)
+        cv2.putText(res, "CENTER DETECTION ROI", (roi_x, roi_y - 8), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 200), 1)
 
         return res
 

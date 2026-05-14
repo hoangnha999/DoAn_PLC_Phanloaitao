@@ -128,26 +128,11 @@ class CameraManager:
             self._log("✅ Camera settings: 640x480")
         except:
             pass
-        
-        # ─── Apply Anti-Motion Blur Settings (OPTIONAL) ─────────
-        """
-        [DISABLED] Áp dụng cài đặt camera CHUYÊN GIẢI QUYẾT MOTION BLUR.
-        
-        CẢNH BÁO: Hàm này có thể gây lỗi với một số webcam.
-        Chỉ bật khi thực sự cần thiết.
-        """
-        
-        # Cài đặt buffer size thấp để giảm lag
-        try:
-            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        except:
-            pass
             
         self._cam_running = True
         self._cam_thread = threading.Thread(target=self._stream_loop, daemon=True)
         self._cam_thread.start()
         return True
-
 
     def start_file_mode(self, path, is_video=False):
         self.stop()

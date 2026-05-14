@@ -57,7 +57,7 @@ class DataVisualizer:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
         # Biểu đồ Tròn: Tỷ lệ các hạng
-        colors_pie = {'GOOD': '#10B981', 'MEDIUM': '#F59E0B', 'BAD': '#EF4444', 'UNKNOWN': '#64748B'}
+        colors_pie = {'Grade-1': '#10B981', 'Grade-2': '#F59E0B', 'Grade-3': '#EF4444', 'UNKNOWN': '#64748B'}
         current_colors = [colors_pie.get(g, '#64748B') for g in unique_grades]
         
         ax1.pie(counts, labels=unique_grades, autopct='%1.1f%%', startangle=140, colors=current_colors)
@@ -87,8 +87,8 @@ class DataVisualizer:
         """
         from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
         
-        cm = confusion_matrix(actual_grades, predicted_grades, labels=["GOOD", "MEDIUM", "BAD"])
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["GOOD", "MEDIUM", "BAD"])
+        cm = confusion_matrix(actual_grades, predicted_grades, labels=["Grade-1", "Grade-2", "Grade-3"])
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Grade-1", "Grade-2", "Grade-3"])
         
         fig, ax = plt.subplots(figsize=(6, 5))
         disp.plot(cmap=plt.cm.Blues, ax=ax)

@@ -66,11 +66,11 @@ class AppDatabase:
 
     def get_stats(self):
         """Lấy số lượng đếm."""
-        stats = {"GOOD": 0, "MEDIUM": 0, "BAD": 0, "TOTAL": 0}
+        stats = {"Grade-1": 0, "Grade-2": 0, "Grade-3": 0, "TOTAL": 0}
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cur = conn.cursor()
-                for grade in ["GOOD", "MEDIUM", "BAD"]:
+                for grade in ["Grade-1", "Grade-2", "Grade-3"]:
                     cur.execute("SELECT COUNT(*) FROM phan_loai_history WHERE ket_qua=?", (grade,))
                     count = cur.fetchone()[0]
                     stats[grade] = count
