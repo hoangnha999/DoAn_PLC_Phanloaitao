@@ -655,6 +655,9 @@ class CameraWindow:
         # Hiển thị trang mặc định
         self._show_page("PHANLOAI")
 
+        # 5. Vùng kéo thay đổi kích thước (thay thế viền Windows đã bị ẩn)
+        self._setup_resize()
+
     def _toggle_sidebar(self):
         """Hiệu ứng ẩn hiện Sidebar."""
         if not self.sidebar_visible:
@@ -702,6 +705,73 @@ class CameraWindow:
         else:
             self.win.state('zoomed')
             self.btn_restore.config(text="🗖") # Icon Maximize
+
+    # ─── KÉO THẢ THAY ĐỔI KÍCH THƯỚC CỬA SỔ (RESIZE HANDLES) ────────
+    def _setup_resize(self):
+        """Tạo vùng kéo thay đổi kích thước ở 4 cạnh + 2 góc dưới cho cửa sổ borderless."""
+        GRIP = 5  # Độ dày vùng kéo (pixels)
+
+        resize_configs = [
+            # (tên_cạnh, place_kwargs, cursor)
+            ('right',        dict(relx=1.0, rely=0, anchor='ne', width=GRIP, relheight=1.0), 'sb_h_double_arrow'),
+            ('left',         dict(relx=0, rely=0, anchor='nw', width=GRIP, relheight=1.0),   'sb_h_double_arrow'),
+            ('bottom',       dict(relx=0, rely=1.0, anchor='sw', relwidth=1.0, height=GRIP), 'sb_v_double_arrow'),
+            ('bottom_right', dict(relx=1.0, rely=1.0, anchor='se', width=GRIP*3, height=GRIP*3), 'bottom_right_corner'),
+            ('bottom_left',  dict(relx=0, rely=1.0, anchor='sw', width=GRIP*3, height=GRIP*3),   'bottom_left_corner'),
+        ]
+
+        for edge_name, place_kw, cursor in resize_configs:
+            f = tk.Frame(self.win, cursor=cursor)
+            f.place(**place_kw)
+            f.bind('<ButtonPress-1>', lambda e, n=edge_name: self._resize_start(e, n))
+            f.bind('<B1-Motion>', self._resize_move)
+            f.lift()
+
+        # Biểu tượng kéo ở góc dưới phải (⇲) — dấu hiệu trực quan cho người dùng
+        self._grip_icon = tk.Label(self.win, text='⇲', font=('Consolas', 12),
+                                    fg='#94A3B8', bg='#FFFFFF', cursor='bottom_right_corner')
+        self._grip_icon.place(relx=1.0, rely=1.0, anchor='se')
+        self._grip_icon.bind('<ButtonPress-1>', lambda e: self._resize_start(e, 'bottom_right'))
+        self._grip_icon.bind('<B1-Motion>', self._resize_move)
+        self._grip_icon.lift()
+
+    def _resize_start(self, event, edge):
+        """Ghi nhận vị trí bắt đầu kéo."""
+        self._rz_edge = edge
+        self._rz_x = event.x_root
+        self._rz_y = event.y_root
+        self._rz_w = self.win.winfo_width()
+        self._rz_h = self.win.winfo_height()
+        self._rz_wx = self.win.winfo_x()
+        self._rz_wy = self.win.winfo_y()
+
+    def _resize_move(self, event):
+        """Tính toán kích thước mới khi kéo."""
+        dx = event.x_root - self._rz_x
+        dy = event.y_root - self._rz_y
+        edge = self._rz_edge
+
+        new_w, new_h = self._rz_w, self._rz_h
+        new_x, new_y = self._rz_wx, self._rz_wy
+        MIN_W, MIN_H = 900, 600
+
+        if 'right' in edge:
+            new_w = max(MIN_W, self._rz_w + dx)
+        if 'bottom' in edge:
+            new_h = max(MIN_H, self._rz_h + dy)
+        if edge == 'left':
+            candidate_w = self._rz_w - dx
+            if candidate_w >= MIN_W:
+                new_w = candidate_w
+                new_x = self._rz_wx + dx
+        if edge == 'bottom_left':
+            new_h = max(MIN_H, self._rz_h + dy)
+            candidate_w = self._rz_w - dx
+            if candidate_w >= MIN_W:
+                new_w = candidate_w
+                new_x = self._rz_wx + dx
+
+        self.win.geometry(f'{new_w}x{new_h}+{new_x}+{new_y}')
 
     def _build_sidebar_items(self):
         """Các mục trong menu bên."""
