@@ -843,13 +843,31 @@ class CameraWindow:
 
     def _build_phanloai_page(self):
         """Trang Phân loại: Thống kê + Camera + Start/Stop + Log."""
-        # 1. Log và PLC ở dưới cùng
-        self._build_plc_status_area(self.page_phanloai)
-        self._build_log_area(self.page_phanloai)
+        # 1. Main split: Chiều dọc (Trên = Giao diện chính, Dưới = Log + PLC)
+        self.main_pw = tk.PanedWindow(self.page_phanloai, orient=tk.VERTICAL, sashwidth=6, sashrelief="ridge", bg="#CBD5E1")
+        self.main_pw.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # 2. Sau đó mới chia layout Trái (Stats) / Phải (Camera) ở phần còn lại
-        self._build_left(self.page_phanloai)
-        self._build_right(self.page_phanloai)
+        # 2. Top area: Chiều ngang (Trái = Stats, Phải = Camera)
+        self.top_pw = tk.PanedWindow(self.main_pw, orient=tk.HORIZONTAL, sashwidth=6, sashrelief="ridge", bg="#CBD5E1")
+        self.main_pw.add(self.top_pw, stretch="always", minsize=400)
+
+        self.left_frame = tk.Frame(self.top_pw, bg="#F1F5F9")
+        self.right_frame = tk.Frame(self.top_pw, bg="#F1F5F9")
+        self.top_pw.add(self.left_frame, minsize=250)
+        self.top_pw.add(self.right_frame, stretch="always", minsize=400)
+
+        # 3. Bottom area: Chiều dọc (Log, PLC)
+        self.log_frame = tk.Frame(self.main_pw, bg="#F1F5F9")
+        self.main_pw.add(self.log_frame, stretch="never", minsize=80)
+        
+        self.plc_frame = tk.Frame(self.main_pw, bg="#F1F5F9")
+        self.main_pw.add(self.plc_frame, stretch="never", minsize=105)
+
+        # 4. Build content vào các khung tương ứng
+        self._build_left(self.left_frame)
+        self._build_right(self.right_frame)
+        self._build_log_area(self.log_frame)
+        self._build_plc_status_area(self.plc_frame)
 
     def _build_setting_page(self):
         """Trang Cài đặt: PLC IP, Nguồn Camera, Reset."""
@@ -926,7 +944,7 @@ class CameraWindow:
         self._log_frame_widget = tk.LabelFrame(
             parent, text=" 📝 EVENT LOG ",
             font=("Arial", 9, "bold"), fg="#475569", bg="#FFFFFF", padx=6, pady=4)
-        self._log_frame_widget.pack(side="bottom", fill="x", padx=5, pady=(0, 5))
+        self._log_frame_widget.pack(fill="both", expand=True, padx=5, pady=(0, 5))
 
         # ── Thanh công cụ Log (toolbar) ──
         toolbar = tk.Frame(self._log_frame_widget, bg="#FFFFFF")
@@ -966,7 +984,7 @@ class CameraWindow:
 
         # ── Vùng hiển thị log + scrollbar ──
         text_frame = tk.Frame(self._log_frame_widget, bg="#F8FAFC")
-        text_frame.pack(fill="x")
+        text_frame.pack(fill="both", expand=True)
 
         scrollbar = tk.Scrollbar(text_frame, orient="vertical")
         scrollbar.pack(side="right", fill="y")
@@ -975,7 +993,7 @@ class CameraWindow:
             text_frame, height=4, bg="#F8FAFC", fg="#0F172A",
             font=("Consolas", 9), bd=0, state="disabled",
             yscrollcommand=scrollbar.set, wrap="word")
-        self.log_text.pack(side="left", fill="x", expand=True)
+        self.log_text.pack(side="left", fill="both", expand=True)
         scrollbar.config(command=self.log_text.yview)
 
         # Cấu hình màu sắc cho các loại log
@@ -993,9 +1011,8 @@ class CameraWindow:
         """Thanh điều khiển nhanh PLC + Camera."""
         bar = tk.LabelFrame(parent, text=" ⚡ ĐIỀU KHIỂN NHANH ",
                               font=("Arial", 10, "bold"), fg="#0284C7", bg="#FFFFFF",
-                              padx=10, pady=4, height=105)
-        bar.pack(side="bottom", fill="x", pady=(5, 0), padx=5)
-        bar.pack_propagate(False) # Ngăn khung co lại
+                              padx=10, pady=4)
+        bar.pack(fill="both", expand=True, pady=(5, 0), padx=5)
 
         # ── Hàng 1: PLC START / STOP + CHỤP + XÓA BUFFER ──
         row1 = tk.Frame(bar, bg="#FFFFFF")
@@ -1066,9 +1083,8 @@ class CameraWindow:
 
     # ─── Panel trái ─────────────────────────────────────
     def _build_left(self, parent):
-        lf = tk.Frame(parent, bg="#FFFFFF", width=310, bd=1, relief="ridge")
-        lf.pack(side="left", fill="y", padx=(0, 8))
-        lf.pack_propagate(False)
+        lf = tk.Frame(parent, bg="#FFFFFF", bd=1, relief="ridge")
+        lf.pack(fill="both", expand=True, padx=(0, 4))
 
         tk.Label(lf, text="📊  KẾT QUẢ PHÂN LOẠI",
                  font=("Arial", 11, "bold"), fg="#0284C7", bg="#FFFFFF",
@@ -1219,16 +1235,13 @@ class CameraWindow:
 
 
 
-        # ── Vùng hiển thị Camera (Cân bằng kích thước) ──
-        display_area = tk.Frame(rf, bg="#FFFFFF")
-        display_area.pack(fill="both", expand=True, padx=6, pady=2)
-        display_area.rowconfigure(0, weight=1)
-        display_area.rowconfigure(1, weight=1)
-        display_area.columnconfigure(0, weight=1)
+        # ── Vùng hiển thị Camera (Cân bằng kích thước bằng PanedWindow) ──
+        self.display_area = tk.PanedWindow(rf, orient=tk.VERTICAL, sashwidth=6, sashrelief="ridge", bg="#CBD5E1")
+        self.display_area.pack(fill="both", expand=True, padx=6, pady=2)
 
         # --- Khung hiển thị 1 ---
-        f1 = tk.Frame(display_area, bg="#FFFFFF")
-        f1.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
+        f1 = tk.Frame(self.display_area, bg="#FFFFFF")
+        self.display_area.add(f1, stretch="always", minsize=100)
         
         self.lbl_view1 = tk.Label(f1, text="📷  CAMERA (COLOR)",
                                   font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
@@ -1239,8 +1252,8 @@ class CameraWindow:
         self.canvas.pack(fill="both", expand=True)
 
         # --- Khung hiển thị 2 ---
-        f2 = tk.Frame(display_area, bg="#FFFFFF")
-        f2.grid(row=1, column=0, sticky="nsew", pady=(0, 2))
+        f2 = tk.Frame(self.display_area, bg="#FFFFFF")
+        self.display_area.add(f2, stretch="always", minsize=100)
         
         self.lbl_view2 = tk.Label(f2, text="🔲  MACHINE VISION (DEPTH MAP / GRAYSCALE)",
                                   font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
