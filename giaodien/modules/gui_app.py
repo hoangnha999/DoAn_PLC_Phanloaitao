@@ -351,40 +351,57 @@ class CameraWindow:
         self.win.title("Hệ thống phân loại hạng chất lượng táo")
         self.win.configure(bg="#F1F5F9")
         self.win.resizable(True, True)
-        # Loại bỏ thanh tiêu đề mặc định của Windows để dùng custom header
-        self.win.overrideredirect(True)
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        W, H = 1160, 760 # Tăng chiều cao để hiển thị đủ thẻ Yield và nút Camera
+        W, H = 1160, 760
         sw = parent.winfo_screenwidth()
         sh = parent.winfo_screenheight()
         self.win.geometry(f"{W}x{H}+{(sw-W)//2}+{(sh-H)//2}")
+        self.win.minsize(900, 600)
 
         self.analyzer = FruitAnalyzer()
         self.current_grade = "UNKNOWN"
-        self._refresh_stats_ui() # Tải thống kê từ CSDL cũ (nếu có)
+        self._refresh_stats_ui()
         self._build_ui()
         self._log_event("Hệ thống Vision đã khởi động.", "INFO")
-        
-        # Thẻ để Windows nhận diện là một ứng dụng riêng biệt trên Taskbar (quan trọng cho cửa sổ borderless)
-        self.win.after(200, self._set_appwindow)
 
-    def _set_appwindow(self):
-        """Hệ quả của overrideredirect(True) là mất icon Taskbar. Hàm này dùng ctypes để lấy lại icon đó."""
+        # Ẩn thanh tiêu đề gốc của Windows nhưng giữ viền resize (qua Windows API)
+        self.win.after(100, self._apply_borderless_style)
+
+    def _apply_borderless_style(self):
+        """Ẩn thanh tiêu đề gốc của Windows nhưng GIỮ NGUYÊN viền resize.
+        Sử dụng Windows API (ctypes) thay vì overrideredirect(True).
+        Kết quả: cửa sổ có thể kéo thay đổi kích thước từ mọi cạnh như phần mềm thương mại."""
         try:
             import ctypes
-            # GWL_EXSTYLE = -20, WS_EX_APPWINDOW = 0x00040000, WS_EX_TOOLWINDOW = 0x00000080
+            GWL_STYLE = -16
+            # Các style flag của Windows
+            WS_CAPTION = 0x00C00000    # Thanh tiêu đề
+            WS_THICKFRAME = 0x00040000 # Viền resize
+            WS_MINIMIZEBOX = 0x00020000
+            WS_MAXIMIZEBOX = 0x00010000
+            WS_SYSMENU = 0x00080000
+
             hwnd = ctypes.windll.user32.GetParent(self.win.winfo_id())
-            style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)
-            style = style & ~0x00000080 # Xóa ToolWindow (ẩn khỏi taskbar)
-            style = style | 0x00040000  # Thêm AppWindow (hiện ở taskbar)
-            ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
-            
-            # Cần ẩn và hiện lại để Windows cập nhật taskbar
-            # self.win.withdraw()
-            # self.win.deiconify()
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
+
+            # Xóa thanh tiêu đề gốc, giữ viền resize + nút taskbar
+            style = (style & ~WS_CAPTION) | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU
+            ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style)
+
+            # Buộc Windows vẽ lại khung cửa sổ với style mới
+            SWP_FRAMECHANGED = 0x0020
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_NOZORDER = 0x0004
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, 0, 0, 0, 0, 0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER
+            )
         except Exception as e:
-            print(f"Failed to set Taskbar Icon: {e}")
+            print(f"[WARN] Windows API borderless failed: {e}")
+            # Fallback: dùng overrideredirect nếu API thất bại
+            self.win.overrideredirect(True)
 
     def _refresh_stats_ui(self):
         """Cập nhật các ô số Grade-1/Grade-2/Grade-3 và Yield Rate từ CSDL."""
@@ -655,9 +672,6 @@ class CameraWindow:
         # Hiển thị trang mặc định
         self._show_page("PHANLOAI")
 
-        # 5. Vùng kéo thay đổi kích thước (thay thế viền Windows đã bị ẩn)
-        self._setup_resize()
-
     def _toggle_sidebar(self):
         """Hiệu ứng ẩn hiện Sidebar."""
         if not self.sidebar_visible:
@@ -686,17 +700,7 @@ class CameraWindow:
 
     def _minimize_window(self):
         """Thu nhỏ cửa sổ xuống Taskbar."""
-        self.win.update_idletasks()
-        self.win.overrideredirect(False)
         self.win.state('iconic')
-        # Khi người dùng mở lại từ taskbar, bind sự kiện Map để bật lại không viền
-        self.win.bind("<Map>", self._on_deiconify)
-        
-    def _on_deiconify(self, event):
-        """Bật lại chế độ không viền khi cửa sổ hiện lên."""
-        self.win.unbind("<Map>")
-        self.win.overrideredirect(True)
-        self.win.after(10, self._set_appwindow)
 
     def _restore_window(self):
         if self.win.state() == 'zoomed':
@@ -706,72 +710,6 @@ class CameraWindow:
             self.win.state('zoomed')
             self.btn_restore.config(text="🗖") # Icon Maximize
 
-    # ─── KÉO THẢ THAY ĐỔI KÍCH THƯỚC CỬA SỔ (RESIZE HANDLES) ────────
-    def _setup_resize(self):
-        """Tạo vùng kéo thay đổi kích thước ở 4 cạnh + 2 góc dưới cho cửa sổ borderless."""
-        GRIP = 5  # Độ dày vùng kéo (pixels)
-
-        resize_configs = [
-            # (tên_cạnh, place_kwargs, cursor)
-            ('right',        dict(relx=1.0, rely=0, anchor='ne', width=GRIP, relheight=1.0), 'sb_h_double_arrow'),
-            ('left',         dict(relx=0, rely=0, anchor='nw', width=GRIP, relheight=1.0),   'sb_h_double_arrow'),
-            ('bottom',       dict(relx=0, rely=1.0, anchor='sw', relwidth=1.0, height=GRIP), 'sb_v_double_arrow'),
-            ('bottom_right', dict(relx=1.0, rely=1.0, anchor='se', width=GRIP*3, height=GRIP*3), 'bottom_right_corner'),
-            ('bottom_left',  dict(relx=0, rely=1.0, anchor='sw', width=GRIP*3, height=GRIP*3),   'bottom_left_corner'),
-        ]
-
-        for edge_name, place_kw, cursor in resize_configs:
-            f = tk.Frame(self.win, cursor=cursor)
-            f.place(**place_kw)
-            f.bind('<ButtonPress-1>', lambda e, n=edge_name: self._resize_start(e, n))
-            f.bind('<B1-Motion>', self._resize_move)
-            f.lift()
-
-        # Biểu tượng kéo ở góc dưới phải (⇲) — dấu hiệu trực quan cho người dùng
-        self._grip_icon = tk.Label(self.win, text='⇲', font=('Consolas', 12),
-                                    fg='#94A3B8', bg='#FFFFFF', cursor='bottom_right_corner')
-        self._grip_icon.place(relx=1.0, rely=1.0, anchor='se')
-        self._grip_icon.bind('<ButtonPress-1>', lambda e: self._resize_start(e, 'bottom_right'))
-        self._grip_icon.bind('<B1-Motion>', self._resize_move)
-        self._grip_icon.lift()
-
-    def _resize_start(self, event, edge):
-        """Ghi nhận vị trí bắt đầu kéo."""
-        self._rz_edge = edge
-        self._rz_x = event.x_root
-        self._rz_y = event.y_root
-        self._rz_w = self.win.winfo_width()
-        self._rz_h = self.win.winfo_height()
-        self._rz_wx = self.win.winfo_x()
-        self._rz_wy = self.win.winfo_y()
-
-    def _resize_move(self, event):
-        """Tính toán kích thước mới khi kéo."""
-        dx = event.x_root - self._rz_x
-        dy = event.y_root - self._rz_y
-        edge = self._rz_edge
-
-        new_w, new_h = self._rz_w, self._rz_h
-        new_x, new_y = self._rz_wx, self._rz_wy
-        MIN_W, MIN_H = 900, 600
-
-        if 'right' in edge:
-            new_w = max(MIN_W, self._rz_w + dx)
-        if 'bottom' in edge:
-            new_h = max(MIN_H, self._rz_h + dy)
-        if edge == 'left':
-            candidate_w = self._rz_w - dx
-            if candidate_w >= MIN_W:
-                new_w = candidate_w
-                new_x = self._rz_wx + dx
-        if edge == 'bottom_left':
-            new_h = max(MIN_H, self._rz_h + dy)
-            candidate_w = self._rz_w - dx
-            if candidate_w >= MIN_W:
-                new_w = candidate_w
-                new_x = self._rz_wx + dx
-
-        self.win.geometry(f'{new_w}x{new_h}+{new_x}+{new_y}')
 
     def _build_sidebar_items(self):
         """Các mục trong menu bên."""
