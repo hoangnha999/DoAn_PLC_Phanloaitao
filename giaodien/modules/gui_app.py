@@ -985,7 +985,7 @@ class CameraWindow:
         """Thanh điều khiển nhanh PLC + Camera."""
         bar = tk.LabelFrame(parent, text=" ⚡ ĐIỀU KHIỂN NHANH ",
                               font=("Arial", 10, "bold"), fg="#0284C7", bg="#FFFFFF",
-                              padx=10, pady=4, height=105)
+                              padx=10, pady=4, height=145)
         bar.pack(side="bottom", fill="x", pady=(5, 0), padx=5)
         bar.pack_propagate(False) # Ngăn khung co lại
 
