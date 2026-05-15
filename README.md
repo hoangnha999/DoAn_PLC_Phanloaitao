@@ -1,79 +1,70 @@
-# 🍎 Dự Án Hệ Thống Phân Loại Táo Tự Động (Apple Grading System)
+# 🍎 HỆ THỐNG PHÂN LOẠI TÁO TỰ ĐỘNG (APPLE GRADING SYSTEM)
 
-Chào mừng bạn đến với hệ thống phân loại táo thông minh! Đây là hướng dẫn cực kỳ chi tiết dành cho người mới bắt đầu (ngay cả khi bạn chưa từng lập trình) để có thể cài đặt và chạy được phần mềm này.
-
----
-
-## 🏗️ 1. Cấu Trúc Dự Án (Tổng Quan)
-
-Khi mở thư mục dự án, bạn sẽ thấy các thành phần chính sau:
-- **`giaodien/main.py`**: Đây là file "công tắc" để mở phần mềm.
-- **`giaodien/Processing/`**: Chứa thuật toán nhận diện quả táo, tính toán độ chín và kích thước.
-- **`giaodien/modules/`**: Chứa các bộ phận điều khiển camera, kết nối PLC và lưu trữ dữ liệu.
-- **`dataset/`**: Thư mục chứa các video và ảnh mẫu để bạn dùng thử nếu không có camera thực tế.
-- **`history_images/`**: Nơi phần mềm sẽ tự lưu lại ảnh chụp các quả táo sau khi phân loại xong.
+Chào mừng bạn! Đây là hướng dẫn từng bước để cài đặt và vận hành hệ thống phân loại táo thông minh. Bản hướng dẫn này được thiết kế để **ngay cả người không biết về kỹ thuật** cũng có thể làm được.
 
 ---
 
-## 📥 2. Hướng Dẫn Cài Đặt Từ A-Z (Cho Người Mới)
+## 📂 1. CẤU TRÚC DỰ ÁN (PROJECT STRUCTURE)
 
-### Bước 2.1: Cài đặt Python (Bắt buộc)
-Python là "động cơ" để chạy mã nguồn này.
-1. Truy cập: [python.org](https://www.python.org/downloads/)
-2. Nhấn nút **Download Python 3.x.x**.
-3. **QUAN TRỌNG:** Khi chạy file cài đặt, hãy tích vào ô **"Add Python to PATH"** trước khi nhấn "Install Now". Nếu quên bước này, máy tính sẽ không nhận lệnh `python`.
+Dưới đây là sơ đồ các thư mục quan trọng để bạn dễ hình dung:
 
-### Bước 2.2: Cài đặt Visual Studio Code (VS Code)
-Đây là phần mềm dùng để mở và chạy code chuyên nghiệp nhưng rất dễ dùng.
-1. Truy cập: [code.visualstudio.com](https://code.visualstudio.com/)
-2. Tải về và cài đặt bình thường.
-
-### Bước 2.3: Tải mã nguồn về máy
-1. Nhấn nút **Code** (màu xanh) trên GitHub và chọn **Download ZIP**.
-2. Giải nén file vừa tải về vào một thư mục (ví dụ: ổ `D:` hoặc `Desktop`).
+*   📂 **`dataset/`**: Nơi chứa các Video/Ảnh mẫu để bạn chạy thử nghiệm (Dùng khi không có Camera thật).
+*   📂 **`giaodien/`**: Thư mục chứa toàn bộ mã nguồn của phần mềm.
+    *   📄 `main.py`: **File chính để khởi động chương trình.**
+    *   📂 `Processing/`: Chứa thuật toán "bộ não" xử lý hình ảnh quả táo.
+    *   📂 `modules/`: Chứa các bộ phận điều khiển Camera, PLC và Database.
+    *   📂 `images/`: Chứa các icon và hình ảnh minh họa cho giao diện.
+    *   📂 `history_images/`: Nơi tự động lưu ảnh các quả táo đã được phân loại thành công.
+*   📄 `README.md`: Bản hướng dẫn bạn đang xem.
 
 ---
 
-## 🚀 3. Cách Chạy Phần Mềm Trên VS Code (Cầm Tay Chỉ Việc)
+## 📥 2. HƯỚNG DẪN CÀI ĐẶT (CHO NGƯỜI MỚI)
 
-1. **Mở VS Code.**
-2. Chọn menu **File** -> **Open Folder...** -> Tìm đến thư mục dự án bạn vừa giải nén và nhấn **Select Folder**.
-3. **Mở Terminal:** Nhấn tổ hợp phím `Ctrl` + `~` (phím cạnh số 1) để hiện bảng đen ở dưới cùng.
-4. **Cài đặt thư viện:** Hãy copy dòng lệnh bên dưới, dán vào bảng đen đó rồi nhấn **Enter**:
-   ```bash
-   pip install opencv-python numpy pillow python-snap7
-   ```
-   *(Đợi máy chạy một lúc cho đến khi hiện lại dòng dấu nhắc lệnh)*
+### 🟢 Bước 1: Cài đặt Python (Động cơ chạy code)
+1.  Tải Python tại: [python.org](https://www.python.org/downloads/)
+2.  **Lưu ý cực kỳ quan trọng:** Khi chạy file cài đặt, bạn **PHẢI TÍCH CHỌN** vào ô `Add Python to PATH` rồi mới nhấn `Install Now`.
 
-5. **Chạy phần mềm:** 
-   - Tìm file `main.py` trong thư mục `giaodien` ở cột bên trái, nhấn chuột vào nó.
-   - Nhấn nút **Play** (hình tam giác nhỏ) ở góc trên cùng bên phải màn hình.
-   - **Xong!** Giao diện phần mềm sẽ hiện lên.
+### 🔵 Bước 2: Cài đặt VS Code (Công cụ mở code)
+1.  Tải tại: [code.visualstudio.com](https://code.visualstudio.com/)
+2.  Cài đặt bình thường như các phần mềm khác.
+
+### 🟡 Bước 3: Tải và Giải nén Code
+1.  Tải code từ GitHub (nút `Code` -> `Download ZIP`).
+2.  Giải nén vào một thư mục dễ nhớ (Ví dụ: ổ `D:`).
 
 ---
 
-## 🛠️ 4. Hướng Dẫn Vận Hành (Dành Cho Người Mới)
+## 🚀 3. CÁCH CHẠY PHẦN MỀM TRÊN VS CODE
 
-Nếu bạn không có Camera hoặc PLC thật, hãy làm theo các bước sau để xem phần mềm hoạt động:
+Hãy làm theo đúng 4 hành động sau:
 
-1. **Nạp dữ liệu thử nghiệm:**
-   - Trên giao diện phần mềm, nhấn nút **📂 MỞ FILE (ẢNH/VIDEO)**.
-   - Tìm vào thư mục `dataset`, chọn một video quả táo.
-2. **Bắt đầu chạy:**
-   - Nhấn nút **▶ BẬT CAMERA** (Lúc này phần mềm sẽ bắt đầu phân tích video).
-   - Bạn sẽ thấy khung hình video hiện lên và phần mềm tự vẽ vòng tròn quanh quả táo.
-3. **Theo dõi kết quả:**
-   - Nhìn sang bảng bên trái, các thông số **Độ chín** và **Kích thước** sẽ nhảy liên tục.
-   - Khi video kết thúc hoặc quả táo đi qua, kết quả sẽ được chốt vào bảng **Grade 1, 2 hoặc 3**.
-4. **Điều chỉnh giao diện:**
-   - Bạn thấy các thanh xám ngăn cách giữa các vùng không? Hãy **rê chuột vào đó và kéo** để phóng to khung Camera hoặc thu nhỏ bảng Log tùy ý.
+1.  **Mở Folder**: Trong VS Code, chọn `File` -> `Open Folder...` -> Chọn thư mục vừa giải nén.
+2.  **Mở Terminal**: Nhấn phím `Ctrl` + `~` (nằm cạnh số 1).
+3.  **Cài thư viện**: Copy dòng dưới đây, dán vào Terminal rồi nhấn **Enter**:
+    ```bash
+    pip install opencv-python numpy pillow python-snap7
+    ```
+4.  **Chạy App**: Tìm file `giaodien/main.py`, mở nó ra và nhấn nút **Play** (hình tam giác) ở góc trên bên phải.
 
 ---
 
-## 📝 5. Giải Quyết Lỗi Thường Gặp
+## 🛠️ 4. HƯỚNG DẪN VẬN HÀNH NHANH
 
-- **Lỗi "python is not recognized":** Do lúc cài Python bạn quên tích vào "Add Python to PATH". Hãy gỡ Python ra cài lại và nhớ tích vào ô đó.
-- **Lỗi thiếu `snap7.dll`:** Đây là lỗi khi kết nối PLC. Nếu bạn chỉ test xử lý ảnh thì có thể bỏ qua. Nếu muốn kết nối thật, hãy tải file `snap7.dll` trên mạng và bỏ vào thư mục `C:\Windows\System32`.
+| Hành động | Cách thực hiện |
+| :--- | :--- |
+| **Chạy thử video** | Nhấn `📂 MỞ FILE` -> Chọn video trong thư mục `dataset`. |
+| **Bắt đầu xử lý** | Nhấn nút `▶ BẬT CAMERA` (hoặc Bật File). |
+| **Kết nối PLC** | Vào tab `Cài đặt` -> Nhập IP PLC -> Nhấn `Kết nối`. |
+| **Chỉnh giao diện** | Rê chuột vào các thanh xám và kéo để thay đổi kích thước các ô. |
 
 ---
-*Chúc bạn thực hiện thành công! Nếu gặp khó khăn, hãy kiểm tra kỹ từng bước hướng dẫn ở trên.*
+
+## 📝 5. MỘT SỐ LƯU Ý KHI GẶP LỖI
+
+*   **Không chạy được lệnh `python`**: Do bạn chưa chọn `Add Python to PATH` lúc cài đặt. Hãy gỡ ra cài lại.
+*   **Lỗi Camera**: Đảm bảo Camera đã được cắm vào máy trước khi nhấn nút "Bật Camera".
+*   **Snap7 Error**: Nếu kết nối PLC thật, bạn cần file `snap7.dll` đặt trong thư mục `C:\Windows\System32`.
+
+---
+*Dự án được thực hiện bởi hoangnha999. Chúc bạn vận hành thành công!*
