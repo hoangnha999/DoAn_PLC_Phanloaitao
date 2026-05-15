@@ -23,52 +23,58 @@ DOAN_PLC_Phanloaitao/
 
 ---
 
-## 📥 1. HƯỚNG DẪN CÀI ĐẶT (CHO NGƯỜI MỚI)
+## 📥 1. DANH SÁCH CẦN CÀI ĐẶT (PREREQUISITES)
 
-### 🟢 Bước 1: Cài đặt Python (Động cơ chạy code)
-1.  Tải Python tại: [python.org](https://www.python.org/downloads/)
-2.  **Lưu ý cực kỳ quan trọng:** Khi chạy file cài đặt, bạn **PHẢI TÍCH CHỌN** vào ô `Add Python to PATH` rồi mới nhấn `Install Now`.
+Khi mới tải code về, máy bạn sẽ **thiếu** các thành phần sau để chạy được chương trình. Hãy cài đặt theo thứ tự:
 
-### 🔵 Bước 2: Cài đặt VS Code (Công cụ mở code)
+### 🟢 Bước 1: Cài đặt Python 3.11 (Bắt buộc)
+1.  Tải tại: [python.org](https://www.python.org/downloads/)
+2.  **Lưu ý cực kỳ quan trọng:** Khi cài đặt, phải tích vào ô **`Add Python to PATH`**.
+
+### 🔵 Bước 2: Cài đặt các Thư viện lập trình (Libraries)
+Mở Terminal (hoặc Command Prompt) và copy lệnh sau để cài những thứ còn thiếu:
+```bash
+pip install opencv-python numpy pillow python-snap7
+```
+*Giải thích các thư viện này:*
+*   `opencv-python`: Để xử lý hình ảnh, nhận diện quả táo.
+*   `numpy`: Để tính toán toán học cho các pixel ảnh.
+*   `pillow`: Để hiển thị hình ảnh lên giao diện người dùng.
+*   `python-snap7`: Để gửi lệnh điều khiển xuống PLC S7-1200.
+
+### 🟡 Bước 3: Cài đặt VS Code (Công cụ chạy code)
 1.  Tải tại: [code.visualstudio.com](https://code.visualstudio.com/)
-2.  Cài đặt bình thường như các phần mềm khác.
-
-### 🟡 Bước 3: Tải và Giải nén Code
-1.  Tải code từ GitHub (nút `Code` -> `Download ZIP`).
-2.  Giải nén vào một thư mục dễ nhớ (Ví dụ: ổ `D:`).
+2.  Đây là phần mềm tốt nhất để bạn mở và chạy dự án này.
 
 ---
 
 ## 🚀 2. CÁCH CHẠY PHẦN MỀM TRÊN VS CODE
 
-Hãy làm theo đúng 4 hành động sau:
-
-1.  **Mở Folder**: Trong VS Code, chọn `File` -> `Open Folder...` -> Chọn thư mục `DOAN_PLC_Phanloaitao`.
+1.  **Mở Thư mục**: Trong VS Code, chọn `File` -> `Open Folder...` -> Chọn thư mục `DOAN_PLC_Phanloaitao`.
 2.  **Mở Terminal**: Nhấn phím `Ctrl` + `~` (phím cạnh số 1).
-3.  **Cài thư viện**: Copy dòng dưới đây, dán vào Terminal rồi nhấn **Enter**:
+3.  **Dán lệnh chạy**: Copy dòng dưới đây dán vào Terminal rồi nhấn **Enter**:
     ```bash
-    pip install opencv-python numpy pillow python-snap7
+    python giaodien/main.py
     ```
-4.  **Chạy App**: Tìm file `giaodien/main.py`, mở nó ra và nhấn nút **Play** (hình tam giác) ở góc trên bên phải.
 
 ---
 
 ## 🛠️ 3. HƯỚNG DẪN VẬN HÀNH NHANH
 
-| Hành động | Cách thực hiện |
+| Tính năng | Cách thực hiện |
 | :--- | :--- |
 | **Chạy thử video** | Nhấn `📂 MỞ FILE` -> Chọn video trong thư mục `dataset`. |
-| **Bắt đầu xử lý** | Nhấn nút `▶ BẬT CAMERA` (hoặc Bật File). |
+| **Bật Camera** | Nhấn nút `▶ BẬT CAMERA` (hoặc Bật File). |
 | **Kết nối PLC** | Vào tab `Cài đặt` -> Nhập IP PLC -> Nhấn `Kết nối`. |
-| **Chỉnh giao diện** | Rê chuột vào các thanh xám và kéo để thay đổi kích thước các ô. |
+| **Chỉnh khung hình** | Kéo các thanh xám giữa các vùng để thay đổi kích thước ô. |
 
 ---
 
-## 📝 4. MỘT SỐ LƯU Ý KHI GẶP LỖI
+## 📝 4. CÁC THIẾU SÓT THƯỜNG GẶP (TROUBLESHOOTING)
 
-*   **Không chạy được lệnh `python`**: Do bạn chưa chọn `Add Python to PATH` lúc cài đặt. Hãy gỡ ra cài lại.
-*   **Lỗi Camera**: Đảm bảo Camera đã được cắm vào máy trước khi nhấn nút "Bật Camera".
-*   **Snap7 Error**: Nếu kết nối PLC thật, bạn cần file `snap7.dll` đặt trong thư mục `C:\Windows\System32`.
+*   **Thiếu `snap7.dll`**: Nếu bạn kết nối PLC mà bị báo lỗi "Can't find snap7.dll", bạn cần tải file này trên mạng và copy vào `C:\Windows\System32`.
+*   **Lỗi Python**: Nếu gõ lệnh `python` mà máy báo "not recognized", nghĩa là bạn đã quên tích vào "Add Python to PATH" ở Bước 1. Hãy cài lại Python.
+*   **Lỗi Camera**: Nếu không thấy hình, hãy kiểm tra xem Camera đã cắm chắc chắn vào cổng USB chưa.
 
 ---
-*Dự án được thực hiện bởi hoangnha999. Chúc bạn vận hành thành công!*
+*Phát triển bởi hoangnha999*
