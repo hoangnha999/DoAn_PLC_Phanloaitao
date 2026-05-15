@@ -1,25 +1,29 @@
 # 🍎 HỆ THỐNG PHÂN LOẠI TÁO TỰ ĐỘNG (APPLE GRADING SYSTEM)
 
-Chào mừng bạn! Đây là hướng dẫn từng bước để cài đặt và vận hành hệ thống phân loại táo thông minh. Bản hướng dẫn này được thiết kế để **ngay cả người không biết về kỹ thuật** cũng có thể làm được.
+## 🌳 CẤU TRÚC THƯ MỤC (PROJECT TREE)
+
+```text
+DOAN_PLC_Phanloaitao/
+├── 📂 dataset/               # Dữ liệu Video/Ảnh mẫu để chạy thử
+├── 📂 giaodien/              # Thư mục chứa mã nguồn chính
+│   ├── 📄 main.py            # << FILE CHẠY CHÍNH >>
+│   ├── 📄 database.db        # Cơ sở dữ liệu SQLite lưu lịch sử
+│   ├── 📂 Processing/        # Thuật toán xử lý ảnh (bộ não)
+│   │   └── 📄 analyzer.py    # Xử lý độ chín, kích thước, màu sắc
+│   ├── 📂 modules/           # Các module chức năng hệ thống
+│   │   ├── 📄 gui_app.py     # Giao diện người dùng & Logic chính
+│   │   ├── 📄 camera.py      # Điều khiển Camera & Video stream
+│   │   ├── 📄 plc.py         # Kết nối & Điều khiển PLC S7-1200
+│   │   └── 📄 database.py    # Xử lý truy vấn dữ liệu SQL
+│   ├── 📂 images/            # Icon và hình ảnh giao diện
+│   └── 📂 history_images/    # Ảnh các quả táo đã phân loại
+├── 📄 .gitignore             # Các file bỏ qua không up lên git
+└── 📄 README.md              # Hướng dẫn sử dụng này
+```
 
 ---
 
-## 📂 1. CẤU TRÚC DỰ ÁN (PROJECT STRUCTURE)
-
-Dưới đây là sơ đồ các thư mục quan trọng để bạn dễ hình dung:
-
-*   📂 **`dataset/`**: Nơi chứa các Video/Ảnh mẫu để bạn chạy thử nghiệm (Dùng khi không có Camera thật).
-*   📂 **`giaodien/`**: Thư mục chứa toàn bộ mã nguồn của phần mềm.
-    *   📄 `main.py`: **File chính để khởi động chương trình.**
-    *   📂 `Processing/`: Chứa thuật toán "bộ não" xử lý hình ảnh quả táo.
-    *   📂 `modules/`: Chứa các bộ phận điều khiển Camera, PLC và Database.
-    *   📂 `images/`: Chứa các icon và hình ảnh minh họa cho giao diện.
-    *   📂 `history_images/`: Nơi tự động lưu ảnh các quả táo đã được phân loại thành công.
-*   📄 `README.md`: Bản hướng dẫn bạn đang xem.
-
----
-
-## 📥 2. HƯỚNG DẪN CÀI ĐẶT (CHO NGƯỜI MỚI)
+## 📥 1. HƯỚNG DẪN CÀI ĐẶT (CHO NGƯỜI MỚI)
 
 ### 🟢 Bước 1: Cài đặt Python (Động cơ chạy code)
 1.  Tải Python tại: [python.org](https://www.python.org/downloads/)
@@ -35,12 +39,12 @@ Dưới đây là sơ đồ các thư mục quan trọng để bạn dễ hình 
 
 ---
 
-## 🚀 3. CÁCH CHẠY PHẦN MỀM TRÊN VS CODE
+## 🚀 2. CÁCH CHẠY PHẦN MỀM TRÊN VS CODE
 
 Hãy làm theo đúng 4 hành động sau:
 
-1.  **Mở Folder**: Trong VS Code, chọn `File` -> `Open Folder...` -> Chọn thư mục vừa giải nén.
-2.  **Mở Terminal**: Nhấn phím `Ctrl` + `~` (nằm cạnh số 1).
+1.  **Mở Folder**: Trong VS Code, chọn `File` -> `Open Folder...` -> Chọn thư mục `DOAN_PLC_Phanloaitao`.
+2.  **Mở Terminal**: Nhấn phím `Ctrl` + `~` (phím cạnh số 1).
 3.  **Cài thư viện**: Copy dòng dưới đây, dán vào Terminal rồi nhấn **Enter**:
     ```bash
     pip install opencv-python numpy pillow python-snap7
@@ -49,7 +53,7 @@ Hãy làm theo đúng 4 hành động sau:
 
 ---
 
-## 🛠️ 4. HƯỚNG DẪN VẬN HÀNH NHANH
+## 🛠️ 3. HƯỚNG DẪN VẬN HÀNH NHANH
 
 | Hành động | Cách thực hiện |
 | :--- | :--- |
@@ -60,7 +64,7 @@ Hãy làm theo đúng 4 hành động sau:
 
 ---
 
-## 📝 5. MỘT SỐ LƯU Ý KHI GẶP LỖI
+## 📝 4. MỘT SỐ LƯU Ý KHI GẶP LỖI
 
 *   **Không chạy được lệnh `python`**: Do bạn chưa chọn `Add Python to PATH` lúc cài đặt. Hãy gỡ ra cài lại.
 *   **Lỗi Camera**: Đảm bảo Camera đã được cắm vào máy trước khi nhấn nút "Bật Camera".
