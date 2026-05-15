@@ -985,7 +985,7 @@ class CameraWindow:
         """Thanh điều khiển nhanh PLC + Camera."""
         bar = tk.LabelFrame(parent, text=" ⚡ ĐIỀU KHIỂN NHANH ",
                               font=("Arial", 10, "bold"), fg="#0284C7", bg="#FFFFFF",
-                              padx=10, pady=4, height=145)
+                              padx=10, pady=4, height=105)
         bar.pack(side="bottom", fill="x", pady=(5, 0), padx=5)
         bar.pack_propagate(False) # Ngăn khung co lại
 
@@ -1042,28 +1042,19 @@ class CameraWindow:
                                        relief="flat", cursor="hand2", command=self._quick_open_file)
         self.btn_open_file.pack(side="left", padx=(0, 6))
 
+        self.btn_refresh = tk.Button(ctrl2, text="🔄 LÀM MỚI", font=("Arial", 10, "bold"),
+                                     fg="#FFFFFF", bg="#0EA5E9", width=10, pady=4,
+                                     relief="flat", cursor="hand2", command=self._refresh_system)
+        self.btn_refresh.pack(side="left", padx=(0, 6))
+
+        self.btn_clear_log = tk.Button(ctrl2, text="🗑️ XÓA LOG", font=("Arial", 10, "bold"),
+                                       fg="#FFFFFF", bg="#64748B", width=10, pady=4,
+                                       relief="flat", cursor="hand2", command=self._clear_log)
+        self.btn_clear_log.pack(side="left", padx=(0, 6))
+
         self.lbl_cam_status = tk.Label(ctrl2, text="⚫ Camera chưa bật", font=("Arial", 9),
                                         fg="#475569", bg="#FFFFFF")
         self.lbl_cam_status.pack(side="left", padx=(10, 0))
-
-        # ── Hàng 3: Các nút chức năng (Làm mới hệ thống) ──
-        row3 = tk.Frame(bar, bg="#FFFFFF")
-        row3.pack(fill="x", pady=(2, 0))
-        
-        ctrl3 = tk.Frame(row3, bg="#FFFFFF")
-        ctrl3.pack()
-        
-        self.btn_refresh = tk.Button(ctrl3, text="🔄 LÀM MỚI HỆ THỐNG", font=("Arial", 9, "bold"),
-                                     fg="#FFFFFF", bg="#0EA5E9", activebackground="#0284C7",
-                                     relief="flat", cursor="hand2", padx=10, pady=2,
-                                     command=self._refresh_system)
-        self.btn_refresh.pack(side="left", padx=5)
-        
-        self.btn_clear_log = tk.Button(ctrl3, text="🗑️ XÓA LOG", font=("Arial", 9, "bold"),
-                                       fg="#FFFFFF", bg="#64748B", activebackground="#475569",
-                                       relief="flat", cursor="hand2", padx=10, pady=2,
-                                       command=self._clear_log)
-        self.btn_clear_log.pack(side="left", padx=5)
 
     # ─── Panel trái ─────────────────────────────────────
     def _build_left(self, parent):
@@ -1250,11 +1241,6 @@ class CameraWindow:
         self.canvas_gray = tk.Canvas(f2, bg="#000000", highlightthickness=1, 
                                      highlightbackground="#CBD5E1", cursor="cross")
         self.canvas_gray.pack(fill="both", expand=True)
-        
-        # Nút bật 3D Point Cloud (Thu nhỏ lại một chút để tiết kiệm diện tích)
-        self.btn_3d = tk.Button(rf, text="🌌 MỞ POINT CLOUD 3D", font=("Arial", 8, "bold"),
-                                bg="#4F46E5", fg="white", cursor="hand2", pady=2, command=self._show_point_cloud)
-        self.btn_3d.pack(pady=2)
 
         # ── Frame Snapshot 10 hình (dưới cùng) ──
         tk.Label(rf, text="📸 10 ẢNH GẦN NHẤT (LIVE BUFFER)", font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF").pack(anchor="w", padx=6, pady=(5, 0))
@@ -1560,10 +1546,6 @@ class CameraWindow:
         self._log_event(f"📸 ĐÃ CHỤP ĐỦ 10 MẪU. Kết quả chốt: {final_grade}", "INFO")
         self._save_to_sql(final_grade)
 
-    def _show_point_cloud(self):
-        if self.camera:
-            self.camera.show_point_cloud(self.frame_to_save)
-
     def _update_criteria_panels(self, detail_info):
         """Cập nhật panel hiển thị 2 tiêu chí TC1 (Độ chín) và TC2 (Kích thước)."""
         if detail_info is None:
@@ -1793,14 +1775,13 @@ class CameraWindow:
         
     def _clear_log(self):
         """Xóa trắng khung log và reset bộ đếm."""
-        if messagebox.askyesno("Xác nhận", "Bạn có muốn xóa toàn bộ log hiện tại?"):
-            self.log_text.config(state="normal")
-            self.log_text.delete("1.0", "end")
-            self.log_text.config(state="disabled")
-            self._log_counters = {"info": 0, "warning": 0, "error": 0, "success": 0}
-            self._log_entries = []
-            self._update_log_counter_badges()
-            self._log_event("🗑️ Đã dọn dẹp khung Log.", "WARNING")
+        self.log_text.config(state="normal")
+        self.log_text.delete("1.0", "end")
+        self.log_text.config(state="disabled")
+        self._log_counters = {"info": 0, "warning": 0, "error": 0, "success": 0}
+        self._log_entries = []
+        self._update_log_counter_badges()
+        self._log_event("🗑️ Đã dọn dẹp khung Log.", "WARNING")
 
     # ═══════════════════════════════════════════════════════
     #  LOG UTILITIES (Lọc, Sao chép, Xuất file, Flash)
