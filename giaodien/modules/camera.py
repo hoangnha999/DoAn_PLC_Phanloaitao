@@ -207,7 +207,6 @@ class CameraManager:
             self._cam_thread.start()
             
             self._log(f"🟢 Astra Pro: RUNNING (RGB Camera - Cổng {color_idx})")
-            self._log("ℹ️ Chế độ đơn giản (chỉ RGB). Để dùng Depth cần cài OpenNI SDK.")
             return True
             
         except Exception as e:

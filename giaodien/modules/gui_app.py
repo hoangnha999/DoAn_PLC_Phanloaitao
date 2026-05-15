@@ -19,11 +19,11 @@ from modules.camera import CameraManager
 
 
 class FruitClassificationApp:
-    """Giao diện chính của ứng dụng nhận dạng và phân loại trái cây."""
+    """Giao diện chính của ứng dụng nhận dạng và phân loại táo."""
 
     # ─── Cấu hình giao diện ──────────────────────────────────────────
-    WINDOW_WIDTH = 750
-    WINDOW_HEIGHT = 580
+    WINDOW_WIDTH = 950
+    WINDOW_HEIGHT = 700
     BG_COLOR = "#F5F5F5"         # Xám nhạt tĩnh lặng (SCADA Light Mode)
     TITLE_COLOR = "#1A237E"       # Xanh đậm đen
     SUBTITLE_COLOR = "#455A64"    # Xám xanh đậm
@@ -48,7 +48,7 @@ class FruitClassificationApp:
     # ─── Thiết lập cửa sổ ────────────────────────────────────────────
     def _setup_window(self):
         """Cấu hình cửa sổ chính."""
-        self.root.title("Nhận dạng và phân loại hàng trái cây")
+        self.root.title("Nhận dạng và phân loại táo")
         self.root.configure(bg=self.BG_COLOR)
         self.root.resizable(True, True)
 
@@ -85,7 +85,7 @@ class FruitClassificationApp:
 
             # Hình hệ thống băng chuyền
             conveyor_img = Image.open(self._get_image_path("conveyor_system.png"))
-            conveyor_img = conveyor_img.resize((280, 200), Image.LANCZOS)
+            conveyor_img = conveyor_img.resize((380, 260), Image.LANCZOS)
             self.conveyor_image = ImageTk.PhotoImage(conveyor_img)
 
 
@@ -101,7 +101,7 @@ class FruitClassificationApp:
         """Xây dựng toàn bộ giao diện."""
         # Gói toàn bộ giao diện vào một Frame trung tâm để tự căn giữa khi cửa sổ to ra
         self.wrapper = tk.Frame(self.root, bg=self.BG_COLOR)
-        self.wrapper.place(relx=0.5, rely=0.5, anchor="center")
+        self.wrapper.pack(fill="both", expand=True, padx=30, pady=30)
         
         self._build_header()
         self._build_content()
@@ -123,7 +123,7 @@ class FruitClassificationApp:
         tk.Label(
             info_frame,
             text="TRƯỜNG ĐẠI HỌC CÔNG NGHỆ KỸ THUẬT TP.HCM",
-            font=("Arial", 11, "bold"),
+            font=("Arial", 13, "bold"),
             fg=self.SUBTITLE_COLOR,
             bg=self.BG_COLOR,
         ).pack()
@@ -131,7 +131,7 @@ class FruitClassificationApp:
         tk.Label(
             info_frame,
             text="KHOA ĐIỆN-ĐIỆN TỬ",
-            font=("Arial", 16, "bold"),
+            font=("Arial", 18, "bold"),
             fg=self.TITLE_COLOR,
             bg=self.BG_COLOR,
         ).pack()
@@ -139,7 +139,7 @@ class FruitClassificationApp:
         tk.Label(
             info_frame,
             text="NGÀNH CNKT ĐIỀU KHIỂN VÀ TỰ ĐỘNG HÓA",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 14, "bold"),
             fg=self.SUBTITLE_COLOR,
             bg=self.BG_COLOR,
         ).pack()
@@ -160,18 +160,18 @@ class FruitClassificationApp:
         tk.Label(
             topic_frame,
             text="ĐỒ ÁN ĐIỀU KHIỂN LẬP TRÌNH",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 14, "bold"),
             fg=self.TOPIC_COLOR,
             bg=self.BG_COLOR,
         ).pack(pady=(0, 5))
 
         tk.Label(
             topic_frame,
-            text="ĐỀ TÀI: HỆ THỐNG PHÂN LOẠI HẠNG CHẤT LƯỢNG TRÁI CÂY",
-            font=("Arial", 11, "bold"),
+            text="ĐỀ TÀI: HỆ THỐNG PHÂN LOẠI HẠNG CHẤT LƯỢNG TÁO",
+            font=("Arial", 13, "bold"),
             fg=self.TOPIC_COLOR,
             bg=self.BG_COLOR,
-            wraplength=650,
+            wraplength=800,
         ).pack()
 
         # ── Khu vực chính: Hình ảnh (trái) + Thông tin (phải) ──
@@ -179,22 +179,22 @@ class FruitClassificationApp:
         main_frame.pack(fill="both", expand=True, pady=5)
 
         # --- Hình băng chuyền (bên trái) ---
-        img_frame = tk.Frame(main_frame, bg=self.BG_COLOR, bd=2, relief="groove")
-        img_frame.pack(side="left", padx=(0, 15))
+        img_frame = tk.Frame(main_frame, bg=self.BG_COLOR)
+        img_frame.pack(side="left", expand=True, fill="both", padx=(0, 15))
 
         tk.Label(img_frame, image=self.conveyor_image, bg=self.BG_COLOR).pack(
-            padx=5, pady=5
+            expand=True
         )
 
         # --- Thông tin bên phải ---
         info_frame = tk.Frame(main_frame, bg=self.BG_COLOR)
-        info_frame.pack(side="left", fill="both", expand=True)
+        info_frame.pack(side="right", expand=True)
 
         # GVHD
         tk.Label(
             info_frame,
             text="GVHD: TS. Lê Chí Kiên",
-            font=("Arial", 13, "bold"),
+            font=("Arial", 15, "bold"),
             fg=self.TEXT_COLOR,
             bg=self.BG_COLOR,
             anchor="w",
@@ -209,12 +209,12 @@ class FruitClassificationApp:
 
         for name, student_id in members:
             member_frame = tk.Frame(info_frame, bg=self.BG_COLOR)
-            member_frame.pack(fill="x", pady=2)
+            member_frame.pack(fill="x", pady=5)
 
             tk.Label(
                 member_frame,
                 text=name,
-                font=("Arial", 12),
+                font=("Arial", 14),
                 fg=self.TEXT_COLOR,
                 bg=self.BG_COLOR,
                 width=22,
@@ -224,7 +224,7 @@ class FruitClassificationApp:
             tk.Label(
                 member_frame,
                 text=student_id,
-                font=("Arial", 12),
+                font=("Arial", 14),
                 fg=self.TEXT_COLOR,
                 bg=self.BG_COLOR,
                 anchor="w",
@@ -248,35 +248,35 @@ class FruitClassificationApp:
         btn_run = tk.Button(
             btn_container,
             text="Chạy chương trình",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 14, "bold"),
             fg=self.BTN_TEXT_COLOR,
             bg=self.BTN_RUN_COLOR,
             activebackground="#388E3C",
             activeforeground=self.BTN_TEXT_COLOR,
             relief="flat",
             cursor="hand2",
-            padx=25,
-            pady=8,
+            padx=35,
+            pady=12,
             command=self._on_run,
         )
-        btn_run.pack(side="left", padx=10, pady=12)
+        btn_run.pack(side="left", padx=15, pady=20)
 
         # Nút "Kết thúc chương trình"
         btn_stop = tk.Button(
             btn_container,
             text="Kết thúc chương trình",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 14, "bold"),
             fg=self.BTN_TEXT_COLOR,
             bg=self.BTN_STOP_COLOR,
             activebackground="#D32F2F",
             activeforeground=self.BTN_TEXT_COLOR,
             relief="flat",
             cursor="hand2",
-            padx=25,
-            pady=8,
+            padx=35,
+            pady=12,
             command=self._on_stop,
         )
-        btn_stop.pack(side="left", padx=10, pady=12)
+        btn_stop.pack(side="left", padx=15, pady=20)
 
 
     # ─── Xử lý sự kiện ───────────────────────────────────────────────
@@ -340,6 +340,7 @@ class CameraWindow:
         # ── Quản lý Trang & Menu ──
         self.sidebar_visible = False
         self.current_page = "PHANLOAI" 
+        self._grade_desc_labels = {} 
         
         # ── Biến cấu hình hệ thống (Có thể chỉnh sửa từ UI) ──
         self.cfg_smooth_frames = tk.StringVar(value="10")
@@ -347,7 +348,7 @@ class CameraWindow:
         self._last_analysis_time = 0
 
         self.win = tk.Toplevel(parent)
-        self.win.title("Hệ thống phân loại hạng chất lượng trái cây")
+        self.win.title("Hệ thống phân loại hạng chất lượng táo")
         self.win.configure(bg="#F1F5F9")
         self.win.resizable(True, True)
         # Loại bỏ thanh tiêu đề mặc định của Windows để dùng custom header
@@ -510,38 +511,80 @@ class CameraWindow:
     # ═══════════════════════════════════════════════════════
     #  GIAO DIỆN & NAVIGATION
     # ═══════════════════════════════════════════════════════
+    # ── Hằng số cấu hình Log ──
+    LOG_MAX_LINES = 500  # Giới hạn số dòng tối đa để tránh tràn bộ nhớ
+
     def _log_event(self, msg, level=None):
-        """Ghi log vào ô Text ở cuối trang với phân loại màu sắc (INFO, WARNING, ERROR)."""
+        """Ghi log vào ô Text với phân loại màu sắc (INFO, WARNING, ERROR, SUCCESS).
+        Khi level=ERROR/WARNING, tự động ghi thêm vị trí gọi (hàm, file, dòng) để dễ debug."""
         if not hasattr(self, 'log_text') or not self.log_text.winfo_exists():
             return
         try:
             import time
+            import inspect
             t = time.strftime("%H:%M:%S")
             self.log_text.config(state="normal")
-            
-            # Tự động nhận diện level nếu không truyền vào
+
+            # Tự động nhận diện level
             tag = "info"
             if level:
-                level = level.upper()
-                if level == "WARNING": tag = "warning"
-                elif level == "ERROR": tag = "error"
+                lu = level.upper()
+                if lu == "WARNING":  tag = "warning"
+                elif lu == "ERROR":  tag = "error"
+                elif lu == "SUCCESS": tag = "success"
             else:
-                # Thông minh hơn: dựa vào nội dung/emoji
                 msg_lower = msg.lower()
                 if any(x in msg for x in ["⚠️", "cảnh báo", "warning"]):
                     tag = "warning"
                 elif any(x in msg_lower for x in ["lỗi", "error", "❌", "🔴", "critical"]):
                     tag = "error"
                 elif any(x in msg for x in ["✅", "🟢", "thành công", "success"]):
-                    tag = "info" # Hoặc có thể thêm tag 'success' màu xanh lá
-            
-            # Chèn thời gian (màu xám)
+                    tag = "success"
+
+            # Tự động lấy vị trí nguồn gốc lỗi khi ERROR hoặc WARNING
+            source_info = ""
+            if tag in ("error", "warning"):
+                # Lấy caller frame (bỏ qua chính _log_event)
+                frame = inspect.currentframe()
+                caller = frame.f_back if frame else None
+                if caller:
+                    func_name = caller.f_code.co_name
+                    file_name = os.path.basename(caller.f_code.co_filename)
+                    line_no = caller.f_lineno
+                    source_info = f"  📍 [{file_name} → {func_name}() dòng {line_no}]"
+
+            # Prefix icon theo level
+            prefix_map = {"info": "ℹ", "warning": "⚠", "error": "✖", "success": "✔"}
+            prefix = prefix_map.get(tag, "")
+
+            # Chèn dòng log
             self.log_text.insert("end", f"[{t}] ", "time")
-            # Chèn nội dung log (màu tương ứng)
-            self.log_text.insert("end", f"{msg}\n", tag)
-            
+            self.log_text.insert("end", f"{prefix} {msg}{source_info}\n", tag)
+
+            # Giới hạn số dòng
+            line_count = int(self.log_text.index('end-1c').split('.')[0])
+            if line_count > self.LOG_MAX_LINES:
+                self.log_text.delete("1.0", f"{line_count - self.LOG_MAX_LINES}.0")
+
             self.log_text.see("end")
             self.log_text.config(state="disabled")
+
+            # Cập nhật bộ đếm
+            if not hasattr(self, '_log_counters'):
+                self._log_counters = {"info": 0, "warning": 0, "error": 0, "success": 0}
+            self._log_counters[tag] = self._log_counters.get(tag, 0) + 1
+            self._update_log_counter_badges()
+
+            # Lưu vào bộ nhớ nội bộ để lọc
+            if not hasattr(self, '_log_entries'):
+                self._log_entries = []
+            self._log_entries.append({"time": t, "msg": msg, "tag": tag, "prefix": prefix, "source": source_info})
+            if len(self._log_entries) > self.LOG_MAX_LINES:
+                self._log_entries = self._log_entries[-self.LOG_MAX_LINES:]
+
+            # Hiệu ứng nhấp nháy viền khi có ERROR
+            if tag == "error" and hasattr(self, '_log_frame_widget'):
+                self._flash_log_border()
         except:
             pass
 
@@ -558,7 +601,7 @@ class CameraWindow:
                                   padx=15, command=self._toggle_sidebar)
         self.btn_menu.pack(side="left")
 
-        self.title_lbl = tk.Label(self.hdr, text="🍎 HỆ THỐNG PHÂN LOẠI TRÁI CÂY (MODERN PROFESSIONAL MODE)",
+        self.title_lbl = tk.Label(self.hdr, text="🍎 HỆ THỐNG PHÂN LOẠI TÁO (MODERN PROFESSIONAL MODE)",
                                   font=("Arial", 12, "bold"), fg="#F8FAFC", bg="#0F172A")
         self.title_lbl.pack(side="left", padx=10)
 
@@ -692,7 +735,7 @@ class CameraWindow:
 
         if page_id == "PHANLOAI":
             self.page_phanloai.pack(fill="both", expand=True, padx=10, pady=10)
-            self.title_lbl.config(text="🍎 HỆ THỐNG PHÂN LOẠI TRÁI CÂY - GIÁM SÁT")
+            self.title_lbl.config(text="🍎 HỆ THỐNG PHÂN LOẠI TÁO - GIÁM SÁT")
         elif page_id == "HISTORY":
             if hasattr(self, 'page_history'):
                 self.page_history.pack(fill="both", expand=True, padx=10, pady=10)
@@ -700,7 +743,7 @@ class CameraWindow:
             self.title_lbl.config(text="📂 LỊCH SỬ PHÂN LOẠI SQL")
         else:
             self.page_setting.pack(fill="both", expand=True, padx=10, pady=10)
-            self.title_lbl.config(text="⚙️ HỆ THỐNG PHÂN LOẠI TRÁI CÂY - CÀI ĐẶT")
+            self.title_lbl.config(text="⚙️ HỆ THỐNG PHÂN LOẠI TÁO - CÀI ĐẶT")
 
         # Đóng menu sau khi chọn
         if self.sidebar_visible:
@@ -871,18 +914,72 @@ class CameraWindow:
                   font=("Arial", 10, "bold"), pady=8, command=self._reset_counts).pack(fill="x", pady=10)
 
     def _build_log_area(self, parent):
-        """Khung hiển thị Log."""
-        log_frame = tk.LabelFrame(parent, text=" 📝 EVENT LOG ", font=("Arial", 9, "bold"), fg="#475569", bg="#FFFFFF", padx=10, pady=5)
-        log_frame.pack(side="bottom", fill="x", padx=5, pady=(0, 5))
-        
-        self.log_text = tk.Text(log_frame, height=3, bg="#F8FAFC", fg="#0F172A", font=("Consolas", 9), bd=0, state="disabled")
-        self.log_text.pack(fill="x")
-        
+        """Khung hiển thị Log nâng cao: lọc, đếm, sao chép, xuất file."""
+        self._log_frame_widget = tk.LabelFrame(
+            parent, text=" 📝 EVENT LOG ",
+            font=("Arial", 9, "bold"), fg="#475569", bg="#FFFFFF", padx=6, pady=4)
+        self._log_frame_widget.pack(side="bottom", fill="x", padx=5, pady=(0, 5))
+
+        # ── Thanh công cụ Log (toolbar) ──
+        toolbar = tk.Frame(self._log_frame_widget, bg="#FFFFFF")
+        toolbar.pack(fill="x", pady=(0, 3))
+
+        # Nút lọc theo level
+        self._log_filter_var = tk.StringVar(value="ALL")
+        filter_cfg = [
+            ("ALL",     "#334155", "#F1F5F9"),
+            ("INFO",    "#0F172A", "#E0F2FE"),
+            ("SUCCESS", "#065F46", "#D1FAE5"),
+            ("WARNING", "#92400E", "#FEF3C7"),
+            ("ERROR",   "#991B1B", "#FEE2E2"),
+        ]
+        for label, fg_c, bg_c in filter_cfg:
+            btn = tk.Button(
+                toolbar, text=label, font=("Consolas", 7, "bold"),
+                fg=fg_c, bg=bg_c, bd=0, padx=6, pady=1, cursor="hand2",
+                command=lambda l=label: self._filter_log(l))
+            btn.pack(side="left", padx=1)
+
+        # Badge đếm lỗi / cảnh báo
+        self._badge_error = tk.Label(toolbar, text="ERR: 0", font=("Consolas", 7, "bold"),
+                                      fg="#FFFFFF", bg="#EF4444", padx=4, pady=0)
+        self._badge_error.pack(side="right", padx=(2, 0))
+        self._badge_warn = tk.Label(toolbar, text="WARN: 0", font=("Consolas", 7, "bold"),
+                                     fg="#FFFFFF", bg="#F59E0B", padx=4, pady=0)
+        self._badge_warn.pack(side="right", padx=(2, 0))
+
+        # Nút tiện ích
+        tk.Button(toolbar, text="📋 Copy", font=("Arial", 7, "bold"),
+                  fg="#334155", bg="#E2E8F0", bd=0, padx=5, cursor="hand2",
+                  command=self._copy_log_to_clipboard).pack(side="right", padx=2)
+        tk.Button(toolbar, text="💾 Xuất", font=("Arial", 7, "bold"),
+                  fg="#334155", bg="#E2E8F0", bd=0, padx=5, cursor="hand2",
+                  command=self._export_log_to_file).pack(side="right", padx=2)
+
+        # ── Vùng hiển thị log + scrollbar ──
+        text_frame = tk.Frame(self._log_frame_widget, bg="#F8FAFC")
+        text_frame.pack(fill="x")
+
+        scrollbar = tk.Scrollbar(text_frame, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+
+        self.log_text = tk.Text(
+            text_frame, height=4, bg="#F8FAFC", fg="#0F172A",
+            font=("Consolas", 9), bd=0, state="disabled",
+            yscrollcommand=scrollbar.set, wrap="word")
+        self.log_text.pack(side="left", fill="x", expand=True)
+        scrollbar.config(command=self.log_text.yview)
+
         # Cấu hình màu sắc cho các loại log
-        self.log_text.tag_configure("info",    foreground="#0F172A")  # Đen / Xanh đen
-        self.log_text.tag_configure("warning", foreground="#F59E0B")  # Cam (Amber)
-        self.log_text.tag_configure("error",   foreground="#EF4444")  # Đỏ (Red)
-        self.log_text.tag_configure("time",    foreground="#64748B")  # Xám (Slate)
+        self.log_text.tag_configure("info",    foreground="#0F172A")
+        self.log_text.tag_configure("success", foreground="#059669", font=("Consolas", 9, "bold"))
+        self.log_text.tag_configure("warning", foreground="#D97706", background="#FFFBEB")
+        self.log_text.tag_configure("error",   foreground="#DC2626", background="#FEF2F2", font=("Consolas", 9, "bold"))
+        self.log_text.tag_configure("time",    foreground="#64748B")
+
+        # Khởi tạo bộ đếm và bộ nhớ log
+        self._log_counters = {"info": 0, "warning": 0, "error": 0, "success": 0}
+        self._log_entries = []
 
     def _build_plc_status_area(self, parent):
         """Thanh điều khiển nhanh PLC + Camera."""
@@ -917,11 +1014,16 @@ class CameraWindow:
         self.btn_clear_buffer = tk.Button(ctrl1, text="🧹 XÓA BUFFER", font=("Arial", 10, "bold"),
                                         fg="#FFFFFF", bg="#64748B", width=12, pady=4,
                                         relief="flat", cursor="hand2", command=self._clear_buffer)
-        self.btn_clear_buffer.pack(side="left")
+        self.btn_clear_buffer.pack(side="left", padx=(0, 6))
 
-        self.lbl_plc_status = tk.Label(ctrl1, text="⚫ PLC", font=("Arial", 9),
+        self.btn_plc_quick = tk.Button(ctrl1, text="🔌 KẾT NỐI PLC", font=("Arial", 10, "bold"),
+                                        fg="#FFFFFF", bg="#1565C0", width=14, pady=4,
+                                        relief="flat", cursor="hand2", command=self._toggle_plc)
+        self.btn_plc_quick.pack(side="left", padx=(0, 6))
+
+        self.lbl_plc_status = tk.Label(ctrl1, text="⚫ PLC chưa kết nối", font=("Arial", 9),
                                         fg="#64748B", bg="#FFFFFF")
-        self.lbl_plc_status.pack(side="left", padx=(10, 0))
+        self.lbl_plc_status.pack(side="left", padx=(6, 0))
 
         # ── Hàng 2: Camera ON/OFF + MỞ FILE + Trạng thái Camera ──
         row2 = tk.Frame(bar, bg="#FFFFFF")
@@ -990,8 +1092,10 @@ class CameraWindow:
         tc1_frame = tk.Frame(criteria_frame, bg="#F0F4F8")
         tc1_frame.pack(fill="x", pady=(0, 4))
 
-        tk.Label(tc1_frame, text="TC1  ĐỘ CHÍN VỎ QUẢ",
-                 font=("Arial", 9, "bold"), fg="#1B5E20", bg="#F0F4F8").pack(anchor="w")
+        lbl_tc1 = tk.Label(tc1_frame, text="TC1  ĐỘ CHÍN VỎ QUẢ",
+                 font=("Arial", 9, "bold"), fg="#1B5E20", bg="#F0F4F8", cursor="hand2")
+        lbl_tc1.pack(anchor="w")
+        lbl_tc1.bind("<Double-1>", self._open_tc1_settings)
 
         # Thanh tiến trình TC1 (tỉ lệ đỏ)
         self._tc1_progress = ttk.Progressbar(tc1_frame, length=260, mode='determinate', maximum=100)
@@ -1024,8 +1128,10 @@ class CameraWindow:
         tc2_frame = tk.Frame(criteria_frame, bg="#F0F4F8")
         tc2_frame.pack(fill="x", pady=(0, 0))
 
-        tk.Label(tc2_frame, text="TC2  KÍCH THƯỚC QUẢ",
-                 font=("Arial", 8, "bold"), fg="#E65100", bg="#F0F4F8").pack(anchor="w")
+        lbl_tc2 = tk.Label(tc2_frame, text="TC2  KÍCH THƯỚC QUẢ",
+                 font=("Arial", 8, "bold"), fg="#E65100", bg="#F0F4F8", cursor="hand2")
+        lbl_tc2.pack(anchor="w")
+        lbl_tc2.bind("<Double-1>", self._open_tc2_settings)
 
         # Thanh tiến trình TC2 (kích thước)
         self._tc2_progress = ttk.Progressbar(tc2_frame, length=260, mode='determinate', maximum=120)
@@ -1074,9 +1180,10 @@ class CameraWindow:
                      ).pack(side="right")
             
             # Dòng chú thích tiêu chí
-            tk.Label(card, text=cfg.get("desc", ""),
-                     font=("Arial", 7, "italic"), fg="#94A3B8", bg=cfg["bg"],
-                     ).pack(anchor="w", padx=30, pady=(0, 2))
+            desc_lbl = tk.Label(card, text=cfg.get("desc", ""),
+                     font=("Arial", 7, "italic"), fg="#94A3B8", bg=cfg["bg"])
+            desc_lbl.pack(anchor="w", padx=30, pady=(0, 2))
+            self._grade_desc_labels[grade] = desc_lbl
 
         # ═══════════════════════════════════════════════════
         #  TỔNG CỘNG (Ở dưới 3 loại)
@@ -1541,7 +1648,7 @@ class CameraWindow:
     #  LOGIC PLC S7-1200 (snap7)
     # ═══════════════════════════════════════════════════════
     def _toggle_plc(self):
-        if self._plc_connected:
+        if self.plc.connected:
             self._disconnect_plc()
         else:
             self._connect_plc()
@@ -1550,15 +1657,23 @@ class CameraWindow:
         ip   = self.plc_ip_var.get().strip()
         rack = int(self.plc_rack_var.get() or 0)
         slot = int(self.plc_slot_var.get() or 1)
+        
+        self._log_event(f"🔄 Đang kết nối PLC tại {ip} (Rack={rack}, Slot={slot})...", "INFO")
         success, msg = self.plc.connect(ip, rack, slot)
         
         if success:
             self.btn_connect.config(text="🔌  Ngắt kết nối",
                                     bg="#6A1B9A", activebackground="#4A148C")
-            self.lbl_plc_status.config(text=f"🟢  PLC: {ip}", fg="#69F0AE")
+            if hasattr(self, 'btn_plc_quick'):
+                self.btn_plc_quick.config(text="🔌 NGẮT PLC", bg="#6A1B9A")
+            self.lbl_plc_status.config(text=f"🟢  PLC: {ip}", fg="#2E7D32")
             self._plc_poll_id = self.win.after(1000, self._poll_plc)
+            self._log_event(f"🟢 Kết nối PLC thành công! IP={ip}, Rack={rack}, Slot={slot}", "SUCCESS")
         else:
-            messagebox.showerror("Lỗi PLC", f"Không kết nối được PLC!\n{msg}")
+            # Thông báo lỗi từ msg giờ đã cực kỳ chi tiết nhờ bộ chẩn đoán trong PLCManager
+            self._log_event(f"Kết nối PLC thất bại ({ip})", "ERROR")
+            self._log_event(msg, "ERROR")
+            messagebox.showerror("Lỗi PLC", f"Không kết nối được PLC!\n\n{msg}")
 
     def _disconnect_plc(self):
         if self._plc_poll_id:
@@ -1567,7 +1682,10 @@ class CameraWindow:
         self.plc.disconnect()
         self.btn_connect.config(text="🔌  Kết nối PLC",
                                 bg="#1565C0", activebackground="#0D47A1")
-        self.lbl_plc_status.config(text="⚫  PLC chưa kết nối", fg="#666680")
+        if hasattr(self, 'btn_plc_quick'):
+            self.btn_plc_quick.config(text="🔌 KẾT NỐI PLC", bg="#1565C0")
+        self.lbl_plc_status.config(text="⚫  PLC chưa kết nối", fg="#64748B")
+        self._log_event("⚫ Đã ngắt kết nối PLC.", "WARNING")
 
     def _poll_plc(self):
         """Đọc bộ đếm từ PLC mỗi 1 giây."""
@@ -1583,37 +1701,39 @@ class CameraWindow:
 
     def _plc_start(self):
         """Ghi DB1.DBX0.0 = True → Tạo xung Start."""
-        success = self.plc.start_machine()
+        success, msg = self.plc.start_machine()
         if success:
             self.lbl_plc_status.config(text="🟢 PLC: Đang chạy (Pulse DB1.0.0)", fg="#2E7D32")
             self._log_event("▶️ Đã gửi lệnh START (DB1.DBX0.0)", "INFO")
             # Tự động tắt bit sau 500ms (tạo xung)
-            self.win.after(500, lambda: self.plc.write_db_bit(1, 0, 0, False))
+            self.win.after(500, lambda: self.plc.write_db_bit(self.plc.PLC_DB_NUMBER, self.plc.PLC_START_BYTE, self.plc.PLC_START_BIT, False))
         else:
             self.lbl_plc_status.config(text="🔴 Lỗi ghi START", fg="#D32F2F")
-            self._log_event("❌ Lỗi khi gửi lệnh START xuống PLC", "ERROR")
+            self._log_event(f"❌ Lỗi khi gửi lệnh START xuống PLC: {msg}", "ERROR")
 
     def _plc_stop(self):
         """Ghi DB1.DBX0.1 = True → Tạo xung Stop."""
-        success = self.plc.stop_machine()
+        success, msg = self.plc.stop_machine()
         if success:
             self.lbl_plc_status.config(text="🟡 PLC: Đã dừng (Pulse DB1.0.1)", fg="#C62828")
             self._log_event("⏹️ Đã gửi lệnh STOP (DB1.DBX0.1)", "WARNING")
             # Tự động tắt bit sau 500ms (tạo xung)
-            self.win.after(500, lambda: self.plc.write_db_bit(1, 0, 1, False))
+            self.win.after(500, lambda: self.plc.write_db_bit(self.plc.PLC_DB_NUMBER, self.plc.PLC_STOP_BYTE, self.plc.PLC_STOP_BIT, False))
         else:
             self.lbl_plc_status.config(text="🔴 Lỗi ghi STOP", fg="#D32F2F")
-            self._log_event("❌ Lỗi khi gửi lệnh STOP xuống PLC", "ERROR")
+            self._log_event(f"❌ Lỗi khi gửi lệnh STOP xuống PLC: {msg}", "ERROR")
 
     def send_grade_to_plc(self, grade):
         """Gửi tín hiệu phân loại xuống PLC (Tạo xung 500ms)."""
         if not self.plc.connected:
             return
             
-        success = self.plc.set_grade(grade)
+        success, msg = self.plc.set_grade(grade)
         if success:
             print(f"[PLC] Sent grade signal: {grade}")
             self.win.after(500, self._reset_grade_bits_plc)
+        else:
+            self._log_event(f"❌ Lỗi gửi tín hiệu {grade} xuống PLC: {msg}", "ERROR")
 
     def _reset_grade_bits_plc(self):
         """Reset các bit phân loại về False."""
@@ -1672,12 +1792,84 @@ class CameraWindow:
         self._log_event("🔄 Hệ thống đã được làm mới và đồng bộ dữ liệu.", "INFO")
         
     def _clear_log(self):
-        """Xóa trắng khung log."""
+        """Xóa trắng khung log và reset bộ đếm."""
         if messagebox.askyesno("Xác nhận", "Bạn có muốn xóa toàn bộ log hiện tại?"):
             self.log_text.config(state="normal")
             self.log_text.delete("1.0", "end")
             self.log_text.config(state="disabled")
+            self._log_counters = {"info": 0, "warning": 0, "error": 0, "success": 0}
+            self._log_entries = []
+            self._update_log_counter_badges()
             self._log_event("🗑️ Đã dọn dẹp khung Log.", "WARNING")
+
+    # ═══════════════════════════════════════════════════════
+    #  LOG UTILITIES (Lọc, Sao chép, Xuất file, Flash)
+    # ═══════════════════════════════════════════════════════
+    def _update_log_counter_badges(self):
+        """Cập nhật badge đếm WARNING / ERROR trên toolbar."""
+        if hasattr(self, '_badge_warn'):
+            w = self._log_counters.get("warning", 0)
+            self._badge_warn.config(text=f"WARN: {w}")
+        if hasattr(self, '_badge_error'):
+            e = self._log_counters.get("error", 0)
+            self._badge_error.config(text=f"ERR: {e}")
+
+    def _filter_log(self, level):
+        """Lọc hiển thị log theo level (ALL/INFO/SUCCESS/WARNING/ERROR)."""
+        if not hasattr(self, '_log_entries'):
+            return
+        self.log_text.config(state="normal")
+        self.log_text.delete("1.0", "end")
+        target = level.lower()
+        for entry in self._log_entries:
+            if target == "all" or entry["tag"] == target:
+                self.log_text.insert("end", f"[{entry['time']}] ", "time")
+                src = entry.get("source", "")
+                self.log_text.insert("end", f"{entry['prefix']} {entry['msg']}{src}\n", entry["tag"])
+        self.log_text.see("end")
+        self.log_text.config(state="disabled")
+        self._log_filter_var.set(level)
+
+    def _copy_log_to_clipboard(self):
+        """Sao chép toàn bộ log ra clipboard."""
+        try:
+            content = self.log_text.get("1.0", "end-1c")
+            self.win.clipboard_clear()
+            self.win.clipboard_append(content)
+            self._log_event("📋 Đã sao chép log vào clipboard.", "SUCCESS")
+        except Exception as e:
+            self._log_event(f"Lỗi sao chép: {e}", "ERROR")
+
+    def _export_log_to_file(self):
+        """Xuất log ra file .txt để debug."""
+        try:
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".txt",
+                filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                initialfile=f"event_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                title="Lưu Event Log")
+            if filepath:
+                content = self.log_text.get("1.0", "end-1c")
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(f"=== EVENT LOG - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                    f.write(f"Total: INFO={self._log_counters.get('info',0)} | "
+                            f"SUCCESS={self._log_counters.get('success',0)} | "
+                            f"WARNING={self._log_counters.get('warning',0)} | "
+                            f"ERROR={self._log_counters.get('error',0)}\n")
+                    f.write("=" * 60 + "\n")
+                    f.write(content)
+                self._log_event(f"💾 Đã xuất log ra: {filepath}", "SUCCESS")
+        except Exception as e:
+            self._log_event(f"Lỗi xuất file: {e}", "ERROR")
+
+    def _flash_log_border(self, count=0):
+        """Nhấp nháy viền đỏ khi có ERROR để thu hút sự chú ý."""
+        if count >= 6:
+            self._log_frame_widget.config(fg="#475569")
+            return
+        color = "#EF4444" if count % 2 == 0 else "#475569"
+        self._log_frame_widget.config(fg=color)
+        self.win.after(300, self._flash_log_border, count + 1)
 
     def _save_system_config(self):
         """Cập nhật các thông số từ UI vào bộ xử lý."""
@@ -1696,6 +1888,112 @@ class CameraWindow:
             messagebox.showinfo("Thành công", "Đã cập nhật cấu hình hệ thống!")
         except ValueError:
             messagebox.showerror("Lỗi", "Vui lòng nhập số nguyên hợp lệ cho các thông số cấu hình!")
+
+    def _open_tc1_settings(self, event=None):
+        """Mở cửa sổ cấu hình ngưỡng TC1 (Độ chín)."""
+        top = tk.Toplevel(self.win)
+        top.title("Cấu hình TC1 - Độ chín vỏ quả")
+        top.geometry("350x240")
+        top.transient(self.win)
+        top.grab_set()
+        top.config(bg="#F8FAFC")
+
+        var_good = tk.IntVar(value=self.analyzer.__class__.RIPENESS_GOOD_THRESH)
+        var_medium = tk.IntVar(value=self.analyzer.__class__.RIPENESS_MEDIUM_THRESH)
+
+        tk.Label(top, text="Ngưỡng 1 (Đỏ ≥ %):", bg="#F8FAFC", font=("Arial", 9, "bold"), fg="#1B5E20").pack(pady=(15, 0))
+        f1 = tk.Frame(top, bg="#F8FAFC")
+        f1.pack()
+        tk.Scale(f1, from_=0, to=100, orient="horizontal", length=200, bg="#F8FAFC", highlightthickness=0, variable=var_good, showvalue=False).pack(side="left")
+        ttk.Spinbox(f1, from_=0, to=100, textvariable=var_good, width=5, font=("Consolas", 10)).pack(side="left", padx=(5,0))
+
+        tk.Label(top, text="Ngưỡng 2 (Đỏ ≥ %):", bg="#F8FAFC", font=("Arial", 9, "bold"), fg="#F9A825").pack(pady=(10, 0))
+        f2 = tk.Frame(top, bg="#F8FAFC")
+        f2.pack()
+        tk.Scale(f2, from_=0, to=100, orient="horizontal", length=200, bg="#F8FAFC", highlightthickness=0, variable=var_medium, showvalue=False).pack(side="left")
+        ttk.Spinbox(f2, from_=0, to=100, textvariable=var_medium, width=5, font=("Consolas", 10)).pack(side="left", padx=(5,0))
+
+        def save(event=None):
+            try:
+                val_good = var_good.get()
+                val_medium = var_medium.get()
+            except tk.TclError:
+                messagebox.showerror("Lỗi", "Vui lòng nhập số hợp lệ!", parent=top)
+                return
+                
+            if val_medium >= val_good:
+                messagebox.showerror("Lỗi", "Ngưỡng 1 phải lớn hơn Ngưỡng 2!", parent=top)
+                return
+            
+            # Cập nhật trực tiếp vào class
+            self.analyzer.__class__.RIPENESS_GOOD_THRESH = val_good
+            self.analyzer.__class__.RIPENESS_MEDIUM_THRESH = val_medium
+            self._update_grade_descriptions()
+            self._log_event(f"⚙️ Cập nhật TC1: Loại 1 (≥{val_good}%), Loại 2 (≥{val_medium}%)", "INFO")
+            top.destroy()
+
+        top.bind('<Return>', save)
+        tk.Button(top, text="LƯU CẤU HÌNH (Enter)", bg="#1565C0", fg="white", font=("Arial", 9, "bold"), cursor="hand2", command=save, padx=20, pady=5, relief="flat").pack(pady=15)
+
+    def _open_tc2_settings(self, event=None):
+        """Mở cửa sổ cấu hình ngưỡng TC2 (Kích thước)."""
+        top = tk.Toplevel(self.win)
+        top.title("Cấu hình TC2 - Kích thước quả")
+        top.geometry("350x240")
+        top.transient(self.win)
+        top.grab_set()
+        top.config(bg="#F8FAFC")
+
+        var_large = tk.IntVar(value=self.analyzer.SIZE_THRESHOLDS["large"])
+        var_medium = tk.IntVar(value=self.analyzer.SIZE_THRESHOLDS["medium"])
+
+        tk.Label(top, text="Ngưỡng 1 (Kích thước ≥ mm):", bg="#F8FAFC", font=("Arial", 9, "bold"), fg="#E65100").pack(pady=(15, 0))
+        f1 = tk.Frame(top, bg="#F8FAFC")
+        f1.pack()
+        tk.Scale(f1, from_=0, to=150, orient="horizontal", length=200, bg="#F8FAFC", highlightthickness=0, variable=var_large, showvalue=False).pack(side="left")
+        ttk.Spinbox(f1, from_=0, to=150, textvariable=var_large, width=5, font=("Consolas", 10)).pack(side="left", padx=(5,0))
+
+        tk.Label(top, text="Ngưỡng 2 (Kích thước ≥ mm):", bg="#F8FAFC", font=("Arial", 9, "bold"), fg="#E65100").pack(pady=(10, 0))
+        f2 = tk.Frame(top, bg="#F8FAFC")
+        f2.pack()
+        tk.Scale(f2, from_=0, to=150, orient="horizontal", length=200, bg="#F8FAFC", highlightthickness=0, variable=var_medium, showvalue=False).pack(side="left")
+        ttk.Spinbox(f2, from_=0, to=150, textvariable=var_medium, width=5, font=("Consolas", 10)).pack(side="left", padx=(5,0))
+
+        def save(event=None):
+            try:
+                val_large = var_large.get()
+                val_medium = var_medium.get()
+            except tk.TclError:
+                messagebox.showerror("Lỗi", "Vui lòng nhập số hợp lệ!", parent=top)
+                return
+                
+            if val_medium >= val_large:
+                messagebox.showerror("Lỗi", "Ngưỡng 1 phải lớn hơn Ngưỡng 2!", parent=top)
+                return
+            
+            # Cập nhật trực tiếp vào dictionary
+            self.analyzer.SIZE_THRESHOLDS["large"] = val_large
+            self.analyzer.SIZE_THRESHOLDS["medium"] = val_medium
+            self._update_grade_descriptions()
+            self._log_event(f"⚙️ Cập nhật TC2: Loại 1 (≥{val_large}mm), Loại 2 (≥{val_medium}mm)", "INFO")
+            top.destroy()
+
+        top.bind('<Return>', save)
+        tk.Button(top, text="LƯU CẤU HÌNH (Enter)", bg="#1565C0", fg="white", font=("Arial", 9, "bold"), cursor="hand2", command=save, padx=20, pady=5, relief="flat").pack(pady=15)
+
+    def _update_grade_descriptions(self):
+        """Cập nhật giao diện text cho 3 loại khi cấu hình thay đổi."""
+        t1_good = self.analyzer.__class__.RIPENESS_GOOD_THRESH
+        t1_med = self.analyzer.__class__.RIPENESS_MEDIUM_THRESH
+        t2_large = self.analyzer.SIZE_THRESHOLDS["large"]
+        t2_med = self.analyzer.SIZE_THRESHOLDS["medium"]
+
+        if "Grade-1" in self._grade_desc_labels:
+            self._grade_desc_labels["Grade-1"].config(text=f"TC1 (≥{t1_good}%) & TC2 (≥{t2_large}mm)")
+        if "Grade-2" in self._grade_desc_labels:
+            self._grade_desc_labels["Grade-2"].config(text=f"TC1 ({t1_med}-{t1_good-1}%) hoặc TC2 ({t2_med}-{t2_large-1}mm)")
+        if "Grade-3" in self._grade_desc_labels:
+            self._grade_desc_labels["Grade-3"].config(text=f"TC1 (<{t1_med}%) hoặc TC2 (<{t2_med}mm)")
 
     # ═══════════════════════════════════════════════════════
     #  ĐÓNG

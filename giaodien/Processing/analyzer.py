@@ -48,7 +48,6 @@ class FruitAnalyzer:
     
     # Thông số tiêu cự (Focal Length) chuẩn của Astra Pro (640x480)
     # H_FOV = 60 độ -> f = 320 / tan(30) = 554.26
-    # Thực tế OpenNI thường calibration ở mức ~580 cho kết quả mm chính xác hơn
     H_FOCAL_LENGTH = 580.0 
 
     # ─── Ngưỡng HSV cho táo ĐỎ ────────────────────────────────
