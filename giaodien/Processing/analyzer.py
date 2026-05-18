@@ -441,6 +441,7 @@ class FruitAnalyzer:
             "size_grade": size_grade,
             "shape_label": shape_label,
             "shape_grade": shape_grade,
+            "circularity": circularity,
             # Performance Metrics (Machine Vision Industrial Standard)
             "processing_time_ms": processing_time_ms,
             "fps": self.current_fps,
@@ -705,6 +706,7 @@ class FruitAnalyzer:
             "diameter_px": 0, "diameter_mm": 0,
             "size_label": "---", "size_grade": "---",
             "shape_label": "---", "shape_grade": "---",
+            "circularity": 0.0,
         }
 
     def get_foreground_mask(self, frame):

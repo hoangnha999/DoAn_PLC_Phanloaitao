@@ -1110,9 +1110,9 @@ class CameraWindow:
         self.lbl_grading_status.pack(pady=(0, 6))
 
         # ═══════════════════════════════════════════════════
-        #  PANEL ĐÁNH GIÁ 2 TIÊU CHÍ
+        #  PANEL ĐÁNH GIÁ 3 TIÊU CHÍ
         # ═══════════════════════════════════════════════════
-        criteria_frame = tk.LabelFrame(lf, text=" 📋 ĐÁNH GIÁ 2 TIÊU CHÍ ",
+        criteria_frame = tk.LabelFrame(lf, text=" 📋 ĐÁNH GIÁ 3 TIÊU CHÍ ",
                                         font=("Arial", 9, "bold"), fg="#1565C0",
                                         bg="#F0F4F8", padx=8, pady=6)
         criteria_frame.pack(fill="x", padx=8, pady=(0, 6))
@@ -1177,6 +1177,33 @@ class CameraWindow:
         self._tc2_grade_lbl = tk.Label(tc2_detail, textvariable=self._tc2_grade_var,
                  font=("Arial", 8, "bold"), fg="#616161", bg="#F0F4F8")
         self._tc2_grade_lbl.pack(side="right")
+
+        # Đường phân cách
+        tk.Frame(criteria_frame, bg="#CFD8DC", height=1).pack(fill="x", pady=4)
+
+        # ── TC3: Độ tròn quả ──
+        tc3_frame = tk.Frame(criteria_frame, bg="#F0F4F8")
+        tc3_frame.pack(fill="x", pady=(0, 0))
+
+        lbl_tc3 = tk.Label(tc3_frame, text="TC3  ĐỘ TRÒN QUẢ",
+                 font=("Arial", 8, "bold"), fg="#0284C7", bg="#F0F4F8")
+        lbl_tc3.pack(anchor="w")
+
+        # Thanh tiến trình TC3 (độ tròn 0.0 - 1.0 -> 0% - 100%)
+        self._tc3_progress = ttk.Progressbar(tc3_frame, length=260, mode='determinate', maximum=100)
+        self._tc3_progress.pack(fill="x", pady=(1, 0))
+
+        tc3_detail = tk.Frame(tc3_frame, bg="#F0F4F8")
+        tc3_detail.pack(fill="x")
+
+        self._tc3_circularity_var = tk.StringVar(value="Độ tròn: 0.00")
+        tk.Label(tc3_detail, textvariable=self._tc3_circularity_var,
+                 font=("Consolas", 8), fg="#0F172A", bg="#F0F4F8").pack(side="left")
+
+        self._tc3_grade_var = tk.StringVar(value="---")
+        self._tc3_grade_lbl = tk.Label(tc3_detail, textvariable=self._tc3_grade_var,
+                 font=("Arial", 8, "bold"), fg="#616161", bg="#F0F4F8")
+        self._tc3_grade_lbl.pack(side="right")
 
         # ═══════════════════════════════════════════════════
         #  THỐNG KÊ 3 HẠNG
@@ -1646,8 +1673,20 @@ class CameraWindow:
             self._tc2_diameter_var.set(f"Ø: {d_mm:.0f} mm")
             self._tc2_grade_var.set(f"⇒ {s_label}")
 
-            tc2_colors = {"A": "#1B5E20", "B": "#F57F17", "C": "#B71C1C"}
+            tc2_colors = {"Grade-1": "#1B5E20", "Grade-2": "#F57F17", "Grade-3": "#B71C1C", "A": "#1B5E20", "B": "#F57F17", "C": "#B71C1C"}
             self._tc2_grade_lbl.config(fg=tc2_colors.get(s_grade, "#616161"))
+
+            # ── TC3: Độ tròn ──
+            circ = detail_info.get("circularity", 0.0)
+            sh_label = detail_info.get("shape_label", "---")
+            sh_grade = detail_info.get("shape_grade", "---")
+
+            self._tc3_progress['value'] = min(circ * 100, 100)
+            self._tc3_circularity_var.set(f"Độ tròn: {circ:.2f}")
+            self._tc3_grade_var.set(f"⇒ {sh_label}")
+
+            tc3_colors = {"Grade-1": "#0284C7", "Grade-2": "#F57F17", "Grade-3": "#B71C1C"}
+            self._tc3_grade_lbl.config(fg=tc3_colors.get(sh_grade, "#616161"))
             
             # ── Performance Metrics (Machine Vision Industrial) ──
             fps = detail_info.get("fps", 0.0)
