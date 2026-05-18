@@ -33,9 +33,9 @@ graph TD
 
     subgraph "ĐIỀU KHIỂN & CHẤP HÀNH (ACTUATORS)"
         Decisions -->|Truyền thông DB10 snap7| Conroller
-        Conroller -->|Độ trễ hành trình Tracker| Piston1[Xy lanh 1 - GOOD]
-        Conroller -->|Độ trễ hành trình Tracker| Piston2[Xy lanh 2 - MEDIUM]
-        Conroller -->|Độ trễ hành trình Tracker| Piston3[Xy lanh 3 - BAD]
+        Conroller -->|GOOD + Cảm biến hồng ngoại 1| Piston1[Xy lanh 1 - GOOD]
+        Conroller -->|MEDIUM + Cảm biến hồng ngoại 2| Piston2[Xy lanh 2 - MEDIUM]
+        Conroller -->|BAD - Không đẩy| EndBelt[Trôi tự do về cuối băng tải]
     end
 ```
 
@@ -56,10 +56,13 @@ graph TD
 *   **Thiết kế con lăn:** Thay vì băng tải cao su phẳng, sử dụng chuỗi con lăn hình quả trám đôi (chén rãnh). Quả táo sẽ nằm gọn trong khe giữa hai con lăn.
 *   **Nguyên lý xoay tự động:** Khi xích băng tải tịnh tiến, một cơ cấu thanh răng/đai ma sát phía dưới sẽ gạt vào trục con lăn, ép các con lăn tự xoay quanh trục của nó. Từ đó quả táo tự động xoay tròn đều khi đi qua buồng quét của camera.
 
-### 1.3. Cơ Cấu Đẩy Xy Lanh Khí Nén Mềm (Soft Sorting Actuators)
-*   **Tránh dập táo:** Sử dụng xy lanh khí nén tác động kép có gắn **đệm cao su bọt biển** ở đầu đẩy.
-*   **Lực đẩy mềm:** Điều chỉnh áp suất khí nén qua van giảm áp (Regulator) ở mức vừa phải (2.5 - 3.5 bar), lực đẩy vừa đủ để gạt nhẹ quả táo lăn vào máng dốc mà không làm nứt quả.
-*   **Máng trượt hứng táo:** Lót lớp mút xốp eva hoặc thảm cao su mềm để giảm chấn thương khi táo rơi tự do.
+### 1.3. Cơ Cấu Chấp Hành: 2 Xy Lanh Khí Nén kết hợp 2 Cảm Biến Tiệm Cận Hồng Ngoại PNP
+*   **Tối ưu số lượng cơ cấu chấp hành:** Hệ thống chỉ sử dụng **2 xy lanh khí nén** gạt táo (ví dụ: Xy lanh 1 cho loại GOOD, Xy lanh 2 cho loại MEDIUM). Loại còn lại (BAD) sẽ được cho **trôi tự do đến cuối băng tải** và rơi vào thùng chứa mà không cần tác động cơ học. Điều này giúp tối ưu hóa chi phí thiết bị và tiết kiệm khí nén đáng kể.
+*   **Đồng bộ chính xác bằng cảm biến tiệm cận hồng ngoại PNP:**
+    *   Mỗi xy lanh được bố trí đi kèm **1 cảm biến tiệm cận hồng ngoại PNP** lắp đặt ngay trước vị trí xy lanh.
+    *   Khi quả táo di chuyển đến, cảm biến PNP sẽ phát hiện sự hiện diện của quả táo và báo về PLC S7-1200.
+    *   Nếu PLC xác nhận quả táo đó thuộc đúng phân loại của xy lanh tương ứng (GOOD hoặc MEDIUM), PLC sẽ kích hoạt đẩy xy lanh ngay lập tức.
+*   **Tránh dập táo:** Đầu xy lanh gắn **đệm cao su bọt biển** giảm chấn, lực đẩy nhẹ nhàng qua van giảm áp (2.5 - 3.5 bar). Máng trượt lót xốp eva êm ái.
 
 ---
 
@@ -148,15 +151,20 @@ Giao diện Tkinter hiện tại cần nâng cấp các widget chuyên nghiệp:
 
 Việc đồng bộ hóa tốc độ băng tải vật lý và tốc độ xử lý phần mềm máy tính cực kỳ quan trọng để đảm bảo xy lanh gạt đúng quả táo.
 
-### 4.1. Thuật Toán Bám Vết Vật Thể (Shift-Register/Delay Tracking Algorithm)
-Từ khi camera chụp ảnh quả táo tại vị trí quét cho tới khi quả táo trôi đến vị trí của xy lanh số 1 (GOOD), số 2 (MEDIUM), số 3 (BAD) sẽ mất một khoảng thời gian trễ $T_{delay}$:
-*   **Nếu băng tải chạy tốc độ cố định:**
-    $$T_{delay} = \frac{L(\text{Khoảng cách từ Camera đến Xylanh})}{v(\text{Vận tốc băng tải})}$$
-    Thời gian trễ này được cài đặt bằng hàm `Timer` hoặc `TON` trong chương trình PLC S7-1200.
-*   **Nếu băng tải chạy tốc độ thay đổi (Dùng biến tần):**
-    *   Gắn một **Encoder** đo tốc độ vào trục động cơ băng tải.
-    *   Đọc số xung Encoder truyền về High-Speed Counter (HSC) của S7-1200.
-    *   Python gửi kết quả phân loại (1, 2, 3) xuống DB10 kèm số xung cần dịch chuyển. PLC chỉ cần đếm đủ số xung dịch chuyển sẽ kích hoạt xy lanh tương ứng. Phương pháp này chính xác 100% bất kể băng tải chạy nhanh hay chậm.
+### 4.1. Thuật Toán Điều Khiển Kích Hoạt Xy Lanh dựa trên Cảm Biến Tiệm Cận Hồng Ngoại PNP
+Việc sử dụng thêm 2 cảm biến tiệm cận hồng ngoại PNP ngay trước 2 đầu xy lanh giúp giải quyết triệt để bài toán đồng bộ thời gian mà không cần dùng đến Encoder phức tạp. Quy trình bám vết hoạt động theo nguyên lý "Kích hoạt có điều kiện":
+
+*   **Nguyên lý hoạt động của PLC S7-1200:**
+    1. Khi quả táo đi qua Camera, máy tính gửi mã phân loại (1 = GOOD, 2 = MEDIUM, 3 = BAD) xuống vùng nhớ PLC (DB10) và lưu vào một hàng đợi (Queue / Shift Register).
+    2. **Tại vị trí Xy lanh 1 (GOOD):** 
+       * Có 1 cảm biến tiệm cận hồng ngoại PNP số 1 phát hiện táo đến.
+       * Khi cảm biến PNP 1 phát tín hiệu ON $\rightarrow$ PLC kiểm tra trạng thái hàng đợi: Nếu quả táo đầu hàng đợi là loại **GOOD (1)**, PLC kích hoạt Xy lanh 1 đẩy táo ra. Nếu là loại khác, PLC bỏ qua và tiếp tục dịch chuyển hàng đợi.
+    3. **Tại vị trí Xy lanh 2 (MEDIUM):**
+       * Có cảm biến tiệm cận hồng ngoại PNP số 2 phát hiện táo đến.
+       * Khi cảm biến PNP 2 phát tín hiệu ON $\rightarrow$ PLC kiểm tra: Nếu quả táo hiện tại là loại **MEDIUM (2)**, PLC kích hoạt Xy lanh 2 đẩy táo ra.
+    4. **Tại cuối băng tải (BAD):**
+       * Quả táo loại **BAD (3)** sẽ trôi qua cả 2 cảm biến trên mà không kích hoạt xy lanh nào, tự động rơi vào thùng chứa đặt ở cuối băng tải.
+*   **Ưu điểm tuyệt đối:** Loại bỏ hoàn toàn sai số do trượt băng tải, thay đổi tốc độ đột ngột. Cảm biến tiệm cận PNP đảm bảo xy lanh chỉ đẩy **khi và chỉ khi** quả táo đã đến đúng tầm tác động.
 
 ---
 
