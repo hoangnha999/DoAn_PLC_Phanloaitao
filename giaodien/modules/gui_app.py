@@ -306,8 +306,8 @@ class CameraWindow:
     ]
 
     GRADE_CFG = {
-        "Grade-1":   {"label": "PREMIUM SELECT (Grade-1)",   "color": "#EA580C", "count_fg": "#7C2D12", "bg": "#FFF7ED", "icon": "🍊", "desc": "TC1 (≥80%) & TC2 (≥80mm) - Xy lanh 1 [PNP 1]"},
-        "Grade-2": {"label": "STANDARD GRADE (Grade-2)", "color": "#2563EB", "count_fg": "#1E3A8A", "bg": "#EFF6FF", "icon": "🔹", "desc": "TC1 (70-79%) hoặc TC2 (60-79mm) - Xy lanh 2 [PNP 2]"},
+        "Grade-1":   {"label": "PREMIUM SELECT (Grade-1)",   "color": "#16A34A", "count_fg": "#14532D", "bg": "#F0FDF4", "icon": "🍏", "desc": "TC1 (≥80%) & TC2 (≥80mm) - Xy lanh 1 [PNP 1]"},
+        "Grade-2": {"label": "STANDARD GRADE (Grade-2)", "color": "#0284C7", "count_fg": "#0C4A6E", "bg": "#F0F9FF", "icon": "🔹", "desc": "TC1 (70-79%) hoặc TC2 (60-79mm) - Xy lanh 2 [PNP 2]"},
         "Grade-3":    {"label": "PROCESSING (Grade-3)",    "color": "#4B5563", "count_fg": "#1F2937", "bg": "#F3F4F6", "icon": "🗑️", "desc": "TC1 (<70%) hoặc TC2 (<60mm) - Cuối băng tải"},
     }
 
@@ -1097,7 +1097,7 @@ class CameraWindow:
 
     # ─── Panel trái (Tối ưu hóa Bố cục và Thẩm mỹ SCADA Cao cấp) ───
     def _build_left(self, parent):
-        lf = tk.Frame(parent, bg="#FFFFFF", bd=1, relief="ridge")
+        lf = tk.Frame(parent, bg="#F8FAFC", bd=1, relief="ridge")
         lf.pack(side="left", fill="both", expand=True, padx=(0, 4))
 
         # Header dạng Control-Room cực kỳ sang trọng
@@ -1304,7 +1304,7 @@ class CameraWindow:
 
 # ─── Panel phải: camera màu + ảnh xám ─────────────────
     def _build_right(self, parent):
-        rf = tk.Frame(parent, bg="#FFFFFF", bd=1, relief="ridge")
+        rf = tk.Frame(parent, bg="#F8FAFC", bd=1, relief="ridge")
         rf.pack(side="left", fill="both", expand=True)
 
         # ── Thanh điều khiển chế độ xem ──
@@ -1326,11 +1326,11 @@ class CameraWindow:
         self.display_area.pack(fill="both", expand=True, padx=6, pady=2)
 
         # --- Khung hiển thị 1 ---
-        f1 = tk.Frame(self.display_area, bg="#FFFFFF")
+        f1 = tk.Frame(self.display_area, bg="#F8FAFC")
         self.display_area.add(f1, stretch="always", minsize=100)
         
         self.lbl_view1 = tk.Label(f1, text="📷  CAMERA (COLOR)",
-                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
+                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#F8FAFC")
         self.lbl_view1.pack(anchor="w")
         
         self.canvas = tk.Canvas(f1, bg="#000000", highlightthickness=1, 
@@ -1338,11 +1338,11 @@ class CameraWindow:
         self.canvas.pack(fill="both", expand=True)
 
         # --- Khung hiển thị 2 ---
-        f2 = tk.Frame(self.display_area, bg="#FFFFFF")
+        f2 = tk.Frame(self.display_area, bg="#F8FAFC")
         self.display_area.add(f2, stretch="always", minsize=100)
         
         self.lbl_view2 = tk.Label(f2, text="🔲  MACHINE VISION (DEPTH MAP / GRAYSCALE)",
-                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF")
+                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#F8FAFC")
         self.lbl_view2.pack(anchor="w")
         
         self.canvas_gray = tk.Canvas(f2, bg="#000000", highlightthickness=1, 
