@@ -80,17 +80,33 @@ depth_stream.set_registration_mode(openni2.IMAGE_REGISTRATION_DEPTH_TO_COLOR)
 ### 2.2. Tách Nền Không Gian 3D (3D Depth Segmentation)
 *   Mặt băng tải luôn cố định ở khoảng cách $Z_{conveyor}$ (VD: 550mm).
 *   **Thuật toán tạo Mask:**
-    $$\text{Mask}(x,y) = \begin{cases} 255 & \text{nếu } Z_{min} \le Z(x,y) \le Z_{max} \\ 0 & \text{ngược lại} \end{cases}$$
-    Trong đó: $Z_{min} = 350\text{mm}$ (đỉnh quả táo), $Z_{max} = 520\text{mm}$ (khoảng cách sát mép băng tải để loại bỏ nền).
+
+$$
+\text{Mask}(x,y) = 
+\begin{cases} 
+255 & \text{nếu } Z_{min} \le Z(x,y) \le Z_{max} \\ 
+0 & \text{ngược lại} 
+\end{cases}
+$$
+
+Trong đó: $Z_{min} = 350\text{mm}$ (đỉnh quả táo), $Z_{max} = 520\text{mm}$ (khoảng cách sát mép băng tải để loại bỏ nền).
 *   **Kết quả:** Mask 3D siêu sạch, không hề bị dính viền bóng hoặc màu của xích băng tải.
 
 ### 2.3. Thuật Toán Đo Kích Thước & Thể Tích Thực (True Size & Volume Calculation)
 Quy đổi tọa độ điểm ảnh sang hệ tọa độ thế giới thực (World Coordinates) sử dụng tiêu cự của Camera Astra Pro ($f_x, f_y$):
-*   Tọa độ thực:
-    $$X_{world} = \frac{(x - c_x) \times Z}{f_x}, \quad Y_{world} = \frac{(y - c_y) \times Z}{f_y}$$
+
+*   **Tọa độ thực:**
+
+$$
+X_{world} = \frac{(x - c_x) \times Z}{f_x}, \quad Y_{world} = \frac{(y - c_y) \times Z}{f_y}
+$$
+
 *   **Đo đường kính:** Lấy khoảng cách Euclide lớn nhất giữa hai điểm biên đối diện trên ảnh mask. Đơn vị đầu ra là **Milimet (mm)** thực tế.
 *   **Ước lượng thể tích:** Coi quả táo là hình cầu khuyết, tích phân tổng thể tích bằng cách cộng dồn các lớp độ sâu của từng pixel:
-    $$V = \sum_{pixel} (Z_{conveyor} - Z(x,y)) \times \text{Area}_{pixel}$$
+
+$$
+V = \sum_{pixel} (Z_{conveyor} - Z(x,y)) \times \text{Area}_{pixel}
+$$
 
 ### 2.4. Phát Hiện Vết Lõm / Dập 3D (3D Surface Defect & Dent Detection)
 Quả táo bình thường có bề mặt cong đều trơn tru. Ta dùng thuật toán toán học để phát hiện vết lõm sâu:
