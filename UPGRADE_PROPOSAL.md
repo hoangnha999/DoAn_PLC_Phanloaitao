@@ -8,13 +8,13 @@ Dưới đây là bản đề xuất thiết kế kỹ thuật chi tiết nhất
 
 ```mermaid
 graph TD
-    subgraph PHẦN CỨNG (HARDWARE)
+    subgraph "PHẦN CỨNG (HARDWARE)"
         Conroller[PLC S7-1200] -->|Pulse/Modbus| Motor[Băng tải con lăn tự xoay]
         Astra[Camera Astra Pro] -->|Cảm biến màu RGB| DarkBox[Buồng tối cách ly]
         Astra -->|Cảm biến chiều sâu Depth| DarkBox
     end
 
-    subgraph THUẬT TOÁN (ALGORITHMS - SENSOR FUSION)
+    subgraph "THUẬT TOÁN (ALGORITHMS - SENSOR FUSION)"
         Stream[Đồng bộ luồng ảnh Align] --> DepthFilter[Tách nền 3D Depth Mask]
         DepthFilter --> SizeCalc[Đo đường kính thực & thể tích mm]
         DepthFilter --> SurfaceCalc[Phân tích pháp tuyến & vết lõm 3D]
@@ -25,13 +25,13 @@ graph TD
         HSVCalc --> Consensus
     end
 
-    subgraph GIAO DIỆN (GUI - TKINTER)
+    subgraph "GIAO DIỆN (GUI - TKINTER)"
         Decisions --> UI_3D[Bản đồ độ sâu giả màu Pseudo-color]
         Decisions --> UI_Stats[Thống kê sản lượng & Tốc độ quả/phút]
         Decisions --> UI_Calib[Bảng hiệu chuẩn thông số vật lý]
     end
 
-    subgraph ĐIỀU KHIỂN & CHẤP HÀNH (ACTUATORS)
+    subgraph "ĐIỀU KHIỂN & CHẤP HÀNH (ACTUATORS)"
         Decisions -->|Truyền thông DB10 snap7| Conroller
         Conroller -->|Độ trễ hành trình Tracker| Piston1[Xy lanh 1 - GOOD]
         Conroller -->|Độ trễ hành trình Tracker| Piston2[Xy lanh 2 - MEDIUM]
