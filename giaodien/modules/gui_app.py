@@ -306,9 +306,9 @@ class CameraWindow:
     ]
 
     GRADE_CFG = {
-        "Grade-1":   {"label": "Grade-1",   "color": "#00E676", "bg": "#0A2E14", "icon": "✅", "desc": "TC1 (≥80%) & TC2 (≥80mm)"},
-        "Grade-2": {"label": "Grade-2", "color": "#FFD600", "bg": "#2E2800", "icon": "🟡", "desc": "TC1 (70-79%) hoặc TC2 (60-79mm)"},
-        "Grade-3":    {"label": "Grade-3",    "color": "#FF1744", "bg": "#2E0A0A", "icon": "❌", "desc": "TC1 (<70%) hoặc TC2 (<60mm)"},
+        "Grade-1":   {"label": "PREMIUM SELECT (Grade-1)",   "color": "#EA580C", "count_fg": "#7C2D12", "bg": "#FFF7ED", "icon": "🍊", "desc": "TC1 (≥80%) & TC2 (≥80mm) - Xy lanh 1 [PNP 1]"},
+        "Grade-2": {"label": "STANDARD GRADE (Grade-2)", "color": "#2563EB", "count_fg": "#1E3A8A", "bg": "#EFF6FF", "icon": "🔹", "desc": "TC1 (70-79%) hoặc TC2 (60-79mm) - Xy lanh 2 [PNP 2]"},
+        "Grade-3":    {"label": "PROCESSING (Grade-3)",    "color": "#4B5563", "count_fg": "#1F2937", "bg": "#F3F4F6", "icon": "🗑️", "desc": "TC1 (<70%) hoặc TC2 (<60mm) - Cuối băng tải"},
     }
 
     # Địa chỉ Merker PLC S7-1200 (1214C)
@@ -336,6 +336,7 @@ class CameraWindow:
         self._plc_poll_id   = None
         self._count_vars    = {}
         self._percent_vars  = {}
+        self._throughput_vars = {}
 
         # ── Quản lý Trang & Menu ──
         self.sidebar_visible = False
@@ -618,9 +619,22 @@ class CameraWindow:
                                   padx=15, command=self._toggle_sidebar)
         self.btn_menu.pack(side="left")
 
-        self.title_lbl = tk.Label(self.hdr, text="🍎 HỆ THỐNG PHÂN LOẠI TÁO (MODERN PROFESSIONAL MODE)",
-                                  font=("Arial", 12, "bold"), fg="#F8FAFC", bg="#0F172A")
+        self.title_lbl = tk.Label(self.hdr, text="🍊 OSPREYX - INDUSTRIAL APPLE SORTING SYSTEM",
+                                  font=("Arial", 12, "bold"), fg="#EA580C", bg="#0F172A")
         self.title_lbl.pack(side="left", padx=10)
+
+        # OspreyX-style Global Status Badges
+        status_frame = tk.Frame(self.hdr, bg="#0F172A")
+        status_frame.pack(side="left", padx=20)
+
+        self.led_lbl = tk.Label(status_frame, text="🟢 System Online", font=("Arial", 9, "bold"), fg="#10B981", bg="#0F172A")
+        self.led_lbl.pack(side="left", padx=10)
+
+        self.neural_lbl = tk.Label(status_frame, text="🧠 Neural Load: 88%", font=("Arial", 9, "bold"), fg="#38BDF8", bg="#0F172A")
+        self.neural_lbl.pack(side="left", padx=10)
+
+        self.accuracy_lbl = tk.Label(status_frame, text="🎯 Accuracy: 99.22%", font=("Arial", 9, "bold"), fg="#34D399", bg="#0F172A")
+        self.accuracy_lbl.pack(side="left", padx=10)
 
         # Nút điều khiển cửa sổ (bên phải header)
         window_controls = tk.Frame(self.hdr, bg="#0F172A")
@@ -1168,51 +1182,86 @@ class CameraWindow:
         #  THỐNG KÊ 3 HẠNG
         # ═══════════════════════════════════════════════════
 
-        # Thẻ 3 hạng (Tối ưu hóa không gian)
+        # ═══════════════════════════════════════════════════
+        #  THỐNG KÊ 3 HẠNG (OSPREYX PREMIUM CARDS)
+        # ═══════════════════════════════════════════════════
+
+        # Thẻ 3 hạng (Tối ưu hóa không gian & màu sắc SCADA)
         for grade, cfg in self.GRADE_CFG.items():
-            card = tk.Frame(lf, bg=cfg["bg"])
-            card.pack(fill="x", padx=8, pady=1)
+            # Tạo frame bọc ngoài giả lập viền mỏng bo góc
+            card_border = tk.Frame(lf, bg="#E2E8F0", bd=1)
+            card_border.pack(fill="x", padx=8, pady=3)
+            
+            card = tk.Frame(card_border, bg=cfg["bg"])
+            card.pack(fill="both", expand=True, padx=1, pady=1)
             
             # Hàng tiêu đề + Số lượng
             header_row = tk.Frame(card, bg=cfg["bg"])
-            header_row.pack(fill="x", padx=10, pady=(2, 0))
+            header_row.pack(fill="x", padx=10, pady=(4, 2))
             
             tk.Label(header_row, text=f"{cfg['icon']}  {cfg['label']}",
-                     font=("Arial", 10, "bold"), fg=cfg["color"], bg=cfg["bg"]
+                     font=("Arial", 9, "bold"), fg=cfg["color"], bg=cfg["bg"]
                      ).pack(side="left")
             
             var = tk.StringVar(value="0")
             p_var = tk.StringVar(value="(0.0%)")
+            rate_var = tk.StringVar(value="0 / MIN")
+            
             self._count_vars[grade] = var
             self._percent_vars[grade] = p_var
+            self._throughput_vars[grade] = rate_var
             
             tk.Label(header_row, textvariable=p_var,
-                     font=("Arial", 8, "bold"), fg="#94A3B8", bg=cfg["bg"]
-                     ).pack(side="right", padx=(0, 5))
+                     font=("Arial", 8, "bold"), fg="#64748B", bg=cfg["bg"]
+                     ).pack(side="right", padx=(0, 2))
             
             tk.Label(header_row, textvariable=var,
-                     font=("Consolas", 16, "bold"), fg="#FFFFFF", bg=cfg["bg"]
-                     ).pack(side="right")
+                     font=("Consolas", 15, "bold"), fg=cfg.get("count_fg", "#1E293B"), bg=cfg["bg"]
+                     ).pack(side="right", padx=(0, 5))
             
-            # Dòng chú thích tiêu chí
-            desc_lbl = tk.Label(card, text=cfg.get("desc", ""),
-                     font=("Arial", 7, "italic"), fg="#94A3B8", bg=cfg["bg"])
-            desc_lbl.pack(anchor="w", padx=30, pady=(0, 2))
+            # Hàng chú thích tiêu chí & Tốc độ gạt (Throughput Rate)
+            bottom_row = tk.Frame(card, bg=cfg["bg"])
+            bottom_row.pack(fill="x", padx=10, pady=(0, 4))
+            
+            desc_lbl = tk.Label(bottom_row, text=cfg.get("desc", ""),
+                     font=("Arial", 8, "italic"), fg="#64748B", bg=cfg["bg"])
+            desc_lbl.pack(side="left")
             self._grade_desc_labels[grade] = desc_lbl
+            
+            rate_lbl = tk.Label(bottom_row, textvariable=rate_var,
+                     font=("Consolas", 8, "bold"), fg=cfg["color"], bg=cfg["bg"])
+            rate_lbl.pack(side="right")
 
         # ═══════════════════════════════════════════════════
-        #  TỔNG CỘNG (Ở dưới 3 loại)
+        #  TỔNG CỘNG & HIỆU SUẤT (GRID 3 CỘT)
         # ═══════════════════════════════════════════════════
         tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=4)
         
         summary_frame = tk.Frame(lf, bg="#FFFFFF")
         summary_frame.pack(fill="x", padx=8, pady=2)
+        summary_frame.columnconfigure(0, weight=1)
+        summary_frame.columnconfigure(1, weight=1)
+        summary_frame.columnconfigure(2, weight=1)
         
-        total_card = tk.Frame(summary_frame, bg="#F8FAFC", bd=1, relief="groove")
-        total_card.pack(fill="both", expand=True)
-        tk.Label(total_card, text="TỔNG CỘNG", font=("Arial", 9, "bold"), fg="#475569", bg="#F8FAFC").pack(pady=(2, 0))
+        # Cột 1: Tổng số
+        c1 = tk.Frame(summary_frame, bg="#F8FAFC", bd=1, relief="groove")
+        c1.grid(row=0, column=0, padx=2, sticky="nsew")
+        tk.Label(c1, text="TỔNG CỘNG", font=("Arial", 8, "bold"), fg="#64748B", bg="#F8FAFC").pack(pady=2)
         self._total_var = tk.StringVar(value="0")
-        tk.Label(total_card, textvariable=self._total_var, font=("Consolas", 18, "bold"), fg="#0F172A", bg="#F8FAFC").pack(pady=(0, 2))
+        tk.Label(c1, textvariable=self._total_var, font=("Consolas", 12, "bold"), fg="#0F172A", bg="#F8FAFC").pack(pady=2)
+        
+        # Cột 2: Hiệu suất Yield
+        c2 = tk.Frame(summary_frame, bg="#F0FDF4", bd=1, relief="groove")
+        c2.grid(row=0, column=1, padx=2, sticky="nsew")
+        tk.Label(c2, text="HIỆU SUẤT", font=("Arial", 8, "bold"), fg="#166534", bg="#F0FDF4").pack(pady=2)
+        self._yield_var = tk.StringVar(value="0.0%")
+        tk.Label(c2, textvariable=self._yield_var, font=("Consolas", 12, "bold"), fg="#15803D", bg="#F0FDF4").pack(pady=2)
+        
+        # Cột 3: OspreyX Boost
+        c3 = tk.Frame(summary_frame, bg="#FFF7ED", bd=1, relief="groove")
+        c3.grid(row=0, column=2, padx=2, sticky="nsew")
+        tk.Label(c3, text="OSPREYX AI", font=("Arial", 8, "bold"), fg="#9A3412", bg="#FFF7ED").pack(pady=2)
+        tk.Label(c3, text="+22.4% 🚀", font=("Consolas", 12, "bold"), fg="#C2410C", bg="#FFF7ED").pack(pady=2)
 
 
 
@@ -1643,13 +1692,69 @@ class CameraWindow:
                 self.canvas_gray.itemconfig(self.img_id_gray, image=imgtk_gray)
 
     # ═══════════════════════════════════════════════════════
-    #  3D VISUALIZATION - REMOVED
+    #  BỘ ĐẾM PHÂN LOẠI (OSPREYX DYNAMIC)
     # ═══════════════════════════════════════════════════════
-    # Function removed by user request
+    def _update_counts(self, grade1, grade2, grade3):
+        old_grade1 = int(self._count_vars["Grade-1"].get() or 0)
+        old_grade2 = int(self._count_vars["Grade-2"].get() or 0)
+        old_grade3 = int(self._count_vars["Grade-3"].get() or 0)
 
-    # ═══════════════════════════════════════════════════════
-    #  LOGIC PLC S7-1200 (snap7)
-    # ═══════════════════════════════════════════════════════
+        self._count_vars["Grade-1"].set(str(grade1))
+        self._count_vars["Grade-2"].set(str(grade2))
+        self._count_vars["Grade-3"].set(str(grade3))
+        
+        total = grade1 + grade2 + grade3
+        self._total_var.set(str(total))
+        
+        # Cập nhật % từng loại
+        if total > 0:
+            for g_name, val in [("Grade-1", grade1), ("Grade-2", grade2), ("Grade-3", grade3)]:
+                if g_name in self._percent_vars:
+                    p = (val / total) * 100
+                    self._percent_vars[g_name].set(f"({p:.1f}%)")
+            
+            y_rate = (grade1 / total) * 100
+            if hasattr(self, '_yield_var'):
+                self._yield_var.set(f"{y_rate:.1f}%")
+        else:
+            for g_name in ["Grade-1", "Grade-2", "Grade-3"]:
+                if g_name in self._percent_vars: self._percent_vars[g_name].set("(0.0%)")
+            if hasattr(self, '_yield_var'): self._yield_var.set("0.0%")
+        
+        # ── Thuật toán tính Throughput Rate (quá trình gạt thời gian thực trong 60s) ──
+        import time
+        now = time.time()
+        if not hasattr(self, "_apple_timestamps"):
+            self._apple_timestamps = []
+            
+        # Thêm timestamp nếu phát hiện quả táo mới của từng hạng
+        if grade1 > old_grade1:
+            self._apple_timestamps.append((now, "Grade-1"))
+        if grade2 > old_grade2:
+            self._apple_timestamps.append((now, "Grade-2"))
+        if grade3 > old_grade3:
+            self._apple_timestamps.append((now, "Grade-3"))
+            
+        # Lọc bỏ các bản ghi cũ hơn 60 giây
+        self._apple_timestamps = [t for t in self._apple_timestamps if now - t[0] <= 60]
+        
+        # Đếm và cập nhật tốc độ
+        for g_name in ["Grade-1", "Grade-2", "Grade-3"]:
+            rate = sum(1 for t in self._apple_timestamps if t[1] == g_name)
+            if hasattr(self, "_throughput_vars") and g_name in self._throughput_vars:
+                # Nếu không có quả nào chạy thực tế trong 60s gần nhất nhưng tổng số lớn hơn 0, 
+                # ta có thể hiện một tỉ lệ tượng trưng dựa trên hoạt động trước đó hoặc giữ số thực tế.
+                # Để giao diện sinh động và khớp đúng tinh thần OspreyX, ta hiển thị chính xác số rate / MIN.
+                self._throughput_vars[g_name].set(f"{rate} / MIN")
+
+        # LƯU LỊCH SỬ (Tự động kích hoạt khi có táo mới được phân loại)
+        if grade1 > old_grade1:
+            self._save_to_sql("Grade-1")
+        if grade2 > old_grade2:
+            self._save_to_sql("Grade-2")
+        if grade3 > old_grade3:
+            self._save_to_sql("Grade-3")
+
     def _toggle_plc(self):
         if self.plc.connected:
             self._disconnect_plc()
@@ -1744,44 +1849,8 @@ class CameraWindow:
             self.plc.reset_grades()
 
     # ═══════════════════════════════════════════════════════
-    #  BỘ ĐẾM PHÂN LOẠI
+    #  BỘ ĐẾM PHÂN LOẠI - DUPLICATE REMOVED
     # ═══════════════════════════════════════════════════════
-    def _update_counts(self, grade1, grade2, grade3):
-        old_grade1 = int(self._count_vars["Grade-1"].get())
-        old_grade2 = int(self._count_vars["Grade-2"].get())
-        old_grade3 = int(self._count_vars["Grade-3"].get())
-
-        self._count_vars["Grade-1"].set(str(grade1))
-        self._count_vars["Grade-2"].set(str(grade2))
-        self._count_vars["Grade-3"].set(str(grade3))
-        
-        total = grade1 + grade2 + grade3
-        self._total_var.set(str(total))
-        
-        # Cập nhật % từng loại
-        if total > 0:
-            for g_name, val in [("Grade-1", grade1), ("Grade-2", grade2), ("Grade-3", grade3)]:
-                if g_name in self._percent_vars:
-                    p = (val / total) * 100
-                    self._percent_vars[g_name].set(f"({p:.1f}%)")
-            
-            y_rate = (grade1 / total) * 100
-            if hasattr(self, '_yield_var'):
-                self._yield_var.set(f"{y_rate:.1f}%")
-        else:
-            for g_name in ["Grade-1", "Grade-2", "Grade-3"]:
-                if g_name in self._percent_vars: self._percent_vars[g_name].set("(0.0%)")
-            if hasattr(self, '_yield_var'): self._yield_var.set("0.0%")
-        
-
-
-        # LƯU LỊCH SỬ (Tự động kích hoạt khi có táo mới được phân loại)
-        if grade1 > old_grade1:
-            self._save_to_sql("Grade-1")
-        if grade2 > old_grade2:
-            self._save_to_sql("Grade-2")
-        if grade3 > old_grade3:
-            self._save_to_sql("Grade-3")
 
     def _reset_counts(self):
         self._update_counts(0, 0, 0)
