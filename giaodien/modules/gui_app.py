@@ -1095,70 +1095,84 @@ class CameraWindow:
                                         fg="#475569", bg="#FFFFFF")
         self.lbl_cam_status.pack(side="left", padx=(10, 0))
 
-    # ─── Panel trái ─────────────────────────────────────
+    # ─── Panel trái (Tối ưu hóa Bố cục và Thẩm mỹ SCADA Cao cấp) ───
     def _build_left(self, parent):
         lf = tk.Frame(parent, bg="#FFFFFF", bd=1, relief="ridge")
-        lf.pack(fill="both", expand=True, padx=(0, 4))
+        lf.pack(side="left", fill="both", expand=True, padx=(0, 4))
 
-        tk.Label(lf, text="📊  KẾT QUẢ PHÂN LOẠI",
-                 font=("Arial", 11, "bold"), fg="#0284C7", bg="#FFFFFF",
-                 ).pack(pady=(4, 4))
+        # Header dạng Control-Room cực kỳ sang trọng
+        panel_header = tk.Frame(lf, bg="#0F172A", pady=6)
+        panel_header.pack(fill="x")
+        
+        tk.Label(panel_header, text="📊  BẢNG GIÁM SÁT THỜI GIAN THỰC",
+                 font=("Arial", 10, "bold"), fg="#38BDF8", bg="#0F172A",
+                 ).pack()
 
-        self.lbl_grading_status = tk.Label(lf, text="Đang phân loại:  🍎 Táo",
-                 font=("Arial", 10, "bold"), fg="#DC2626", bg="#FFFFFF",
+        # Thanh trạng thái hoạt động mượt mà
+        status_bar = tk.Frame(lf, bg="#F1F5F9", pady=3)
+        status_bar.pack(fill="x", pady=(0, 4))
+        
+        self.lbl_grading_status = tk.Label(status_bar, text="Đang chạy: 🍎 HỆ THỐNG PHÂN LOẠI TÁO TỰ ĐỘNG",
+                 font=("Arial", 8, "bold"), fg="#64748B", bg="#F1F5F9"
                  )
-        self.lbl_grading_status.pack(pady=(0, 6))
+        self.lbl_grading_status.pack()
 
         # ═══════════════════════════════════════════════════
-        #  PANEL ĐÁNH GIÁ 3 TIÊU CHÍ
+        #  PANEL ĐÁNH GIÁ 3 TIÊU CHÍ (PREMIUM SCADA STYLE)
         # ═══════════════════════════════════════════════════
-        criteria_frame = tk.LabelFrame(lf, text=" 📋 ĐÁNH GIÁ 3 TIÊU CHÍ ",
-                                        font=("Arial", 9, "bold"), fg="#1565C0",
-                                        bg="#F0F4F8", padx=8, pady=6)
-        criteria_frame.pack(fill="x", padx=8, pady=(0, 6))
+        criteria_border = tk.Frame(lf, bg="#CBD5E1", bd=1)
+        criteria_border.pack(fill="x", padx=8, pady=(0, 4))
+        
+        criteria_frame = tk.Frame(criteria_border, bg="#F8FAFC")
+        criteria_frame.pack(fill="both", expand=True, padx=1, pady=1)
+
+        # Header của nhóm tiêu chí
+        criteria_header = tk.Label(criteria_frame, text="📋 CHỈ SỐ PHÂN TÍCH CHẤT LƯỢNG (AI)",
+                                   font=("Arial", 8, "bold"), fg="#1E293B", bg="#E2E8F0", anchor="w", padx=8, pady=3)
+        criteria_header.pack(fill="x")
 
         # ── TC1: Độ chín vỏ quả ──
-        tc1_frame = tk.Frame(criteria_frame, bg="#F0F4F8")
-        tc1_frame.pack(fill="x", pady=(0, 4))
+        tc1_frame = tk.Frame(criteria_frame, bg="#F8FAFC", padx=6, pady=2)
+        tc1_frame.pack(fill="x")
 
         lbl_tc1 = tk.Label(tc1_frame, text="TC1  ĐỘ CHÍN VỎ QUẢ",
-                 font=("Arial", 9, "bold"), fg="#1B5E20", bg="#F0F4F8", cursor="hand2")
+                 font=("Arial", 8, "bold"), fg="#166534", bg="#F8FAFC", cursor="hand2")
         lbl_tc1.pack(anchor="w")
         lbl_tc1.bind("<Double-1>", self._open_tc1_settings)
 
         # Thanh tiến trình TC1 (tỉ lệ đỏ)
         self._tc1_progress = ttk.Progressbar(tc1_frame, length=260, mode='determinate', maximum=100)
-        self._tc1_progress.pack(fill="x", pady=(2, 0))
+        self._tc1_progress.pack(fill="x", pady=(1, 0))
 
-        tc1_detail = tk.Frame(tc1_frame, bg="#F0F4F8")
+        tc1_detail = tk.Frame(tc1_frame, bg="#F8FAFC")
         tc1_detail.pack(fill="x")
 
         self._tc1_red_var = tk.StringVar(value="Đỏ: 0.0%")
         tk.Label(tc1_detail, textvariable=self._tc1_red_var,
-                 font=("Consolas", 8), fg="#C62828", bg="#F0F4F8").pack(side="left")
+                 font=("Consolas", 8), fg="#C62828", bg="#F8FAFC").pack(side="left")
 
         self._tc1_yellow_var = tk.StringVar(value="Vàng: 0.0%")
         tk.Label(tc1_detail, textvariable=self._tc1_yellow_var,
-                 font=("Consolas", 8), fg="#F9A825", bg="#F0F4F8").pack(side="left", padx=(5, 0))
+                 font=("Consolas", 8), fg="#D97706", bg="#F8FAFC").pack(side="left", padx=(5, 0))
                  
         self._tc1_green_var = tk.StringVar(value="Xanh: 0.0%")
         tk.Label(tc1_detail, textvariable=self._tc1_green_var,
-                 font=("Consolas", 8), fg="#2E7D32", bg="#F0F4F8").pack(side="left", padx=(5, 0))
+                 font=("Consolas", 8), fg="#16A34A", bg="#F8FAFC").pack(side="left", padx=(5, 0))
 
         self._tc1_grade_var = tk.StringVar(value="---")
         self._tc1_grade_lbl = tk.Label(tc1_detail, textvariable=self._tc1_grade_var,
-                 font=("Arial", 9, "bold"), fg="#616161", bg="#F0F4F8")
+                 font=("Arial", 8, "bold"), fg="#64748B", bg="#F8FAFC")
         self._tc1_grade_lbl.pack(side="right")
 
-        # Đường phân cách
-        tk.Frame(criteria_frame, bg="#CFD8DC", height=1).pack(fill="x", pady=4)
+        # Đường phân cách mỏng
+        tk.Frame(criteria_frame, bg="#E2E8F0", height=1).pack(fill="x", pady=2)
 
         # ── TC2: Kích thước quả ──
-        tc2_frame = tk.Frame(criteria_frame, bg="#F0F4F8")
-        tc2_frame.pack(fill="x", pady=(0, 0))
+        tc2_frame = tk.Frame(criteria_frame, bg="#F8FAFC", padx=6, pady=2)
+        tc2_frame.pack(fill="x")
 
         lbl_tc2 = tk.Label(tc2_frame, text="TC2  KÍCH THƯỚC QUẢ",
-                 font=("Arial", 8, "bold"), fg="#E65100", bg="#F0F4F8", cursor="hand2")
+                 font=("Arial", 8, "bold"), fg="#C2410C", bg="#F8FAFC", cursor="hand2")
         lbl_tc2.pack(anchor="w")
         lbl_tc2.bind("<Double-1>", self._open_tc2_settings)
 
@@ -1166,68 +1180,64 @@ class CameraWindow:
         self._tc2_progress = ttk.Progressbar(tc2_frame, length=260, mode='determinate', maximum=120)
         self._tc2_progress.pack(fill="x", pady=(1, 0))
 
-        tc2_detail = tk.Frame(tc2_frame, bg="#F0F4F8")
+        tc2_detail = tk.Frame(tc2_frame, bg="#F8FAFC")
         tc2_detail.pack(fill="x")
 
         self._tc2_diameter_var = tk.StringVar(value="Ø: 0 mm")
         tk.Label(tc2_detail, textvariable=self._tc2_diameter_var,
-                 font=("Consolas", 8), fg="#4E342E", bg="#F0F4F8").pack(side="left")
+                 font=("Consolas", 8), fg="#7C2D12", bg="#F8FAFC").pack(side="left")
 
         self._tc2_grade_var = tk.StringVar(value="---")
         self._tc2_grade_lbl = tk.Label(tc2_detail, textvariable=self._tc2_grade_var,
-                 font=("Arial", 8, "bold"), fg="#616161", bg="#F0F4F8")
+                 font=("Arial", 8, "bold"), fg="#64748B", bg="#F8FAFC")
         self._tc2_grade_lbl.pack(side="right")
 
-        # Đường phân cách
-        tk.Frame(criteria_frame, bg="#CFD8DC", height=1).pack(fill="x", pady=4)
+        # Đường phân cách mỏng
+        tk.Frame(criteria_frame, bg="#E2E8F0", height=1).pack(fill="x", pady=2)
 
         # ── TC3: Độ tròn quả ──
-        tc3_frame = tk.Frame(criteria_frame, bg="#F0F4F8")
-        tc3_frame.pack(fill="x", pady=(0, 0))
+        tc3_frame = tk.Frame(criteria_frame, bg="#F8FAFC", padx=6, pady=2)
+        tc3_frame.pack(fill="x")
 
         lbl_tc3 = tk.Label(tc3_frame, text="TC3  ĐỘ TRÒN QUẢ",
-                 font=("Arial", 8, "bold"), fg="#0284C7", bg="#F0F4F8")
+                 font=("Arial", 8, "bold"), fg="#0369A1", bg="#F8FAFC")
         lbl_tc3.pack(anchor="w")
 
-        # Thanh tiến trình TC3 (độ tròn 0.0 - 1.0 -> 0% - 100%)
+        # Thanh tiến trình TC3
         self._tc3_progress = ttk.Progressbar(tc3_frame, length=260, mode='determinate', maximum=100)
         self._tc3_progress.pack(fill="x", pady=(1, 0))
 
-        tc3_detail = tk.Frame(tc3_frame, bg="#F0F4F8")
+        tc3_detail = tk.Frame(tc3_frame, bg="#F8FAFC")
         tc3_detail.pack(fill="x")
 
         self._tc3_circularity_var = tk.StringVar(value="Độ tròn: 0.00")
         tk.Label(tc3_detail, textvariable=self._tc3_circularity_var,
-                 font=("Consolas", 8), fg="#0F172A", bg="#F0F4F8").pack(side="left")
+                 font=("Consolas", 8), fg="#0F172A", bg="#F8FAFC").pack(side="left")
 
         self._tc3_grade_var = tk.StringVar(value="---")
         self._tc3_grade_lbl = tk.Label(tc3_detail, textvariable=self._tc3_grade_var,
-                 font=("Arial", 8, "bold"), fg="#616161", bg="#F0F4F8")
+                 font=("Arial", 8, "bold"), fg="#64748B", bg="#F8FAFC")
         self._tc3_grade_lbl.pack(side="right")
-
-        # ═══════════════════════════════════════════════════
-        #  THỐNG KÊ 3 HẠNG
-        # ═══════════════════════════════════════════════════
 
         # ═══════════════════════════════════════════════════
         #  THỐNG KÊ 3 HẠNG (OSPREYX PREMIUM CARDS)
         # ═══════════════════════════════════════════════════
-
+        
         # Thẻ 3 hạng (Tối ưu hóa không gian & màu sắc SCADA)
         for grade, cfg in self.GRADE_CFG.items():
             # Tạo frame bọc ngoài giả lập viền mỏng bo góc
             card_border = tk.Frame(lf, bg="#E2E8F0", bd=1)
-            card_border.pack(fill="x", padx=8, pady=3)
+            card_border.pack(fill="x", padx=8, pady=2)  # Giảm pady từ 3 xuống 2 để tăng mật độ thông tin
             
             card = tk.Frame(card_border, bg=cfg["bg"])
             card.pack(fill="both", expand=True, padx=1, pady=1)
             
             # Hàng tiêu đề + Số lượng
             header_row = tk.Frame(card, bg=cfg["bg"])
-            header_row.pack(fill="x", padx=10, pady=(4, 2))
+            header_row.pack(fill="x", padx=10, pady=(2, 1))  # Giảm padding dọc
             
             tk.Label(header_row, text=f"{cfg['icon']}  {cfg['label']}",
-                     font=("Arial", 9, "bold"), fg=cfg["color"], bg=cfg["bg"]
+                     font=("Arial", 8, "bold"), fg=cfg["color"], bg=cfg["bg"]
                      ).pack(side="left")
             
             var = tk.StringVar(value="0")
@@ -1243,15 +1253,15 @@ class CameraWindow:
                      ).pack(side="right", padx=(0, 2))
             
             tk.Label(header_row, textvariable=var,
-                     font=("Consolas", 15, "bold"), fg=cfg.get("count_fg", "#1E293B"), bg=cfg["bg"]
+                     font=("Consolas", 13, "bold"), fg=cfg.get("count_fg", "#1E293B"), bg=cfg["bg"]
                      ).pack(side="right", padx=(0, 5))
             
             # Hàng chú thích tiêu chí & Tốc độ gạt (Throughput Rate)
             bottom_row = tk.Frame(card, bg=cfg["bg"])
-            bottom_row.pack(fill="x", padx=10, pady=(0, 4))
+            bottom_row.pack(fill="x", padx=10, pady=(0, 2))  # Giảm padding dọc
             
             desc_lbl = tk.Label(bottom_row, text=cfg.get("desc", ""),
-                     font=("Arial", 8, "italic"), fg="#64748B", bg=cfg["bg"])
+                     font=("Arial", 7, "italic"), fg="#64748B", bg=cfg["bg"])
             desc_lbl.pack(side="left")
             self._grade_desc_labels[grade] = desc_lbl
             
@@ -1260,9 +1270,9 @@ class CameraWindow:
             rate_lbl.pack(side="right")
 
         # ═══════════════════════════════════════════════════
-        #  TỔNG CỘNG & HIỆU SUẤT (GRID 3 CỘT)
+        #  TỔNG CỘNG & HIỆU SUẤT (GRID 3 CỘT PREMIUM)
         # ═══════════════════════════════════════════════════
-        tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=4)
+        tk.Frame(lf, bg="#E2E8F0", height=1).pack(fill="x", padx=8, pady=3)
         
         summary_frame = tk.Frame(lf, bg="#FFFFFF")
         summary_frame.pack(fill="x", padx=8, pady=2)
