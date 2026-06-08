@@ -1,0 +1,6 @@
+path: D:\DOAN_PLC_Phanloaitao\dataset\yolo_dataset # Đường dẫn tuyệt đối tới dataset
+train: images/train
+val: images/val
+
+names:
+  0: apple

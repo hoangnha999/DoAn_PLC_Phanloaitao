@@ -1,0 +1,121 @@
+{
+  "analyzer": {
+    "ripeness": {
+      "good_thresh": 85,
+      "medium_thresh": 70
+    },
+    "shape": {
+      "good_thresh": 0.88,
+      "medium_thresh": 0.78
+    },
+    "size": {
+      "large_mm": 80,
+      "medium_mm": 60,
+      "pixel_to_mm": 0.28,
+      "depth_reference_mm": 600.0,
+      "enable_depth_size_compensation": true,
+      "size_calibration_gain": 2.8,
+      "require_depth_for_size_measurement": true,
+      "depth_smooth_window": 9,
+      "depth_max_delta_mm": 35.0,
+      "depth_hold_frames": 6,
+      "enable_diameter_stabilizer": true,
+      "diameter_mm_smooth_window": 9,
+      "diameter_mm_alpha": 0.35,
+      "diameter_mm_max_step": 2.5
+    },
+    "hsv": {
+      "red1_lower": [
+        0,
+        65,
+        40
+      ],
+      "red1_upper": [
+        15,
+        255,
+        255
+      ],
+      "red2_lower": [
+        160,
+        65,
+        40
+      ],
+      "red2_upper": [
+        180,
+        255,
+        255
+      ],
+      "yellow_lower": [
+        17,
+        75,
+        40
+      ],
+      "yellow_upper": [
+        32,
+        255,
+        255
+      ],
+      "green_lower": [
+        35,
+        40,
+        30
+      ],
+      "green_upper": [
+        90,
+        255,
+        255
+      ]
+    },
+    "segmentation": {
+      "min_apple_area_ratio": 0.012,
+      "defect_dark_thresh": 35,
+      "defect_bad_ratio": 20.0,
+      "defect_medium_ratio": 10.0,
+      "roi_width_ratio": 0.4,
+      "roi_height_ratio": 0.6
+    },
+    "yolo": {
+      "conf_thresh": 0.35,
+      "predict_conf": 0.05,
+      "min_bbox_area_ratio": 0.007,
+      "enable_tracking": true,
+      "tracker_name": "bytetrack.yaml",
+      "track_persist": true
+    },
+    "blur": {
+      "threshold": 100.0,
+      "auto_sharpen": true,
+      "sharpen_strength": 1.5
+    }
+  },
+  "runtime": {
+    "default_camera_mode": "Astra Pro SDK (RGB)",
+    "astra_rgb_port_mode": "Cổng 1 (USB Ngoài 1)",
+    "require_depth_for_astra": false,
+    "capture_frames_required": 10,
+    "capture_wait_timeout_s": 6.0,
+    "decision_min_quality_score": 0.45,
+    "decision_margin_delta": 0.1,
+    "decision_min_valid_frames": 6,
+    "single_fruit_station_mode": true,
+    "track_min_frames": 3,
+    "track_stability_min": 0.6,
+    "analysis_interval_ms": 100,
+    "plc_poll_ms": 200,
+    "plc_fault_threshold": 3,
+    "vision_fault_threshold": 3,
+    "plc_ip": "192.168.0.2",
+    "plc_rack": 0,
+    "plc_slot": 1,
+    "smooth_frames": 10,
+    "orchard": "NHA_VUON_A",
+    "lot": "LO_20260605_2132",
+    "decision_rule_table": {
+      "score_grade1": 3,
+      "score_grade2": 2,
+      "score_grade3": 1,
+      "min_grade1": 8,
+      "min_grade2": 5
+    }
+  }
+}

@@ -1,9 +1,22 @@
 import cv2
+import numpy as np
 import threading
 import time
-import numpy as np
-import sys
 import os
+
+try:
+    from pygrabber.dshow_graph import FilterGraph
+    PYGRABBER_AVAILABLE = True
+except Exception:
+    FilterGraph = None
+    PYGRABBER_AVAILABLE = False
+
+try:
+    from openni import openni2
+    OPENNI2_PY_AVAILABLE = True
+except Exception:
+    openni2 = None
+    OPENNI2_PY_AVAILABLE = False
 
 class CameraManager:
     """Module quản lý luồng dữ liệu từ Camera (OpenCV/File/Astra Pro)"""
@@ -14,15 +27,71 @@ class CameraManager:
         self.on_log_callback = on_log_callback
         
         self.cap = None
+        self.depth_cap = None
+        self.depth_mode = "none"  # none|opencv_openni|openni2_python
+        self._oni_device = None
+        self._oni_depth_stream = None
         self._cam_running = False
         self._cam_thread = None
+        self._cap_lock = threading.Lock()
         
         # File/Single Image Specific
         self.is_single_image = False
+        self.is_video_file = False
         self.single_image_frame = None
         
         # Astra Pro Specific (dùng OpenCV đơn giản)
         self.is_astra_mode = False
+        self.depth_available = False
+        self.last_depth_distance_m = None
+        self.last_depth_distance_mm = None
+        self.depth_status = "depth not initialized"
+        self.last_depth_error = ""
+        self.require_depth_for_astra = False
+
+        # Source metadata cho cơ chế auto-recover stream.
+        self._source_mode = "none"          # none|camera|video_file|single_image|astra
+        self._source_path = ""
+        self._source_index = None
+        self._source_backend = cv2.CAP_ANY
+
+    @staticmethod
+    def _is_virtual_camera_name(name):
+        """Heuristic lọc camera ảo để chỉ giữ camera phần cứng cắm thật."""
+        n = str(name or "").lower()
+        virtual_keywords = [
+            "virtual",
+            "obs",
+            "xsplit",
+            "manycam",
+            "snap camera",
+            "vcam",
+            "droidcam",
+            "epoccam",
+            "ip camera adapter",
+            "ndi",
+            "screen",
+            "capture",
+        ]
+        return any(k in n for k in virtual_keywords)
+
+    @staticmethod
+    def _is_astra_camera_name(name):
+        """Nhận diện tên thiết bị có khả năng là Astra/Orbbec."""
+        n = str(name or "").lower()
+        astra_keywords = ["astra", "orbbec"]
+        return any(k in n for k in astra_keywords)
+
+    @staticmethod
+    def _enumerate_dshow_device_names():
+        """Lấy danh sách tên camera DirectShow theo đúng thứ tự index OpenCV trên Windows."""
+        if not PYGRABBER_AVAILABLE:
+            return []
+        try:
+            graph = FilterGraph()
+            return list(graph.get_input_devices() or [])
+        except Exception:
+            return []
 
     @staticmethod
     def detect_available_cameras(max_test=5):
@@ -33,33 +102,159 @@ class CameraManager:
             list: Danh sách các index camera khả dụng [(index, name), ...]
         """
         available = []
-        
-        for i in range(max_test):
-            cap = None
+
+        # Ưu tiên pygrabber (DirectShow) để dò giống AForge/C# và lấy tên camera thật.
+        if PYGRABBER_AVAILABLE:
             try:
-                # Thử mở với CAP_DSHOW trước (nhanh nhất trên Windows)
-                cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-                
-                if cap.isOpened():
-                    # Kiểm tra đọc được frame không
-                    ret, frame = cap.read()
-                    if ret and frame is not None:
-                        # Lấy thông tin camera
-                        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        name = f"Camera {i} ({w}x{h})"
-                        available.append((i, name))
-                        print(f"✅ Tìm thấy: {name}")
-                
-                cap.release()
-                
+                graph = FilterGraph()
+                device_names = graph.get_input_devices() or []
+                for i, dshow_name in enumerate(device_names):
+                    if i >= int(max_test):
+                        break
+                    if CameraManager._is_virtual_camera_name(dshow_name):
+                        continue
+                    cap = None
+                    try:
+                        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+                        if not cap.isOpened():
+                            continue
+                        ret, frame = cap.read()
+                        if ret and frame is not None:
+                            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                            name = f"{dshow_name} ({w}x{h})"
+                            available.append((i, name))
+                            print(f"[CAM] Tim thay (pygrabber): Cong {i} - {name}")
+                    except Exception as e:
+                        print(f"[CAM] Cong {i} error (pygrabber probe): {e}")
+                    finally:
+                        if cap:
+                            cap.release()
             except Exception as e:
-                print(f"❌ Cổng {i}: {e}")
-            finally:
-                if cap:
-                    cap.release()
+                print(f"[CAM] pygrabber enumeration failed: {e}")
+
+        # Fallback OpenCV thuần khi pygrabber thiếu hoặc không dò được camera usable.
+        if not available:
+            for i in range(max_test):
+                cap = None
+                try:
+                    cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+                    if cap.isOpened():
+                        ret, frame = cap.read()
+                        if ret and frame is not None:
+                            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                            name = f"Camera {i} ({w}x{h})"
+                            if not CameraManager._is_virtual_camera_name(name):
+                                available.append((i, name))
+                            print(f"[CAM] Tim thay: {name}")
+                except Exception as e:
+                    print(f"[CAM] Cong {i} error: {e}")
+                finally:
+                    if cap:
+                        cap.release()
         
         return available
+
+    def probe_astra_connection(self, preferred_indices=None, strict_identity=True):
+        """Kiểm tra nhanh khả năng mở RGB của Astra, có xác thực danh tính thiết bị."""
+        if preferred_indices is None:
+            preferred_indices = [1, 2, 0]
+
+        dshow_names = self._enumerate_dshow_device_names()
+        astra_indices = []
+        for idx, dev_name in enumerate(dshow_names):
+            if self._is_virtual_camera_name(dev_name):
+                continue
+            if self._is_astra_camera_name(dev_name):
+                astra_indices.append(int(idx))
+
+        # Chế độ strict: không xác thực được đúng danh tính thì không được báo "Astra đã kết nối".
+        if strict_identity:
+            if not dshow_names:
+                return {
+                    "connected": False,
+                    "port": None,
+                    "message": "Không xác thực được model camera (thiếu pygrabber/DirectShow enum)",
+                }
+            if not astra_indices:
+                return {
+                    "connected": False,
+                    "port": None,
+                    "message": "Không thấy thiết bị Astra/Orbbec trong danh sách camera",
+                }
+            candidate_indices = [i for i in preferred_indices if i in astra_indices] + [i for i in astra_indices if i not in preferred_indices]
+        else:
+            if astra_indices:
+                candidate_indices = [i for i in preferred_indices if i in astra_indices] + [i for i in astra_indices if i not in preferred_indices]
+            else:
+                candidate_indices = list(preferred_indices)
+
+        last_error = ""
+        for idx in candidate_indices:
+            cap = None
+            backend_label = ""
+            try:
+                cap, backend_used, backend_label = self._open_camera_with_backends(int(idx), prefer_external=True)
+                if not cap or not cap.isOpened():
+                    last_error = f"cannot open port {idx}"
+                    continue
+
+                ok, frame = cap.read()
+                if ok and frame is not None:
+                    dev_name = dshow_names[idx] if idx < len(dshow_names) else "unknown device"
+                    return {
+                        "connected": True,
+                        "port": int(idx),
+                        "message": f"Astra RGB detected on port {idx} ({backend_label}) - {dev_name}",
+                    }
+
+                last_error = f"port {idx} opened but no frame"
+            except Exception as e:
+                last_error = f"port {idx} error: {e}"
+            finally:
+                try:
+                    if cap:
+                        cap.release()
+                except Exception:
+                    pass
+
+        return {
+            "connected": False,
+            "port": None,
+            "message": f"Astra RGB not detected ({last_error or 'no available astra-like port'})",
+        }
+
+    def _open_camera_with_backends(self, idx, prefer_external=False):
+        """Open camera index with backend fallback order; returns (cap, backend_code, backend_label)."""
+        # Ưu tiên backend ít cảnh báo hơn để tránh spam WARN DSHOW trên Windows.
+        backend_order = [
+            (cv2.CAP_MSMF, "Media Foundation"),
+            (cv2.CAP_ANY, "Auto"),
+        ]
+        # Với môi trường hiện tại, bỏ DSHOW để tránh exception/warning liên tục khi probe index.
+        if prefer_external:
+            backend_order = [
+                (cv2.CAP_MSMF, "Media Foundation"),
+                (cv2.CAP_ANY, "Auto"),
+            ]
+
+        for backend_code, backend_label in backend_order:
+            cap = None
+            try:
+                cap = cv2.VideoCapture(int(idx), backend_code)
+                if cap is not None and cap.isOpened():
+                    return cap, backend_code, backend_label
+            except Exception:
+                pass
+
+            try:
+                if cap is not None:
+                    cap.release()
+            except Exception:
+                pass
+
+        return None, cv2.CAP_ANY, "none"
 
     def _log(self, msg):
         if self.on_log_callback:
@@ -72,21 +267,18 @@ class CameraManager:
     def is_running(self):
         return self._cam_running
 
-    def stop(self):
-        self._cam_running = False
-            
-        # Tắt OpenCV
-        if self.cap:
-            self.cap.release()
-            self.cap = None
-        
-        self.is_astra_mode = False
-        self.is_single_image = False
-        self.single_image_frame = None
-
     def start_cv2_camera(self, idx):
         """Mở camera với nhiều phương thức để đảm bảo tương thích"""
         self.stop()
+        self.depth_available = False
+        self.last_depth_distance_m = None
+        self.last_depth_distance_mm = None
+        self.depth_status = "depth disabled (cv2 camera mode)"
+        self.is_video_file = False
+        self._source_mode = "camera"
+        self._source_index = idx
+        self._source_path = ""
+        self._source_backend = cv2.CAP_ANY
         
         # Thử nhiều backend khác nhau (Windows có nhiều API camera)
         backends = [
@@ -104,6 +296,7 @@ class CameraManager:
                     # Kiểm tra có đọc được frame không
                     ret, test_frame = self.cap.read()
                     if ret and test_frame is not None:
+                        self._source_backend = backend
                         self._log(f"✅ Thành công với {name}!")
                         break
                     else:
@@ -126,8 +319,8 @@ class CameraManager:
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self._log("✅ Camera settings: 640x480")
-        except:
-            pass
+        except Exception as e:
+            self._log(f"⚠️ Không set được độ phân giải camera: {e}")
         
         # ─── Apply Anti-Motion Blur Settings (OPTIONAL) ─────────
         """
@@ -140,8 +333,8 @@ class CameraManager:
         # Cài đặt buffer size thấp để giảm lag
         try:
             self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        except:
-            pass
+        except Exception as e:
+            self._log(f"⚠️ Không set được buffer size camera: {e}")
             
         self._cam_running = True
         self._cam_thread = threading.Thread(target=self._stream_loop, daemon=True)
@@ -151,12 +344,22 @@ class CameraManager:
 
     def start_file_mode(self, path, is_video=False):
         self.stop()
+        self.depth_available = False
+        self.last_depth_distance_m = None
+        self.last_depth_distance_mm = None
+        self.depth_status = "depth disabled (file mode)"
+        self.is_video_file = bool(is_video)
+        self._source_path = path
+        self._source_index = None
+        self._source_backend = cv2.CAP_ANY
         if is_video:
+            self._source_mode = "video_file"
             self.cap = cv2.VideoCapture(path)
             if not self.cap.isOpened():
                 self._error("Không thể mở file video này!")
                 return False
         else:
+            self._source_mode = "single_image"
             img = cv2.imread(path)
             if img is None:
                 self._error("Không thể mở file ảnh này!")
@@ -169,63 +372,601 @@ class CameraManager:
         self._cam_thread.start()
         return True
 
-    def start_astra_camera(self, color_idx=1):
+    def start_astra_camera(self, color_idx=None):
         """
-        Khởi động Astra Pro qua OpenCV (đơn giản hơn).
-        Astra Pro thường xuất hiện như 2 camera:
-        - Camera 0/1: RGB camera
-        - Camera 1/2: Depth camera (nếu driver hỗ trợ)
+        Khởi động Astra Pro ở chế độ RGB (2D).
         """
         self.stop()
+        self.is_video_file = False
+        self._source_mode = "astra"
+        self._source_index = None
+        self._source_path = ""
+        self._source_backend = cv2.CAP_ANY
         
         try:
-            # Thử mở camera RGB của Astra Pro
-            # Astra Pro thường ở cổng USB cao hơn laptop camera
-            self.cap = cv2.VideoCapture(color_idx, cv2.CAP_DSHOW)
-            
-            if not self.cap.isOpened():
-                # Thử cổng khác
-                self._log(f"⚠️ Không mở được cổng {color_idx}, thử cổng 0...")
-                self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-            
-            if not self.cap.isOpened():
-                self._error("Không thể mở Astra Pro! Kiểm tra:\n1. Cắm đúng cổng USB 3.0\n2. Driver đã cài đặt\n3. Thử chọn 'Camera máy tính' hoặc 'Webcam rời'")
+            # Xác thực camera Astra theo tên thiết bị để tránh fallback nhầm webcam mặc định.
+            dshow_names = self._enumerate_dshow_device_names()
+            astra_indices = []
+            for idx, dev_name in enumerate(dshow_names):
+                if self._is_virtual_camera_name(dev_name):
+                    continue
+                if self._is_astra_camera_name(dev_name):
+                    astra_indices.append(int(idx))
+
+            if dshow_names and not astra_indices:
+                self._error(
+                    "Không phát hiện thiết bị Astra/Orbbec trong danh sách camera. "
+                    "Ứng dụng sẽ không fallback sang webcam mặc định để tránh nhận sai nguồn."
+                )
+                return False
+
+            # Ưu tiên cổng Astra đã xác thực; nếu không enum được thì fallback theo thứ tự cũ.
+            preferred_order = [1, 2, 0]
+            if astra_indices:
+                if isinstance(color_idx, int) and color_idx in astra_indices:
+                    candidate_indices = [color_idx] + [i for i in astra_indices if i != color_idx]
+                elif isinstance(color_idx, int) and color_idx >= 0:
+                    preferred = astra_indices[0]
+                    selected_name = dshow_names[color_idx] if color_idx < len(dshow_names) else "unknown"
+                    self._log(
+                        f"⚠️ Cổng {color_idx} không phải Astra ({selected_name}). Tự chuyển sang cổng {preferred}."
+                    )
+                    candidate_indices = [preferred] + [i for i in astra_indices if i != preferred]
+                else:
+                    candidate_indices = [i for i in preferred_order if i in astra_indices] + [i for i in astra_indices if i not in preferred_order]
+            elif isinstance(color_idx, int) and color_idx >= 0:
+                candidate_indices = [color_idx] + [i for i in preferred_order if i != color_idx]
+            else:
+                candidate_indices = preferred_order
+
+            opened_cap = None
+            selected_idx = None
+            selected_backend = cv2.CAP_ANY
+            selected_backend_label = "none"
+            for idx in candidate_indices:
+                self._log(f"🔍 Astra RGB: thử mở cổng {idx}...")
+                trial, backend_used, backend_label = self._open_camera_with_backends(idx, prefer_external=True)
+                if trial is not None and trial.isOpened():
+                    ok, test_frame = trial.read()
+                    if ok and test_frame is not None:
+                        opened_cap = trial
+                        selected_idx = idx
+                        selected_backend = backend_used
+                        selected_backend_label = backend_label
+                        break
+                try:
+                    if trial is not None:
+                        trial.release()
+                except Exception:
+                    pass
+
+            self.cap = opened_cap
+            self._source_index = selected_idx
+            self._source_backend = selected_backend
+
+            if not self.cap or not self.cap.isOpened():
+                self._error("Không thể mở RGB Camera của Astra Pro! Kiểm tra:\n1. Kết nối cáp USB\n2. Cổng USB 3.0\n3. Driver camera")
                 return False
             
-            # Cài đặt độ phân giải cơ bản
+            # Cài đặt độ phân giải RGB
             try:
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 self.cap.set(cv2.CAP_PROP_FPS, 30)
-                self._log("✅ Astra settings: 640x480@30fps")
-            except:
-                pass
+                self._log("✅ RGB Camera settings: 640x480@30fps")
+            except Exception as e:
+                self._log(f"⚠️ Không set được thông số RGB Astra: {e}")
             
             self.is_astra_mode = True
+            # Mặc định FLEX/RGB-only: chỉ khởi tạo depth khi cấu hình yêu cầu bắt buộc.
+            if self.require_depth_for_astra:
+                self._init_astra_depth_stream()
+            else:
+                self.depth_available = False
+                self.last_depth_distance_m = None
+                self.last_depth_distance_mm = None
+                self.depth_mode = "none"
+                self.depth_status = "rgb-only mode (depth disabled by default)"
+
+            # Chế độ nghiêm ngặt: Astra chỉ được coi là kết nối thành công khi có depth.
+            if self.require_depth_for_astra and not self.depth_available:
+                depth_reason = self.depth_status or self.last_depth_error or "unknown depth error"
+                self._error(
+                    "Không thể khởi động Astra Pro Depth. "
+                    f"Lý do: {depth_reason}\n"
+                    "Ứng dụng sẽ không chạy RGB-only để tránh Z luôn N/A."
+                )
+                self.is_astra_mode = False
+                self._source_mode = "none"
+                self._release_cap()
+                return False
+
             self._cam_running = True
             self._cam_thread = threading.Thread(target=self._stream_loop, daemon=True)
             self._cam_thread.start()
             
-            self._log(f"🟢 Astra Pro: RUNNING (RGB Camera - Cổng {color_idx})")
+            self._log(f"🟢 Astra Pro: RUNNING (RGB) - Cổng {selected_idx} ({selected_backend_label})")
             return True
             
         except Exception as e:
             self._error(f"Lỗi khởi động Astra Pro: {e}")
             return False
-    
+            
+    def stop(self):
+        self._cam_running = False
+
+        # Chờ luồng stream kết thúc trước khi release để tránh race condition read/release.
+        if self._cam_thread and self._cam_thread.is_alive():
+            self._cam_thread.join(timeout=1.0)
+        self._cam_thread = None
+
+        self._release_cap()
+        
+        self.is_astra_mode = False
+        self.depth_available = False
+        self.last_depth_distance_m = None
+        self.last_depth_distance_mm = None
+        self.is_single_image = False
+        self.is_video_file = False
+        self.single_image_frame = None
+
+    def _release_cap(self):
+        """Release VideoCapture an toàn khi có nhiều luồng truy cập."""
+        with self._cap_lock:
+            if self.cap:
+                try:
+                    self.cap.release()
+                except Exception:
+                    pass
+                self.cap = None
+            if self.depth_cap:
+                try:
+                    self.depth_cap.release()
+                except Exception:
+                    pass
+                self.depth_cap = None
+
+            if self._oni_depth_stream is not None:
+                try:
+                    self._oni_depth_stream.stop()
+                except Exception:
+                    pass
+                self._oni_depth_stream = None
+
+            if self._oni_device is not None:
+                self._oni_device = None
+
+            if OPENNI2_PY_AVAILABLE and openni2 is not None:
+                try:
+                    if openni2.is_initialized():
+                        openni2.unload()
+                except Exception:
+                    pass
+
+            self.depth_mode = "none"
+
+    def _init_astra_depth_stream(self):
+        """Thử khởi tạo luồng depth cho Astra Pro bằng backend OpenNI/OpenNI2."""
+        self.depth_available = False
+        self.last_depth_distance_m = None
+        self.last_depth_distance_mm = None
+        self.depth_status = "depth initializing"
+        self.last_depth_error = ""
+
+        # Ưu tiên backend Astra chuyên biệt nếu OpenCV build có expose hằng số này.
+        backend_candidates = []
+        for attr_name, label in [
+            ("CAP_OPENNI2_ASTRA", "OpenNI2_ASTRA"),
+            ("CAP_OPENNI_ASTRA", "OpenNI_ASTRA"),
+            ("CAP_OPENNI2", "OpenNI2"),
+            ("CAP_OPENNI", "OpenNI"),
+        ]:
+            if hasattr(cv2, attr_name):
+                backend_candidates.append((int(getattr(cv2, attr_name)), label))
+
+        if not backend_candidates:
+            self.depth_status = "OpenCV lacks OpenNI backends"
+            self._log("⚠️ Astra Depth: OpenCV không hỗ trợ OpenNI backend, thử OpenNI2 Python fallback...")
+            if self._init_openni2_python_stream():
+                return
+            self.depth_status = "depth unavailable (OpenCV no OpenNI + OpenNI2 fallback failed)"
+            return
+
+        open_attempts = []
+
+        # Thử cả dạng constructor 1 tham số và 2 tham số với nhiều index.
+        for backend, name in backend_candidates:
+            # form 1: VideoCapture(backend)
+            open_attempts.append((name, None, lambda b=backend: cv2.VideoCapture(b)))
+            # form 2: VideoCapture(index, backend)
+            for dev_idx in (0, 1, 2):
+                open_attempts.append((name, dev_idx, lambda b=backend, i=dev_idx: cv2.VideoCapture(i, b)))
+
+        for backend_name, dev_idx, cap_factory in open_attempts:
+            depth_cap = None
+            try:
+                depth_cap = cap_factory()
+                if not depth_cap or not depth_cap.isOpened():
+                    if depth_cap:
+                        depth_cap.release()
+                    continue
+
+                # Probe một frame depth để đảm bảo stream thực sự usable.
+                ok_grab = depth_cap.grab()
+                if not ok_grab:
+                    depth_cap.release()
+                    continue
+
+                ok_depth = False
+                try:
+                    ok_depth, depth_map = depth_cap.retrieve(None, cv2.CAP_OPENNI_DEPTH_MAP)
+                except TypeError:
+                    ok_depth, depth_map = depth_cap.retrieve(cv2.CAP_OPENNI_DEPTH_MAP)
+
+                if (not ok_depth) or depth_map is None:
+                    depth_cap.release()
+                    continue
+
+                with self._cap_lock:
+                    self.depth_cap = depth_cap
+
+                self.depth_available = True
+                self.depth_mode = "opencv_openni"
+                idx_text = "auto" if dev_idx is None else str(dev_idx)
+                self.depth_status = f"depth running ({backend_name}, idx={idx_text})"
+                self._log(f"✅ Astra Depth: RUNNING ({backend_name}, idx={idx_text})")
+                return
+            except Exception as e:
+                if depth_cap:
+                    try:
+                        depth_cap.release()
+                    except Exception:
+                        pass
+                idx_text = "auto" if dev_idx is None else str(dev_idx)
+                self._log(f"[CAM] Depth init failed ({backend_name}, idx={idx_text}): {e}")
+
+        # Fallback: dùng OpenNI2 Python API trực tiếp (không phụ thuộc OpenCV OpenNI).
+        if self._init_openni2_python_stream():
+            return
+
+        if self.last_depth_error:
+            self.depth_status = f"depth unavailable ({self.last_depth_error})"
+        else:
+            self.depth_status = "depth unavailable (OpenNI stream open failed)"
+        self._log("⚠️ Astra Depth: unavailable (không mở được stream depth OpenNI)")
+
+    def _init_openni2_python_stream(self):
+        """Fallback mở luồng depth bằng OpenNI2 Python API."""
+        if not OPENNI2_PY_AVAILABLE or openni2 is None:
+            self.last_depth_error = "openni python package missing"
+            self._log("[CAM] OpenNI2 Python API chưa có (pip install openni)")
+            return False
+
+        redist_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "OpenNI2", "Redist")
+        )
+        if not os.path.isdir(redist_dir):
+            # Thử fallback theo root workspace nếu chạy từ vị trí khác.
+            redist_dir = os.path.abspath(os.path.join(os.getcwd(), "OpenNI2", "Redist"))
+
+        drivers_dir = os.path.join(redist_dir, "OpenNI2", "Drivers")
+        orbbec_dll = os.path.join(drivers_dir, "orbbec.dll")
+
+        if not os.path.isdir(redist_dir):
+            self.last_depth_error = f"OpenNI2 Redist not found: {redist_dir}"
+            self._log(f"[CAM] {self.last_depth_error}")
+            return False
+        if not os.path.isdir(drivers_dir):
+            self.last_depth_error = f"OpenNI2 Drivers not found: {drivers_dir}"
+            self._log(f"[CAM] {self.last_depth_error}")
+            return False
+        if not os.path.isfile(orbbec_dll):
+            self.last_depth_error = f"orbbec.dll missing: {orbbec_dll}"
+            self._log(f"[CAM] {self.last_depth_error}")
+            return False
+
+        # Trên Windows cần khai báo rõ đường dẫn DLL/Drivers để plugin orbbec được nạp.
+        if os.name == "nt":
+            try:
+                if hasattr(os, "add_dll_directory") and os.path.isdir(redist_dir):
+                    os.add_dll_directory(redist_dir)
+                if hasattr(os, "add_dll_directory") and os.path.isdir(drivers_dir):
+                    os.add_dll_directory(drivers_dir)
+            except Exception:
+                pass
+
+            if os.path.isdir(redist_dir):
+                prev_path = os.environ.get("PATH", "")
+                if redist_dir not in prev_path:
+                    os.environ["PATH"] = redist_dir + os.pathsep + prev_path
+            if os.path.isdir(drivers_dir):
+                os.environ["OPENNI2_DRIVERS_PATH"] = drivers_dir
+
+        try:
+            if openni2.is_initialized():
+                try:
+                    openni2.unload()
+                except Exception:
+                    pass
+
+            if os.path.isdir(redist_dir):
+                openni2.initialize(redist_dir)
+            else:
+                openni2.initialize()
+
+            self._log(f"[CAM] OpenNI2 redist: {redist_dir}")
+            self._log(f"[CAM] OpenNI2 drivers: {drivers_dir}")
+
+            dev = openni2.Device.open_any()
+            depth_stream = dev.create_depth_stream()
+            depth_stream.start()
+
+            # Probe 1 frame depth để chắc stream usable.
+            frm = depth_stream.read_frame()
+            if frm is None:
+                depth_stream.stop()
+                return False
+
+            with self._cap_lock:
+                self._oni_device = dev
+                self._oni_depth_stream = depth_stream
+
+            self.depth_available = True
+            self.depth_mode = "openni2_python"
+            self.depth_status = "depth running (openni2 python api)"
+            self._log("✅ Astra Depth: RUNNING (OpenNI2 Python API)")
+            return True
+        except Exception as e:
+            self.last_depth_error = f"openni2 fallback failed: {e}"
+            self._log(f"[CAM] OpenNI2 Python fallback failed: {e}")
+            try:
+                if OPENNI2_PY_AVAILABLE and openni2 is not None and openni2.is_initialized():
+                    openni2.unload()
+            except Exception:
+                pass
+            return False
+
+    def _read_depth_distance_mm(self):
+        """Đọc khoảng cách Z tại tâm ảnh từ depth map, trả về đơn vị mm hoặc None."""
+        if self.depth_mode == "openni2_python":
+            with self._cap_lock:
+                dstream = self._oni_depth_stream
+            if dstream is None:
+                return None
+            try:
+                frm = dstream.read_frame()
+                if frm is None:
+                    return None
+                w = int(frm.width)
+                h = int(frm.height)
+                data = frm.get_buffer_as_uint16()
+                depth_map = np.frombuffer(data, dtype=np.uint16).reshape((h, w))
+            except Exception:
+                return None
+        else:
+            with self._cap_lock:
+                dcap = self.depth_cap
+
+            if not dcap or not dcap.isOpened():
+                return None
+
+            try:
+                if not dcap.grab():
+                    return None
+
+                try:
+                    ok, depth_map = dcap.retrieve(None, cv2.CAP_OPENNI_DEPTH_MAP)
+                except TypeError:
+                    ok, depth_map = dcap.retrieve(cv2.CAP_OPENNI_DEPTH_MAP)
+
+                if not ok or depth_map is None:
+                    return None
+                h, w = depth_map.shape[:2]
+            except Exception:
+                return None
+
+        try:
+            cx, cy = w // 2, h // 2
+
+            # Một số frame depth có lỗ ở tâm; mở rộng ROI theo nhiều mức để giảm N/A giả.
+            for half_win in (4, 10, 20, 35):
+                x1, x2 = max(0, cx - half_win), min(w, cx + half_win + 1)
+                y1, y2 = max(0, cy - half_win), min(h, cy + half_win + 1)
+
+                roi = depth_map[y1:y2, x1:x2]
+                if roi.size == 0:
+                    continue
+
+                valid = roi[(roi > 80) & (roi < 10000)]
+                if valid.size == 0:
+                    continue
+
+                return float(np.median(valid))
+
+            # Không có mẫu hợp lệ ở tâm: nếu đã từng đo được thì giữ giá trị gần nhất.
+            if self.last_depth_distance_mm is not None:
+                return float(self.last_depth_distance_mm)
+            return None
+        except Exception:
+            if self.last_depth_distance_mm is not None:
+                return float(self.last_depth_distance_mm)
+            return None
+
+    def _read_depth_distance_m(self):
+        """Giữ tương thích ngược: trả về mét dựa trên giá trị mm."""
+        z_mm = self._read_depth_distance_mm()
+        if z_mm is None:
+            return None
+        return float(z_mm) / 1000.0
+
+    def _reopen_stream_source(self):
+        """Tự phục hồi nguồn stream/camera khi decode lỗi liên tiếp."""
+        if self._source_mode in ("single_image", "none"):
+            return False
+
+        self._release_cap()
+
+        new_cap = None
+        try:
+            if self._source_mode in ("camera", "astra"):
+                idx = 0 if self._source_index is None else int(self._source_index)
+                new_cap = cv2.VideoCapture(idx, self._source_backend)
+                if not new_cap or not new_cap.isOpened():
+                    return False
+
+                # Giữ cấu hình nhẹ để tránh tăng độ trễ và giảm áp lực decoder.
+                try:
+                    new_cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                    new_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                    new_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                except Exception:
+                    pass
+
+                # Astra mode: không cho fallback sang camera RGB thường.
+                # Chỉ chấp nhận reopen nếu depth stream cũng mở lại được.
+                if self._source_mode == "astra":
+                    try:
+                        self._release_cap()
+                    except Exception:
+                        pass
+                    with self._cap_lock:
+                        self.cap = new_cap
+
+                    if self.require_depth_for_astra:
+                        self.depth_available = False
+                        self._init_astra_depth_stream()
+                        if not self.depth_available:
+                            self.depth_status = "Astra disconnected (depth stream lost)"
+                            try:
+                                new_cap.release()
+                            except Exception:
+                                pass
+                            with self._cap_lock:
+                                self.cap = None
+                            return False
+                    else:
+                        self.depth_available = False
+                        self.last_depth_distance_m = None
+                        self.last_depth_distance_mm = None
+                        self.depth_mode = "none"
+                        self.depth_status = "rgb-only mode (depth disabled by default)"
+            elif self._source_mode == "video_file":
+                if not self._source_path:
+                    return False
+                new_cap = cv2.VideoCapture(self._source_path)
+                if not new_cap or not new_cap.isOpened():
+                    return False
+            else:
+                return False
+
+            with self._cap_lock:
+                # Astra mode đã set cap ở nhánh trên.
+                if self._source_mode != "astra":
+                    self.cap = new_cap
+            self._log("[CAM] Stream auto-recover: reopened source")
+            return True
+        except Exception as e:
+            try:
+                if new_cap:
+                    new_cap.release()
+            except Exception:
+                pass
+            self._log(f"[CAM] Stream auto-recover failed: {e}")
+            return False
+
     def _stream_loop(self):
+        read_failures = 0
+        hard_failures = 0
+
         while self._cam_running:
             if self.is_single_image:
                 frame = self.single_image_frame.copy()
                 time.sleep(1.0) # Đợi 1 giây cho ảnh tĩnh để giảm tải và hết chớp màn hình
+                if self.on_frame_callback and self._cam_running:
+                    self.on_frame_callback(frame)
             else:
-                ret, frame = self.cap.read()
-                if not ret:
-                    # Nếu là video thì lặp lại (Loop video)
-                    if self.cap and self.cap.get(cv2.CAP_PROP_FRAME_COUNT) > 1:
-                        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        continue
+                with self._cap_lock:
+                    cap_ref = self.cap
+
+                if not cap_ref:
                     break
-            
-            if self.on_frame_callback and self._cam_running:
-                self.on_frame_callback(frame.copy())
+
+                try:
+                    ret, frame = cap_ref.read()
+                except cv2.error as e:
+                    self._log(f"[CAM] OpenCV read error: {e}")
+                    ret, frame = False, None
+                except Exception as e:
+                    self._log(f"[CAM] Stream read exception: {e}")
+                    ret, frame = False, None
+
+                if not ret or frame is None:
+                    # Với video file: tránh seek trực tiếp CAP_PROP_POS_FRAMES khi decoder vừa lỗi,
+                    # vì một số build ffmpeg có thể văng assertion async_lock.
+                    if self.is_video_file and cap_ref:
+                        hard_failures += 1
+                        if hard_failures <= 3 and self._reopen_stream_source():
+                            time.sleep(0.05)
+                            continue
+                        self._error("Không thể đọc file video ổn định. Vui lòng chọn lại file hoặc đổi định dạng video khác.")
+                        self._cam_running = False
+                        break
+
+                    # Cho stream/camera vài lần retry trước khi thử recover.
+                    read_failures += 1
+                    if read_failures <= 10:
+                        time.sleep(0.05)
+                        continue
+
+                    hard_failures += 1
+                    read_failures = 0
+                    if hard_failures <= 3 and self._reopen_stream_source():
+                        time.sleep(0.1)
+                        continue
+
+                    if self._source_mode == "astra":
+                        self.depth_available = False
+                        if self.require_depth_for_astra:
+                            self.depth_status = "Astra disconnected (RGB/depth read failed)"
+                            self._error("Astra Pro đã mất kết nối. Vui lòng kiểm tra cáp USB/nguồn và bật lại camera.")
+                        else:
+                            self.depth_status = "depth unavailable (rgb read retrying)"
+                            self._log("⚠️ Astra read lỗi tạm thời, tiếp tục retry giữ camera ON (FLEX mode)")
+                            time.sleep(0.2)
+                            continue
+                    self._log("[CAM] Stream stopped after repeated decode/read failures")
+                    self._cam_running = False
+                    break
+
+                read_failures = 0
+                hard_failures = 0
+
+                depth_info = {
+                    "z_distance_mm": self.last_depth_distance_mm,
+                    "z_distance_m": self.last_depth_distance_m,
+                    "depth_available": bool(self.depth_available),
+                    "depth_status": self.depth_status,
+                }
+                if self.is_astra_mode:
+                    z_mm = self._read_depth_distance_mm() if self.depth_available else None
+                    if z_mm is not None:
+                        self.last_depth_distance_mm = float(z_mm)
+                        self.last_depth_distance_m = float(z_mm) / 1000.0
+                        depth_info["z_distance_mm"] = self.last_depth_distance_mm
+                        depth_info["z_distance_m"] = self.last_depth_distance_m
+                        if self.depth_available:
+                            depth_info["depth_status"] = f"{self.depth_status} | sample ok"
+                    elif self.depth_available:
+                        depth_info["depth_status"] = f"{self.depth_status} | no valid sample"
+
+                if self.on_frame_callback and self._cam_running:
+                    try:
+                        self.on_frame_callback(frame.copy(), depth_info)
+                    except TypeError:
+                        # Tương thích callback cũ chỉ nhận 1 tham số frame.
+                        self.on_frame_callback(frame.copy())
+                    except Exception as e:
+                        self._log(f"[CAM] Frame callback error: {e}")
+
+        # Đảm bảo giải phóng resource khi vòng lặp kết thúc bất thường.
+        self._release_cap()

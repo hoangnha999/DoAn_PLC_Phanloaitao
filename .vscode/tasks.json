@@ -1,0 +1,204 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "remove-unet-datasets",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"rmdir /s /q \"d:\\DOAN_PLC_Phanloaitao\\dataset\\unet_dataset\" & rmdir /s /q \"d:\\DOAN_PLC_Phanloaitao\\giaodien\\unet\""
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "remove-unet-dataset-root",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"rmdir /s /q d:\\DOAN_PLC_Phanloaitao\\dataset\\unet_dataset"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "remove-unet-dataset-powershell",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -LiteralPath 'd:\\DOAN_PLC_Phanloaitao\\dataset\\unet_dataset' -Recurse -Force"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "remove-unet-dataset-relative",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -LiteralPath '.\\dataset\\unet_dataset' -Recurse -Force"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "remove-unet-trees-relative",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -LiteralPath '.\\unet' -Recurse -Force; Remove-Item -LiteralPath '..\\dataset\\unet_dataset' -Recurse -Force"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "remove-unet-guarded",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-Command",
+				"if (Test-Path '.\\unet') { Remove-Item -LiteralPath '.\\unet' -Recurse -Force }; if (Test-Path '..\\dataset\\unet_dataset') { Remove-Item -LiteralPath '..\\dataset\\unet_dataset' -Recurse -Force }"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "remove-unet-python",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"-c",
+				"import shutil; shutil.rmtree('unet', ignore_errors=True); shutil.rmtree('..\\\\dataset\\\\unet_dataset', ignore_errors=True)"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "py-compile-gui",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"-m",
+				"py_compile",
+				"giaodien\\modules\\gui_app.py",
+				"giaodien\\modules\\camera.py",
+				"giaodien\\modules\\plc.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "check-snap7-installed",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"-c",
+				"import importlib.util,sys; s=importlib.util.find_spec('snap7'); print('SNAP7_INSTALLED' if s else 'SNAP7_MISSING'); sys.exit(0 if s else 1)"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "check-snap7",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"-m",
+				"pip",
+				"show",
+				"python-snap7"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "check-snap7-import",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"-c",
+				"python -m pip show python-snap7 2>&1 & python -c \"import snap7; print('snap7 version:', snap7.__version__)\" 2>&1 || echo NOT_INSTALLED"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "none"
+		},
+		{
+			"label": "move-processing-to-root",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-Command",
+				"if ((Test-Path '.\\\\giaodien\\\\Processing') -and -not (Test-Path '.\\\\Processing')) { Move-Item -LiteralPath '.\\\\giaodien\\\\Processing' -Destination '.\\\\Processing' }; Write-Output \\\"ROOT_PROCESSING=$((Test-Path '.\\\\Processing'))\\\"; Write-Output \\\"GIAODIEN_PROCESSING=$((Test-Path '.\\\\giaodien\\\\Processing'))\\\""
+			],
+			"isBackground": false
+		},
+		{
+			"label": "move-processing-to-root-cmd",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"if exist .\\giaodien\\Processing if not exist .\\Processing move .\\giaodien\\Processing .\\Processing & if exist .\\Processing (echo ROOT_PROCESSING=1) else (echo ROOT_PROCESSING=0) & if exist .\\giaodien\\Processing (echo GIAODIEN_PROCESSING=1) else (echo GIAODIEN_PROCESSING=0)"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "probe-shell-echo",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"echo OK && if exist .\\giaodien\\Processing (echo HAS_OLD=1) else (echo HAS_OLD=0) && if exist .\\Processing (echo HAS_ROOT=1) else (echo HAS_ROOT=0)"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "probe-shell-abs",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"echo OK & if exist d:\\DOAN_PLC_Phanloaitao\\giaodien\\Processing (echo HAS_OLD=1) else (echo HAS_OLD=0) & if exist d:\\DOAN_PLC_Phanloaitao\\Processing (echo HAS_ROOT=1) else (echo HAS_ROOT=0)"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "safe-clean-old-processing-cache",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-Command",
+				"if (Test-Path '.\\giaodien\\Processing\\analyzer_modules\\__pycache__') { Remove-Item -LiteralPath '.\\giaodien\\Processing\\analyzer_modules\\__pycache__' -Recurse -Force }; if (Test-Path '.\\giaodien\\Processing\\__pycache__') { Remove-Item -LiteralPath '.\\giaodien\\Processing\\__pycache__' -Recurse -Force }; if (Test-Path '.\\giaodien\\Processing\\analyzer_modules') { Remove-Item -LiteralPath '.\\giaodien\\Processing\\analyzer_modules' -Force }; if (Test-Path '.\\giaodien\\Processing') { Remove-Item -LiteralPath '.\\giaodien\\Processing' -Force }; Write-Output \"CLEANUP_DONE\""
+			],
+			"isBackground": false
+		}
+	]
+}

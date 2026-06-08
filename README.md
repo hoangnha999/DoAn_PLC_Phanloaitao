@@ -1,80 +1,172 @@
-# 🍎 HỆ THỐNG PHÂN LOẠI TÁO TỰ ĐỘNG (APPLE GRADING SYSTEM)
+# HỆ THỐNG PHÂN LOẠI TÁO TỰ ĐỘNG
 
-## 🌳 CẤU TRÚC THƯ MỤC (PROJECT TREE)
+Dự án nhận dạng và phân loại táo theo 3 tiêu chí chính:
+- TC1: Độ chín (tỉ lệ màu đỏ)
+- TC2: Kích thước (đường kính mm)
+- TC3: Hình dáng (độ tròn)
+
+Hệ thống có giao diện vận hành, luồng xử lý ảnh riêng, và có thể kết nối PLC S7-1200.
+
+## 1. Cấu trúc dự án
+
+Dự án đã được tổ chức theo 3 thư mục chính để dễ bảo trì, tách rõ:
+- Dữ liệu (dataset)
+- Ứng dụng giao diện vận hành (giaodien)
+- Core xử lý ảnh (Processing)
+
+### 1.1 Cây thư mục chi tiết
 
 ```text
 DOAN_PLC_Phanloaitao/
-├── 📂 dataset/               # Dữ liệu Video/Ảnh mẫu để chạy thử
-├── 📂 giaodien/              # Thư mục chứa mã nguồn chính
-│   ├── 📄 main.py            # << FILE CHẠY CHÍNH >>
-│   ├── 📄 database.db        # Cơ sở dữ liệu SQLite lưu lịch sử
-│   ├── 📂 Processing/        # Thuật toán xử lý ảnh (bộ não)
-│   │   └── 📄 analyzer.py    # Xử lý độ chín, kích thước, màu sắc
-│   ├── 📂 modules/           # Các module chức năng hệ thống
-│   │   ├── 📄 gui_app.py     # Giao diện người dùng & Logic chính
-│   │   ├── 📄 camera.py      # Điều khiển Camera & Video stream
-│   │   ├── 📄 plc.py         # Kết nối & Điều khiển PLC S7-1200
-│   │   └── 📄 database.py    # Xử lý truy vấn dữ liệu SQL
-│   ├── 📂 images/            # Icon và hình ảnh giao diện
-│   └── 📂 history_images/    # Ảnh các quả táo đã phân loại
-├── 📄 .gitignore             # Các file bỏ qua không up lên git
-└── 📄 README.md              # Hướng dẫn sử dụng này
+├── dataset/
+│   ├── train/               # Ảnh nguồn để tạo nhãn/huấn luyện
+│   ├── yolo_dataset/        # Dataset theo định dạng YOLO (images/labels/dataset.yaml)
+│   └── ...
+├── giaodien/
+│   ├── main.py              # Entry point chạy app
+│   ├── modules/
+│   │   ├── gui_app.py       # Điều phối GUI + gọi FruitAnalyzer
+│   │   ├── camera.py        # Quản lý camera/stream
+│   │   ├── plc.py           # Kết nối PLC
+│   │   └── database.py      # Lưu lịch sử, truy vấn, export
+│   ├── config/              # Cấu hình runtime
+│   ├── images/              # Tài nguyên hình giao diện
+│   ├── history_images/      # Ảnh kết quả đã xử lý
+│   └── dataset/             # Dataset phục vụ GUI/nội bộ (nếu có)
+├── Processing/
+│   ├── analyzer.py          # Facade trung tâm của engine xử lý ảnh
+│   └── analyzer_modules/
+│       ├── pipeline.py      # Pipeline tổng hợp TC1/TC2/TC3
+│       ├── segmentation.py  # Tách quả táo
+│       ├── yolo_runtime.py  # Nạp/chạy YOLO và fallback
+│       ├── tc1_ripeness.py  # Độ chín
+│       ├── tc2_size.py      # Kích thước
+│       ├── tc3_shape.py     # Hình dáng
+│       ├── stabilization.py # Ổn định đo đạc theo thời gian
+│       └── ...
+├── auto_label.py            # Script tạo nhãn tự động
+└── README.md                # Tài liệu hướng dẫn
 ```
 
----
+### 1.2 Vai trò của 3 thư mục chính
 
-## 📥 1. DANH SÁCH CẦN CÀI ĐẶT (PREREQUISITES)
+1. dataset/
+- Chứa dữ liệu đầu vào (ảnh/video) và dữ liệu huấn luyện.
+- Không chứa logic app.
+- Nên backup trước khi thao tác xóa/sửa lớn.
 
-Khi mới tải code về, máy bạn sẽ **thiếu** các thành phần sau để chạy được chương trình. Hãy cài đặt theo thứ tự:
+2. giaodien/
+- Chứa ứng dụng vận hành, nhận frame, hiển thị kết quả, kết nối PLC và DB.
+- Không nên để logic xử lý ảnh phức tạp tại đây.
+- Chỉ nên giữ logic điều phối và I/O.
 
-### 🟢 Bước 1: Cài đặt Python 3.11 (Bắt buộc)
-1.  Tải tại: [python.org](https://www.python.org/downloads/)
-2.  **Lưu ý cực kỳ quan trọng:** Khi cài đặt, phải tích vào ô **`Add Python to PATH`**.
+3. Processing/
+- Chứa toàn bộ logic xử lý ảnh mang tính core.
+- Có thể test độc lập mà không phụ thuộc GUI.
+- Dễ mở rộng thêm module mới (ví dụ: thêm tiêu chí TC4).
 
-### 🔵 Bước 2: Cài đặt các Thư viện lập trình (Libraries)
-Mở Terminal (hoặc Command Prompt) và copy lệnh sau để cài những thứ còn thiếu:
+### 1.3 Quan hệ phụ thuộc
+
+Chiều phụ thuộc chuẩn:
+
+```text
+giaodien  --->  Processing  --->  dataset (đọc dữ liệu/cấu hình cần thiết)
+```
+
+Nguyên tắc:
+- Processing không phụ thuộc vào GUI (tránh coupling ngược).
+- dataset không chứa code logic.
+- giaodien là lớp trên cùng, gọi core để lấy kết quả hiển thị.
+
+### 1.4 Entry points quan trọng
+
+- Chạy app: giaodien/main.py
+- Core analyzer: Processing/analyzer.py
+- Script tạo nhãn: auto_label.py
+
+## 2. Yêu cầu môi trường
+
+- Windows 10/11
+- Python 3.10 hoặc 3.11
+- Khuyến nghị dùng virtual environment (.venv)
+
+## 3. Cài đặt nhanh
+
+Mở terminal tại thư mục gốc dự án và chạy:
+
 ```bash
-pip install opencv-python numpy pillow python-snap7
+python -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install opencv-python numpy pillow python-snap7 ultralytics
 ```
-*Giải thích các thư viện này:*
-*   `opencv-python`: Để xử lý hình ảnh, nhận diện quả táo.
-*   `numpy`: Để tính toán toán học cho các pixel ảnh.
-*   `pillow`: Để hiển thị hình ảnh lên giao diện người dùng.
-*   `python-snap7`: Để gửi lệnh điều khiển xuống PLC S7-1200.
 
-### 🟡 Bước 3: Cài đặt VS Code (Công cụ chạy code)
-1.  Tải tại: [code.visualstudio.com](https://code.visualstudio.com/)
-2.  Đây là phần mềm tốt nhất để bạn mở và chạy dự án này.
+Nếu bạn không dùng YOLO, có thể bỏ qua ultralytics.
+
+## 4. Chạy chương trình
+
+```bash
+python giaodien/main.py
+```
+
+Sau khi mở giao diện:
+- Mở video test trong dataset để kiểm tra nhanh
+- Hoặc bật camera trực tiếp
+- Nếu sử dụng PLC: vào phần cài đặt để nhập IP và kết nối
+
+## 5. Các tệp và thư mục quan trọng
+
+- giaodien/main.py: entrypoint giao diện
+- giaodien/modules/gui_app.py: luồng điều khiển GUI và tích hợp analyzer
+- Processing/analyzer.py: analyzer tổng
+- Processing/analyzer_modules/: các module tc1/tc2/tc3, segmentation, yolo, pipeline
+- dataset/: dữ liệu train/test và yolo dataset
+
+## 6. Dọn dẹp an toàn, không mất dữ liệu
+
+Nguyên tắc an toàn:
+- KHÔNG xóa dataset/
+- KHÔNG xóa Processing/
+- KHÔNG xóa giaodien/modules/
+
+Chỉ nên xóa:
+- __pycache__
+- các thư mục trung gian rỗng
+
+Lệnh gợi ý để xóa cache Python trong dự án:
+
+```powershell
+Get-ChildItem -Path . -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
+```
+
+Nếu cần dọn sâu hơn, hãy backup trước (copy cả thư mục dự án hoặc commit git).
+
+## 7. Lỗi thường gặp
+
+1. Lỗi không import được snap7
+- Kiểm tra đã cài python-snap7
+- Nếu cần, cài thêm thư viện runtime theo hướng dẫn của python-snap7
+
+2. Không mở được camera
+- Kiểm tra camera có đang bị app khác chiếm hay không
+- Thử đổi index camera trong phần cài đặt
+
+3. Chạy được GUI nhưng không detect táo
+- Kiểm tra đường dẫn model (nếu dùng YOLO)
+- Kiểm tra ảnh đầu vào có đủ ánh sáng, ít nhiễu motion blur
+
+4. Chậm hoặc giật khung hình
+- Giảm độ phân giải camera
+- Đóng bớt app nền
+- Nếu cần, tắt các tác vụ không cần thiết trong luồng debug
+
+## 8. Quy trình cập nhật khuyến nghị
+
+1. Tạo nhanh một bản backup
+2. Chỉnh code
+3. Chạy lại python giaodien/main.py để smoke test
+4. Nếu ổn định mới xóa các thư mục cache
 
 ---
 
-## 🚀 2. CÁCH CHẠY PHẦN MỀM TRÊN VS CODE
-
-1.  **Mở Thư mục**: Trong VS Code, chọn `File` -> `Open Folder...` -> Chọn thư mục `DOAN_PLC_Phanloaitao`.
-2.  **Mở Terminal**: Nhấn phím `Ctrl` + `~` (phím cạnh số 1).
-3.  **Dán lệnh chạy**: Copy dòng dưới đây dán vào Terminal rồi nhấn **Enter**:
-    ```bash
-    python giaodien/main.py
-    ```
-
----
-
-## 🛠️ 3. HƯỚNG DẪN VẬN HÀNH NHANH
-
-| Tính năng | Cách thực hiện |
-| :--- | :--- |
-| **Chạy thử video** | Nhấn `📂 MỞ FILE` -> Chọn video trong thư mục `dataset`. |
-| **Bật Camera** | Nhấn nút `▶ BẬT CAMERA` (hoặc Bật File). |
-| **Kết nối PLC** | Vào tab `Cài đặt` -> Nhập IP PLC -> Nhấn `Kết nối`. |
-| **Chỉnh khung hình** | Kéo các thanh xám giữa các vùng để thay đổi kích thước ô. |
-
----
-
-## 📝 4. CÁC THIẾU SÓT THƯỜNG GẶP (TROUBLESHOOTING)
-
-*   **Thiếu `snap7.dll`**: Nếu bạn kết nối PLC mà bị báo lỗi "Can't find snap7.dll", bạn cần tải file này trên mạng và copy vào `C:\Windows\System32`.
-*   **Lỗi Python**: Nếu gõ lệnh `python` mà máy báo "not recognized", nghĩa là bạn đã quên tích vào "Add Python to PATH" ở Bước 1. Hãy cài lại Python.
-*   **Lỗi Camera**: Nếu không thấy hình, hãy kiểm tra xem Camera đã cắm chắc chắn vào cổng USB chưa.
-
----
-*Phát triển bởi hoangnha999*
+Tác giả: hoangnha999
