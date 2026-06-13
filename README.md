@@ -90,22 +90,37 @@ Nguyên tắc:
 - Python 3.10 hoặc 3.11
 - Khuyến nghị dùng virtual environment (.venv)
 
-## 3. Cài đặt nhanh
+## 3. Cài đặt nhanh (Dành cho người mới tải dự án)
 
-Mở terminal tại thư mục gốc dự án và chạy:
+Sau khi clone/download dự án về máy, bạn mở terminal (như PowerShell hoặc CMD) tại thư mục gốc của dự án và làm theo các bước sau:
 
-```bash
+**Bước 1: Tạo môi trường ảo (Virtual Environment)**
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
 ```
 
-Nếu bạn không dùng YOLO, có thể bỏ qua việc cài đặt `ultralytics` trong `requirements.txt`.
+**Bước 2: Kích hoạt môi trường ảo**
+Nếu bạn dùng **PowerShell** (thường báo lỗi màu đỏ không cho chạy script), hãy chạy lệnh cấp quyền này trước:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+Sau đó kích hoạt môi trường ảo:
+```powershell
+.venv\Scripts\activate
+```
+*(Nếu thành công, bạn sẽ thấy chữ `(.venv)` xuất hiện ở đầu dòng lệnh)*
+
+**Bước 3: Nâng cấp pip và cài đặt thư viện**
+Copy và dán lệnh sau để cài đặt tất cả các thư viện cần thiết:
+```powershell
+python -m pip install --upgrade pip
+pip install opencv-python numpy pillow python-snap7 ultralytics openni
+```
 
 ## 4. Chạy chương trình
 
-```bash
+Sau khi cài đặt xong, bạn gõ lệnh sau để khởi chạy phần mềm:
+```powershell
 python giaodien/main.py
 ```
 
