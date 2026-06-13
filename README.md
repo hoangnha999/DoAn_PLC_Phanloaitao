@@ -98,10 +98,10 @@ Mở terminal tại thư mục gốc dự án và chạy:
 python -m venv .venv
 .venv\Scripts\activate
 python -m pip install --upgrade pip
-pip install opencv-python numpy pillow python-snap7 ultralytics
+pip install -r requirements.txt
 ```
 
-Nếu bạn không dùng YOLO, có thể bỏ qua ultralytics.
+Nếu bạn không dùng YOLO, có thể bỏ qua việc cài đặt `ultralytics` trong `requirements.txt`.
 
 ## 4. Chạy chương trình
 
