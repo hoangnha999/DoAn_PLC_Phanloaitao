@@ -56,10 +56,10 @@ DEFAULT_CONFIG = {
     "runtime": {
         "default_camera_mode": "Astra Pro SDK (RGB)",
         "astra_rgb_port_mode": "Tự động (ưu tiên USB: cổng 1 -> 2 -> 0)",
-        "require_depth_for_astra": False,
+        "require_depth_for_astra": True,
         "capture_frames_required": 10,
         "capture_wait_timeout_s": 6.0,
-        "decision_min_quality_score": 0.45,
+        "decision_min_quality_score": 0.50,
         "decision_margin_delta": 0.10,
         "decision_min_valid_frames": 6,
         "single_fruit_station_mode": True,

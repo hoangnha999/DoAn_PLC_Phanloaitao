@@ -199,6 +199,35 @@
 				"if (Test-Path '.\\giaodien\\Processing\\analyzer_modules\\__pycache__') { Remove-Item -LiteralPath '.\\giaodien\\Processing\\analyzer_modules\\__pycache__' -Recurse -Force }; if (Test-Path '.\\giaodien\\Processing\\__pycache__') { Remove-Item -LiteralPath '.\\giaodien\\Processing\\__pycache__' -Recurse -Force }; if (Test-Path '.\\giaodien\\Processing\\analyzer_modules') { Remove-Item -LiteralPath '.\\giaodien\\Processing\\analyzer_modules' -Force }; if (Test-Path '.\\giaodien\\Processing') { Remove-Item -LiteralPath '.\\giaodien\\Processing' -Force }; Write-Output \"CLEANUP_DONE\""
 			],
 			"isBackground": false
+		},
+		{
+			"label": "auto-label-dataset-apple-2class",
+			"type": "shell",
+			"command": "d:/DOAN_PLC_Phanloaitao/.venv/Scripts/python.exe",
+			"args": [
+				"auto_label.py",
+				"--src-img-dir",
+				"dataset/dataset_apple/train",
+				"--dest-dataset-dir",
+				"dataset/dataset_apple/yolo_dataset",
+				"--fresh-count",
+				"2000",
+				"--rotten-count",
+				"1000",
+				"--train-ratio",
+				"0.8"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "auto-label-dataset-apple-2class-abs",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"\"d:\\DOAN_PLC_Phanloaitao\\.venv\\Scripts\\python.exe\" \"d:\\DOAN_PLC_Phanloaitao\\auto_label.py\" --src-img-dir \"d:\\DOAN_PLC_Phanloaitao\\dataset\\dataset_apple\\train\" --dest-dataset-dir \"d:\\DOAN_PLC_Phanloaitao\\dataset\\dataset_apple\\yolo_dataset\" --fresh-count 2000 --rotten-count 1000 --train-ratio 0.8"
+			],
+			"isBackground": false
 		}
 	]
 }

@@ -10,17 +10,26 @@ def compute_frame_quality_weight(detail_info, blur_threshold=100.0):
     blur_score = float(detail_info.get("blur_score", 0.0))
     yolo_conf = float(detail_info.get("yolo_confidence", 0.0))
     is_blurry = bool(detail_info.get("is_blurry", False))
+    circularity = float(detail_info.get("circularity", 1.0))
 
     # Chuẩn hóa blur về [0,1], dùng mốc 2x threshold để tránh cắt ngưỡng quá gắt.
     blur_quality = max(0.0, min(1.0, blur_score / max(1.0, float(blur_threshold) * 2.0)))
     # Chuẩn hóa yolo_conf về [0,1], bỏ qua vùng confidence rất thấp.
     yolo_quality = max(0.0, min(1.0, (yolo_conf - 0.20) / 0.80))
 
-    # Trộn điểm theo tỉ trọng: blur 60%, yolo 40%.
-    quality_score = (0.60 * blur_quality) + (0.40 * yolo_quality)
+    # Trộn điểm theo tỉ trọng: blur 50%, yolo 35%, circularity 15%.
+    circ_quality = max(0.0, min(1.0, (circularity - 0.30) / 0.70))
+    quality_score = (0.50 * blur_quality) + (0.35 * yolo_quality) + (0.15 * circ_quality)
     # Nếu khung mờ thì phạt thêm hệ số giảm chất lượng.
     if is_blurry:
         quality_score *= 0.75
+
+    # Phạt nặng frame có circularity quá thấp (contour méo, segment sai).
+    # Frame 3 với circularity=0.361 sẽ bị phạt: quality *= 0.30
+    CIRCULARITY_REJECT_THRESH = 0.50
+    if circularity < CIRCULARITY_REJECT_THRESH:
+        penalty = max(0.10, circularity / CIRCULARITY_REJECT_THRESH)
+        quality_score *= penalty
 
     # Clamp về [0,1] và đặt cận dưới cho weight để frame không bị bỏ qua hoàn toàn.
     quality_score = max(0.0, min(1.0, quality_score))

@@ -5,17 +5,17 @@
       "medium_thresh": 70
     },
     "shape": {
-      "good_thresh": 0.88,
-      "medium_thresh": 0.78
+      "good_thresh": 0.4,
+      "medium_thresh": 0.2
     },
     "size": {
-      "large_mm": 80,
-      "medium_mm": 60,
+      "large_mm": 60,
+      "medium_mm": 40,
       "pixel_to_mm": 0.28,
       "depth_reference_mm": 600.0,
       "enable_depth_size_compensation": true,
-      "size_calibration_gain": 2.8,
-      "require_depth_for_size_measurement": true,
+      "size_calibration_gain": 1.5,
+      "require_depth_for_size_measurement": false,
       "depth_smooth_window": 9,
       "depth_max_delta_mm": 35.0,
       "depth_hold_frames": 6,
@@ -90,11 +90,11 @@
   },
   "runtime": {
     "default_camera_mode": "Astra Pro SDK (RGB)",
-    "astra_rgb_port_mode": "Cổng 1 (USB Ngoài 1)",
-    "require_depth_for_astra": false,
+    "astra_rgb_port_mode": "Cổng 2 (USB Ngoài 2)",
+    "require_depth_for_astra": true,
     "capture_frames_required": 10,
     "capture_wait_timeout_s": 6.0,
-    "decision_min_quality_score": 0.45,
+    "decision_min_quality_score": 0.5,
     "decision_margin_delta": 0.1,
     "decision_min_valid_frames": 6,
     "single_fruit_station_mode": true,

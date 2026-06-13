@@ -78,12 +78,64 @@ def draw_results(
 
 
 def draw_yolo_overlay(analyzer, frame, yolo_info=None):
-    """Vẽ overlay YOLO gồm candidate boxes và box được chấp nhận cuối cùng."""
+    """Vẽ overlay YOLO gồm candidate boxes, detection zone và box được chấp nhận cuối cùng."""
     if yolo_info is None:
         return frame
 
     out = frame.copy()
+    h, w = out.shape[:2]
 
+    # ─── Vẽ Detection Zone (vùng phát hiện trung tâm) ─────────────────────
+    dz = yolo_info.get("detection_zone")
+    if dz and len(dz) == 4:
+        dz_x1, dz_y1, dz_x2, dz_y2 = dz
+        apple_in_zone = bool(yolo_info.get("detected", False))
+
+        # Màu: xanh lá khi táo đã vào vùng, vàng nhạt khi chưa
+        dz_color = (50, 220, 50) if apple_in_zone else (0, 200, 200)
+        dz_alpha = 0.18 if apple_in_zone else 0.10
+
+        # Tô nhẹ nền vùng detect
+        overlay = out.copy()
+        cv2.rectangle(overlay, (dz_x1, dz_y1), (dz_x2, dz_y2), dz_color, -1)
+        cv2.addWeighted(overlay, dz_alpha, out, 1 - dz_alpha, 0, out)
+
+        # Vẽ viền nét đứt
+        dash_len, gap_len = 14, 7
+        pts = [
+            ((dz_x1, dz_y1), (dz_x2, dz_y1)),  # top
+            ((dz_x2, dz_y1), (dz_x2, dz_y2)),  # right
+            ((dz_x2, dz_y2), (dz_x1, dz_y2)),  # bottom
+            ((dz_x1, dz_y2), (dz_x1, dz_y1)),  # left
+        ]
+        for (px1, py1), (px2, py2) in pts:
+            seg_len = int(((px2 - px1) ** 2 + (py2 - py1) ** 2) ** 0.5)
+            if seg_len == 0:
+                continue
+            dx = (px2 - px1) / seg_len
+            dy = (py2 - py1) / seg_len
+            pos = 0
+            draw = True
+            while pos < seg_len:
+                end = min(pos + (dash_len if draw else gap_len), seg_len)
+                if draw:
+                    sx = int(round(px1 + dx * pos))
+                    sy = int(round(py1 + dy * pos))
+                    ex = int(round(px1 + dx * end))
+                    ey = int(round(py1 + dy * end))
+                    cv2.line(out, (sx, sy), (ex, ey), dz_color, 2)
+                pos = end
+                draw = not draw
+
+        # Nhãn góc trên-trái
+        label_dz = "DETECTION ZONE"
+        (tw, th), _ = cv2.getTextSize(label_dz, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+        lx = dz_x1 + 6
+        ly = dz_y1 + th + 6
+        cv2.rectangle(out, (lx - 3, ly - th - 3), (lx + tw + 3, ly + 3), (0, 0, 0), -1)
+        cv2.putText(out, label_dz, (lx, ly), cv2.FONT_HERSHEY_SIMPLEX, 0.42, dz_color, 1)
+
+    # ─── Candidate boxes (màu cam nhạt) ───────────────────────────────────
     for cand in yolo_info.get("candidates", [])[:5]:
         bbox = cand.get("bbox")
         if not bbox or len(bbox) != 4:
@@ -91,6 +143,7 @@ def draw_yolo_overlay(analyzer, frame, yolo_info=None):
         x1, y1, x2, y2 = bbox
         cv2.rectangle(out, (x1, y1), (x2, y2), (0, 165, 255), 1)
 
+    # ─── Box được chấp nhận cuối cùng ─────────────────────────────────────
     if yolo_info.get("detected"):
         bbox = yolo_info.get("bbox_refined") or yolo_info.get("bbox")
         if bbox and len(bbox) == 4:
@@ -106,6 +159,7 @@ def draw_yolo_overlay(analyzer, frame, yolo_info=None):
             cv2.putText(out, label, (x1 + 4, y_top + th + 1), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 2)
 
     return out
+
 
 
 def empty_detail():

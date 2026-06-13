@@ -7,7 +7,6 @@ import threading
 import time
 import cv2
 import sqlite3
-import re
 from datetime import datetime
 
 # Đảm bảo Python tìm thấy cả 2 gốc import:
@@ -384,7 +383,7 @@ class CameraWindow:
         self._throughput_vars = {}
         self.capture_frames_required = int(self.runtime_cfg.get("capture_frames_required", 10))
         self.capture_wait_timeout_s = float(self.runtime_cfg.get("capture_wait_timeout_s", 6.0))
-        self.decision_min_quality_score = float(self.runtime_cfg.get("decision_min_quality_score", 0.45))
+        self.decision_min_quality_score = float(self.runtime_cfg.get("decision_min_quality_score", 0.50))
         self.decision_margin_delta = float(self.runtime_cfg.get("decision_margin_delta", 0.10))
         self.decision_min_valid_frames = int(self.runtime_cfg.get("decision_min_valid_frames", 6))
         self.single_fruit_station_mode = bool(self.runtime_cfg.get("single_fruit_station_mode", True))
@@ -406,6 +405,17 @@ class CameraWindow:
         self._vision_fault_count = 0
         self.system_state = self.STATE_SAFE_STOP
         self.system_state_reason = "init"
+
+        # ── Bộ lọc ổn định detection (debounce chống nhiễu nhất thời) ────────────────
+        # Chỉ công nhận là táo thật khi detect xuất hiện liên tiếp >= DETECT_DEBOUNCE_MIN_FRAMES frame.
+        # Nếu chỉ bắt vài frame rồi mất (ngón tay, vật nhất thời) → bỏ qua, không ghi phiên.
+        self.DETECT_DEBOUNCE_MIN_FRAMES = int(self.runtime_cfg.get("detect_debounce_min_frames", 4))
+        # Số frame không có táo liên tiếp trước khi reset trạng thái xác nhận
+        self.DETECT_DEBOUNCE_RESET_FRAMES = int(self.runtime_cfg.get("detect_debounce_reset_frames", 3))
+        self._detect_consecutive_count = 0    # Số frame detect liên tiếp hiện tại
+        self._no_detect_consecutive_count = 0 # Số frame không detect liên tiếp hiện tại
+        self._detection_confirmed = False     # True khi đã qua ngưỡng debounce
+
 
         # ── Anti-freeze (chống treo UI Not Responding) ──
         self._ui_frame_update_pending = False
@@ -444,6 +454,18 @@ class CameraWindow:
         self.win.minsize(900, 600)
 
         self.analyzer = FruitAnalyzer()
+        # Nạp tham số ngưỡng bảng luật (nếu đã lưu trước đó)
+        analyzer_cfg = self.runtime_cfg.get("analyzer", {})
+        if "ripeness" in analyzer_cfg:
+            self.analyzer.RIPENESS_GOOD_THRESH = analyzer_cfg["ripeness"].get("good_thresh", self.analyzer.RIPENESS_GOOD_THRESH)
+            self.analyzer.RIPENESS_MEDIUM_THRESH = analyzer_cfg["ripeness"].get("medium_thresh", self.analyzer.RIPENESS_MEDIUM_THRESH)
+        if "size" in analyzer_cfg:
+            self.analyzer.SIZE_THRESHOLDS["large"] = analyzer_cfg["size"].get("large_mm", self.analyzer.SIZE_THRESHOLDS["large"])
+            self.analyzer.SIZE_THRESHOLDS["medium"] = analyzer_cfg["size"].get("medium_mm", self.analyzer.SIZE_THRESHOLDS["medium"])
+        if "shape" in analyzer_cfg:
+            self.analyzer.SHAPE_GOOD_THRESH = analyzer_cfg["shape"].get("good_thresh", self.analyzer.SHAPE_GOOD_THRESH)
+            self.analyzer.SHAPE_MEDIUM_THRESH = analyzer_cfg["shape"].get("medium_thresh", self.analyzer.SHAPE_MEDIUM_THRESH)
+
         self.current_grade = "UNKNOWN"
         self._refresh_stats_ui()
         self._build_ui()
@@ -453,7 +475,7 @@ class CameraWindow:
             self._log_event("⚙️ Astra mode: STRICT (yêu cầu depth, thiếu depth sẽ không chạy camera)", "INFO")
         else:
             self._log_event("⚙️ Astra mode: FLEX (cho phép chạy RGB khi depth chưa sẵn sàng)", "INFO")
-        self._probe_astra_startup_status()
+        self._auto_start_astra_priority()
         self._set_system_state(self.STATE_SAFE_STOP, "Chờ bật camera", level="INFO")
         self._start_ui_watchdog()
 
@@ -1048,9 +1070,17 @@ class CameraWindow:
             bg="#FFFFFF",
         ).pack(side="right")
 
-        # Bảng dữ liệu
+        # Bảng dữ liệu có thanh cuộn
+        tree_frame = tk.Frame(container, bg="#FFFFFF")
+        tree_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
         cols = ("ID", "Thùng", "Vị trí", "Thời gian", "Nhà vườn", "Mã lô", "Kết quả", "Tỷ lệ", "Đường dẫn ảnh")
-        self.history_tree = ttk.Treeview(container, columns=cols, show="headings", height=15)
+        self.history_tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=15)
+        
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.history_tree.yview)
+        self.history_tree.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        self.history_tree.pack(side="left", fill="both", expand=True)
         
         # Cấu hình cột
         self.history_tree.heading("ID", text="ID")
@@ -1072,8 +1102,6 @@ class CameraWindow:
         self.history_tree.heading("Đường dẫn ảnh", text="Đường dẫn file ảnh")
         self.history_tree.column("Đường dẫn ảnh", width=300, anchor="w")
         self.history_tree.tag_configure("latest", background="#FFF7CC", foreground="#1E3A8A")
-        
-        self.history_tree.pack(fill="both", expand=True, padx=15, pady=10)
         self.history_tree.bind("<Double-1>", self._on_history_row_double_click)
         
         # Nút điều khiển
@@ -1288,7 +1316,13 @@ class CameraWindow:
             bg="#FFFFFF",
         ).pack(side="left")
 
-        tree = ttk.Treeview(table_view, columns=cols, show="headings", height=18)
+        tree_frame = tk.Frame(table_view, bg="#FFFFFF")
+        tree_frame.pack(fill="both", expand=True, padx=8, pady=8)
+        tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=18)
+        
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
 
         record_by_frame = {}
 
@@ -1399,7 +1433,7 @@ class CameraWindow:
         tree.column("Đường kính", width=90, anchor="center")
         tree.column("Độ tròn", width=100, anchor="center")
         tree.column("YOLO", width=90, anchor="center")
-        tree.pack(fill="both", expand=True, padx=8, pady=8)
+        tree.pack(side="left", fill="both", expand=True)
 
         _refresh_table(records)
 
@@ -1643,7 +1677,36 @@ class CameraWindow:
 
         info_panel = tk.LabelFrame(body, text="Thông số", font=("Arial", 9, "bold"),
                                    fg="#334155", bg="#FFFFFF", bd=1, relief="ridge")
-        info_panel.pack(side="left", fill="y", padx=(8, 0))
+        info_panel.pack(side="left", fill="both", padx=(8, 0))
+
+        # --- Thanh cuộn dọc cho info_panel ---
+        info_canvas = tk.Canvas(info_panel, bg="#FFFFFF", highlightthickness=0, width=320)
+        info_scrollbar = ttk.Scrollbar(info_panel, orient="vertical", command=info_canvas.yview)
+        info_inner = tk.Frame(info_canvas, bg="#FFFFFF")
+
+        info_inner.bind(
+            "<Configure>",
+            lambda e: info_canvas.configure(scrollregion=info_canvas.bbox("all"))
+        )
+        info_canvas.create_window((0, 0), window=info_inner, anchor="nw")
+        info_canvas.configure(yscrollcommand=info_scrollbar.set)
+
+        info_scrollbar.pack(side="right", fill="y")
+        info_canvas.pack(side="left", fill="both", expand=True)
+
+        # Hỗ trợ cuộn bằng con lăn chuột
+        def _on_mousewheel(event):
+            info_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _bind_mousewheel(event):
+            info_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(event):
+            info_canvas.unbind_all("<MouseWheel>")
+
+        info_canvas.bind("<Enter>", _bind_mousewheel)
+        info_canvas.bind("<Leave>", _unbind_mousewheel)
+        # --- Kết thúc thanh cuộn ---
 
         img_lbl = tk.Label(img_panel, text="NO IMAGE", bg="#0F172A", fg="#94A3B8")
         img_lbl.pack(fill="both", expand=True, padx=8, pady=8)
@@ -1676,6 +1739,22 @@ class CameraWindow:
                 top._single_detail_photo = photo
             except Exception:
                 pass
+
+        # Ưu tiên lấy độ phân giải từ frame preview (đúng thời điểm chụp),
+        # fallback sang file ảnh đã lưu nếu không có preview.
+        captured_resolution = "N/A"
+        try:
+            if preview_frame is not None and hasattr(preview_frame, "shape") and len(preview_frame.shape) >= 2:
+                ph, pw = int(preview_frame.shape[0]), int(preview_frame.shape[1])
+                if pw > 0 and ph > 0:
+                    captured_resolution = f"{pw}x{ph} px"
+            elif img_path and os.path.isfile(img_path):
+                with Image.open(img_path) as src_img:
+                    pw, ph = src_img.size
+                if int(pw) > 0 and int(ph) > 0:
+                    captured_resolution = f"{int(pw)}x{int(ph)} px"
+        except Exception:
+            captured_resolution = "N/A"
 
         def _fmt(value, digits=1, suffix=""):
             if value is None:
@@ -1750,15 +1829,16 @@ class CameraWindow:
                 tk.Label(sec, text=str(v), font=("Consolas", 9),
                          fg="#334155", bg="#FFFFFF", anchor="w", justify="left", wraplength=260).grid(row=i, column=1, sticky="w", padx=6, pady=2)
 
-        _add_section(info_panel, "Thông tin chung", [
+        _add_section(info_inner, "Thông tin chung", [
             ("Frame", rec.get("frame_idx", "N/A")),
             ("Thời gian", rec.get("timestamp", "N/A")),
             ("Trigger", rec.get("trigger_source", "N/A")),
             ("Kết quả cuối frame", rec.get("grade", "N/A")),
+            ("Độ phân giải ảnh", captured_resolution),
             ("Đường dẫn ảnh", img_path if img_path else "N/A"),
         ])
 
-        _add_section(info_panel, "TC1 - Màu sắc / Độ chín", [
+        _add_section(info_inner, "TC1 - Màu sắc / Độ chín", [
             ("% Đỏ", _fmt(red_ratio_v, 1, "%")),
             ("% Vàng", _fmt(_num("yellow_ratio"), 1, "%")),
             ("% Xanh", _fmt(_num("green_ratio"), 1, "%")),
@@ -1766,19 +1846,19 @@ class CameraWindow:
             ("Grade TC1", ripeness_grade_v if ripeness_grade_v is not None else "N/A"),
         ])
 
-        _add_section(info_panel, "TC2 - Kích thước", [
+        _add_section(info_inner, "TC2 - Kích thước", [
             ("Đường kính", _fmt(diameter_mm_v, 1, " mm")),
             ("Nhãn TC2", size_label_v if size_label_v is not None else "N/A"),
             ("Grade TC2", size_grade_v if size_grade_v is not None else "N/A"),
         ])
 
-        _add_section(info_panel, "TC3 - Hình dạng", [
+        _add_section(info_inner, "TC3 - Hình dạng", [
             ("Nhãn TC3", shape_label_v if shape_label_v else "N/A"),
             ("Grade TC3", shape_grade_v if shape_grade_v is not None else "N/A"),
             ("Circularity", _fmt(circularity_v, 3, "")),
         ])
 
-        _add_section(info_panel, "YOLO", [
+        _add_section(info_inner, "YOLO", [
             ("Class", rec.get("yolo_class", "apple")),
             ("Confidence", _fmt(_num("yolo_conf"), 3, "")),
             ("Track ID", _txt("track_id", "-")),
@@ -1786,7 +1866,7 @@ class CameraWindow:
             ("Tracker mode", _txt("yolo_tracker_mode", "predict")),
         ])
 
-        _add_section(info_panel, "Tracking / Video-level", [
+        _add_section(info_inner, "Tracking / Video-level", [
             ("Track final grade", _txt("track_final_grade", "-")),
             ("Track frames", _fmt(_num("track_frames"), 0, "")),
             ("Track temporal", _fmt(_num("track_temporal_stability"), 2, "")),
@@ -1796,7 +1876,7 @@ class CameraWindow:
             ("Decision method", _txt("decision_method", "weighted_voting")),
         ])
 
-        _add_section(info_panel, "Hiệu năng / Chất lượng ảnh", [
+        _add_section(info_inner, "Hiệu năng / Chất lượng ảnh", [
             ("Thời gian xử lý", _fmt(_num("processing_time_ms"), 1, " ms")),
             ("FPS", _fmt(_num("fps"), 1, "")),
             ("Blur status", _txt("blur_status")),
@@ -1843,7 +1923,10 @@ class CameraWindow:
             "Frame", "Thời gian", "Nguồn Trigger", "Hạng",
             "% Đỏ", "Đường kính (mm)", "Hình dạng", "YOLO Conf"
         )
-        self.sheet10_tree = ttk.Treeview(self.sheet10_table_view, columns=cols, show="headings", height=14)
+        tree_frame = tk.Frame(self.sheet10_table_view, bg="#FFFFFF")
+        tree_frame.pack(fill="both", expand=True, padx=15, pady=10)
+        
+        self.sheet10_tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=14)
 
         self.sheet10_tree.heading("Frame", text="Frame")
         self.sheet10_tree.column("Frame", width=70, anchor="center")
@@ -1862,7 +1945,10 @@ class CameraWindow:
         self.sheet10_tree.heading("YOLO Conf", text="YOLO Conf")
         self.sheet10_tree.column("YOLO Conf", width=100, anchor="center")
 
-        self.sheet10_tree.pack(fill="both", expand=True, padx=15, pady=10)
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.sheet10_tree.yview)
+        self.sheet10_tree.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        self.sheet10_tree.pack(side="left", fill="both", expand=True)
 
         # Khung lưới 10 ảnh (2 hàng x 5 cột)
         self.sheet10_gallery_cells = []
@@ -2203,6 +2289,47 @@ class CameraWindow:
         )
         self.lbl_db10_test_status.pack(pady=(18, 0))
 
+        # ── Đèn LED tín hiệu PLC ──────────────────────────────────────
+        tk.Label(
+            container,
+            text="── Đèn tín hiệu PLC (0.5s xung) ──",
+            font=("Arial", 9),
+            fg="#94A3B8",
+            bg="#FFFFFF",
+        ).pack(pady=(22, 6))
+
+        led_row = tk.Frame(container, bg="#FFFFFF")
+        led_row.pack(pady=4)
+
+        # Cấu hình: (tên hiển thị, màu ON, tên attribute)
+        _led_cfg = [
+            ("Grade-1\nDB10.DBX0.0", "#16A34A", "_led_grade1"),
+            ("Grade-2\nDB10.DBX0.1", "#0284C7", "_led_grade2"),
+            ("Grade-3\nDB10.DBX0.2", "#7C3AED", "_led_grade3"),
+            ("Sensor\nDB10.DBX0.3", "#EA580C", "_led_sensor"),
+        ]
+
+        for label_text, color_on, attr_name in _led_cfg:
+            cell = tk.Frame(led_row, bg="#FFFFFF")
+            cell.pack(side="left", padx=14)
+
+            # Canvas vẽ đèn LED tròn
+            cv = tk.Canvas(cell, width=54, height=54, bg="#FFFFFF", highlightthickness=0)
+            cv.pack()
+            # Đèn tắt (xám) mặc định
+            led_circle = cv.create_oval(7, 7, 47, 47, fill="#CBD5E1", outline="#94A3B8", width=2)
+            # Lưu canvas + id hình tròn + màu ON để cập nhật sau
+            setattr(self, attr_name, (cv, led_circle, color_on))
+
+            tk.Label(
+                cell,
+                text=label_text,
+                font=("Arial", 8, "bold"),
+                fg="#334155",
+                bg="#FFFFFF",
+                justify="center",
+            ).pack(pady=(4, 0))
+
     def _build_phanloai_page(self):
         """Trang Phân loại: Thống kê + Camera + Start/Stop + Log."""
         # 1. Main split: Chiều dọc (Trên = Giao diện chính, Dưới = Log + PLC)
@@ -2432,7 +2559,6 @@ class CameraWindow:
             yscrollcommand=scrollbar.set, wrap="word")
         self.log_text.pack(side="left", fill="both", expand=True)
         scrollbar.config(command=self.log_text.yview)
-        self.log_text.bind("<Double-1>", self._on_log_double_click)
 
         # Cấu hình màu sắc cho các loại log
         self.log_text.tag_configure("info",    foreground="#0F172A")
@@ -2446,120 +2572,6 @@ class CameraWindow:
         self._log_entries = []
         self._log_paused = False
 
-    def _resolve_source_file(self, file_name):
-        """Tìm đường dẫn tuyệt đối của file nguồn theo tên file trong log."""
-        if not file_name:
-            return None
-
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        project_root = os.path.dirname(base_dir)
-        candidates = [
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name),
-            os.path.join(base_dir, "modules", file_name),
-            os.path.join(base_dir, "Processing", file_name),
-            os.path.join(project_root, "Processing", file_name),
-            os.path.join(base_dir, "config", file_name),
-            os.path.join(base_dir, file_name),
-        ]
-
-        for p in candidates:
-            if os.path.isfile(p):
-                return p
-
-        # Fallback: quét trong cả project root và thư mục giaodien.
-        for scan_root in (project_root, base_dir):
-            for root, _dirs, files in os.walk(scan_root):
-                if file_name in files:
-                    return os.path.join(root, file_name)
-        return None
-
-    def _open_source_preview(self, file_path, line_no, func_name=""):
-        """Mở popup xem nhanh code quanh dòng lỗi để debug trực quan."""
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Không đọc được file nguồn:\n{e}", parent=self.win)
-            return
-
-        total = len(lines)
-        line_no = max(1, min(int(line_no), total if total > 0 else 1))
-        start = max(1, line_no - 15)
-        end = min(total, line_no + 15)
-
-        top = tk.Toplevel(self.win)
-        short_name = os.path.basename(file_path)
-        top.title(f"Xem code: {short_name}:{line_no}")
-        top.geometry("980x620")
-        top.minsize(820, 500)
-        top.transient(self.win)
-
-        header = tk.Label(
-            top,
-            text=f"{short_name} | hàm: {func_name or '-'} | dòng: {line_no}",
-            font=("Arial", 10, "bold"),
-            fg="#0F172A",
-            bg="#E2E8F0",
-            anchor="w",
-            padx=10,
-            pady=6,
-        )
-        header.pack(fill="x")
-
-        body = tk.Frame(top, bg="#F8FAFC")
-        body.pack(fill="both", expand=True)
-
-        ysb = tk.Scrollbar(body, orient="vertical")
-        ysb.pack(side="right", fill="y")
-
-        txt = tk.Text(
-            body,
-            bg="#F8FAFC",
-            fg="#0F172A",
-            font=("Consolas", 10),
-            yscrollcommand=ysb.set,
-            wrap="none",
-            bd=0,
-        )
-        txt.pack(side="left", fill="both", expand=True)
-        ysb.config(command=txt.yview)
-
-        for i in range(start, end + 1):
-            txt.insert("end", f"{i:>5}: {lines[i - 1]}")
-
-        target_idx = line_no - start + 1
-        txt.tag_add("target", f"{target_idx}.0", f"{target_idx}.end")
-        txt.tag_configure("target", background="#FEF3C7", foreground="#7C2D12")
-        txt.see(f"{target_idx}.0")
-        txt.config(state="disabled")
-
-    def _on_log_double_click(self, event=None):
-        """Double-click dòng log để mở vị trí code [file -> hàm() dòng N]."""
-        try:
-            if not hasattr(self, "log_text") or not self.log_text.winfo_exists():
-                return
-
-            index = self.log_text.index(f"@{event.x},{event.y}") if event else self.log_text.index("insert")
-            line_no_text = index.split(".")[0]
-            line_text = self.log_text.get(f"{line_no_text}.0", f"{line_no_text}.end")
-
-            # Bỏ qua bracket thời gian [HH:MM:SS], chỉ lấy bracket chứa thông tin nguồn code.
-            m = re.search(r"\[([^\[\]]+\.py)\s*[→\-]+\s*([\w_<>]+)\(\)\s*dòng\s*(\d+)\]", line_text)
-            if not m:
-                return
-
-            file_name = m.group(1)
-            func_name = m.group(2)
-            src_line = int(m.group(3))
-
-            file_path = self._resolve_source_file(file_name)
-            if not file_path:
-                messagebox.showwarning("Không tìm thấy file", f"Không tìm thấy file nguồn: {file_name}", parent=self.win)
-                return
-
-            self._open_source_preview(file_path, src_line, func_name)
-        except Exception as e:
-            self._log_event(f"Không mở được vị trí code từ log: {e}", "ERROR")
 
     def _toggle_log_pause(self):
         """Tạm dừng/tiếp tục ghi log realtime trên UI."""
@@ -2610,6 +2622,28 @@ class CameraWindow:
         self.lbl_sensor_status = tk.Label(ctrl1, text="⚪ Sensor: OFF", font=("Arial", 9, "bold"),
                           fg="#64748B", bg="#FFFFFF")
         self.lbl_sensor_status.pack(side="left", padx=(10, 0))
+
+        # ── Hàng 1b: Nút PLC đặc biệt (Start, Stop, Reset) ──
+        row1b = tk.Frame(bar, bg="#FFFFFF")
+        row1b.pack(fill="x", pady=(0, 3))
+        
+        ctrl1b = tk.Frame(row1b, bg="#FFFFFF")
+        ctrl1b.pack()
+        
+        self.btn_plc_start = tk.Button(ctrl1b, text="▶ START", font=("Arial", 9, "bold"), fg="#FFFFFF", bg="#10B981", width=10, relief="flat", cursor="hand2")
+        self.btn_plc_start.pack(side="left", padx=(0, 5))
+        self.btn_plc_start.bind("<ButtonPress-1>", lambda e: self._set_db_bit(8, 0, 0, True))
+        self.btn_plc_start.bind("<ButtonRelease-1>", lambda e: self._set_db_bit(8, 0, 0, False))
+
+        self.btn_plc_stop = tk.Button(ctrl1b, text="⏹ STOP", font=("Arial", 9, "bold"), fg="#FFFFFF", bg="#EF4444", width=10, relief="flat", cursor="hand2")
+        self.btn_plc_stop.pack(side="left", padx=(0, 5))
+        self.btn_plc_stop.bind("<ButtonPress-1>", lambda e: self._set_db_bit(8, 0, 1, True))
+        self.btn_plc_stop.bind("<ButtonRelease-1>", lambda e: self._set_db_bit(8, 0, 1, False))
+
+        self.btn_plc_reset = tk.Button(ctrl1b, text="🔄 RESET", font=("Arial", 9, "bold"), fg="#FFFFFF", bg="#F59E0B", width=10, relief="flat", cursor="hand2")
+        self.btn_plc_reset.pack(side="left", padx=(0, 5))
+        self.btn_plc_reset.bind("<ButtonPress-1>", lambda e: self._set_db_bit(8, 0, 2, True))
+        self.btn_plc_reset.bind("<ButtonRelease-1>", lambda e: self._set_db_bit(8, 0, 2, False))
 
         # ── Hàng 2: Camera ON/OFF + MỞ FILE + Trạng thái Camera ──
         row2 = tk.Frame(bar, bg="#FFFFFF")
@@ -3015,26 +3049,119 @@ class CameraWindow:
         else:
             self._start_camera()
 
-    def _probe_astra_startup_status(self):
-        """Ghi log trạng thái Astra ngay khi mở ứng dụng."""
-        self._log_event("🔎 Đang kiểm tra trạng thái Astra Pro (xác thực đúng thiết bị)...", "INFO")
+    def _auto_start_astra_priority(self):
+        """Tự động dò và kết nối Astra Pro ngay khi khởi động app.
+        Ưu tiên Astra Pro; nếu không có thì dùng webcam đầu tiên khả dụng.
+        Toàn bộ chạy trong thread nền để không treo UI."""
 
-        def _probe():
+        self._log_event("🔍 [AutoStart] Đang dò camera, ưu tiên Astra Pro...", "INFO")
+
+        def _worker():
             try:
-                result = self.camera.probe_astra_connection(strict_identity=True)
-                if result.get("connected"):
-                    port = result.get("port")
-                    self._log_event(f"🟢 Astra Pro: ĐÃ KẾT NỐI (RGB port {port})", "SUCCESS")
-                else:
-                    self._log_event(f"🔴 Astra Pro: CHƯA KẾT NỐI - {result.get('message', 'unknown')}", "WARNING")
+                result = self.camera.auto_detect_and_start()
+                # Chuyển cập nhật UI về main thread
+                self.win.after(0, lambda r=result: self._on_auto_start_result(r))
             except Exception as e:
-                self._log_event(f"🔴 Astra Pro: kiểm tra khởi động thất bại - {e}", "ERROR")
+                self.win.after(0, lambda err=str(e): self._log_event(
+                    f"❌ [AutoStart] Lỗi dò camera: {err}", "ERROR"
+                ))
 
-        threading.Thread(target=_probe, daemon=True).start()
+        import threading as _th
+        _th.Thread(target=_worker, daemon=True).start()
+
+    def _on_auto_start_result(self, result):
+        """Nhận kết quả auto-detect camera và cập nhật UI trên main thread."""
+        if not result.get("success"):
+            self._log_event(
+                f"⚠️ [AutoStart] {result.get('message', 'Không tìm thấy camera')}",
+                "WARNING"
+            )
+            self._set_system_state(self.STATE_DEGRADED, "Không tìm thấy camera", level="WARNING")
+            return
+
+        mode = result.get("mode", "none")
+        port = result.get("port")
+        name = result.get("name", "")
+        message = result.get("message", "")
+
+        if mode == "astra":
+            # Cập nhật combo về Astra Pro
+            astra_val = next(
+                (v for v in self.cam_source_values if "Astra Pro" in v),
+                None
+            )
+            if astra_val:
+                try:
+                    self.cam_var.set(astra_val)
+                except Exception:
+                    pass
+
+            # Cập nhật combo cổng Astra nếu có
+            if port is not None and hasattr(self, "astra_color_var"):
+                port_label_map = {0: "Cổng 0", 1: "Cổng 1", 2: "Cổng 2"}
+                port_label = port_label_map.get(port)
+                if port_label:
+                    try:
+                        self.astra_color_var.set(
+                            next((v for v in getattr(self, "_astra_port_values", [])
+                                  if port_label in v), self.astra_color_var.get())
+                        )
+                    except Exception:
+                        pass
+
+            self.btn_cam.config(
+                text="⏹  Tắt Astra Pro",
+                bg=self.BTN_DANGER,
+                activebackground=self.BTN_DANGER_ACTIVE
+            )
+            self.lbl_cam_status.config(text=f"🟢  Astra Pro RGB (cổng {port})", fg="#059669")
+            self.combo.config(state="disabled")
+            self._log_event(f"🟢 [AutoStart] {message}", "SUCCESS")
+
+        else:  # webcam
+            # Cập nhật combo về đúng webcam index
+            webcam_val = self._cam_index_to_mode.get(port) if hasattr(self, "_cam_index_to_mode") else None
+            if webcam_val is None:
+                # Tìm entry đầu tiên không phải Astra/File trong combo
+                webcam_val = next(
+                    (v for v in self.cam_source_values
+                     if "Astra" not in v and "File" not in v),
+                    self.cam_source_values[0] if self.cam_source_values else ""
+                )
+            try:
+                self.cam_var.set(webcam_val)
+            except Exception:
+                pass
+
+            self.btn_cam.config(
+                text="⏹  Tắt Camera",
+                bg=self.BTN_DANGER,
+                activebackground=self.BTN_DANGER_ACTIVE
+            )
+            self.lbl_cam_status.config(text=f"🟢  Webcam (cổng {port})", fg="#059669")
+            self.combo.config(state="disabled")
+            self._log_event(f"🟢 [AutoStart] {message}", "SUCCESS")
+
+        # Cập nhật trạng thái hệ thống
+        if self.plc.connected:
+            self._set_system_state(self.STATE_RUNNING, "Camera + PLC sẵn sàng", level="SUCCESS")
+        else:
+            self._set_system_state(self.STATE_DEGRADED, "Camera chạy, PLC chưa kết nối", level="WARNING")
+
 
     def _start_camera(self):
         val = self.cam_var.get()
         success = False
+
+        # Khi hệ thống yêu cầu depth, không cho khởi chạy camera thường vì sẽ luôn Z=N/A.
+        require_depth = bool(getattr(self.camera, "require_depth_for_astra", False))
+        if require_depth and ("Astra Pro" not in str(val)):
+            self._log_event("⚠️ Đang bật chế độ bắt buộc depth: tự chuyển sang Astra Pro SDK (RGB)", "WARNING")
+            val = "Astra Pro SDK (RGB)"
+            try:
+                self.cam_var.set(val)
+            except Exception:
+                pass
         
         if "Astra Pro" in val:
             sel_mode = str(self.astra_color_var.get() or "")
@@ -3201,6 +3328,14 @@ class CameraWindow:
         try:
             self.analyzer.update_depth_context(depth_info)
             processed_frame, defect_area, ripeness, grade, detail_info = self.analyzer.analyze_apple(frame)
+            fx = detail_info.get("center_x", None)
+            fy = detail_info.get("center_y", None)
+            fw = detail_info.get("frame_width", frame.shape[1])
+            fh = detail_info.get("frame_height", frame.shape[0])
+            if fx is not None and fy is not None:
+                self.camera.set_depth_focus_point(fx, fy, fw, fh)
+            elif grade in ("NO_APPLE", "UNKNOWN"):
+                self.camera.clear_depth_focus_point()
             if self._vision_fault_count > 0:
                 self._vision_fault_count = 0
                 if self.camera.is_running():
@@ -3228,16 +3363,20 @@ class CameraWindow:
             
             if grade != "NO_APPLE" and grade != "UNKNOWN":
                 status_text += f" ({ripeness:.0f}% Đỏ)"
-                self._no_apple_counter = 0 # Reset bộ đếm khi thấy táo
-                
+                self._no_apple_counter = 0  # Reset bộ đếm khi thấy táo
+
                 if is_static:
                     # TRƯỜNG HỢP ẢNH TĨNH: Chốt luôn
                     if self._last_detected_grade == "NO_APPLE":
+                        self._log_event(f"🍎 [PHÁT HIỆN] Táo xác nhận (ảnh tĩnh) → Hạng {grade}", "SUCCESS")
                         self._log_event(f"🖼️ ẢNH TĨNH: Hạng {grade}", "INFO")
                         self._save_to_sql(grade)
                         self._last_static_processed = True # Đánh dấu đã xong
                 else:
                     # TRƯỜNG HỢP VIDEO: chỉ chụp khi có trigger cảm biến (PLC/Test)
+                    if self._last_detected_grade == "NO_APPLE" or self._last_detected_grade == "UNKNOWN":
+                        # Chỉ in ra console debug, không hiện lên bảng log UI để tránh rối
+                        print(f"[DEBUG] Táo xuất hiện — Hạng preview: {grade}")
                     if self._capture_session_active:
                         quality_score, sample_weight = self._compute_frame_quality_weight(detail_info)
                         self._video_session_buffer.append(grade)
@@ -3305,27 +3444,40 @@ class CameraWindow:
                                 self._finalize_video_session()
                     else:
                         status_text = f"⏳ Chờ trigger cảm biến | Preview: {grade}"
-                
-                self._last_detected_grade = grade
+
+
+                    self._last_detected_grade = grade
             else:
                 if not is_static:
                     if self._capture_session_active:
                         elapsed = time.time() - self._capture_session_start_ts
                         status_text = f"📸 Trigger {self._capture_session_source}: đang chờ táo ({elapsed:.1f}s)"
 
-                        # Timeout an toàn: có trigger nhưng chưa thấy táo thì hủy phiên
-                        if elapsed > self.capture_wait_timeout_s and len(self._video_session_buffer) == 0:
-                            self._capture_session_active = False
-                            self._video_session_buffer = []
-                            self._capture_sample_records = []
-                            self._last_detected_grade = "NO_APPLE"
-                            status_text = "⏳ Chờ trigger cảm biến tiếp theo..."
-                            self._log_event("⚠️ Hủy phiên chụp: quá thời gian chờ táo sau trigger", "WARNING")
+                        # Timeout khắt khe: có trigger nhưng sau 6s chưa đủ 10 mẫu
+                        if elapsed > self.capture_wait_timeout_s:
+                            if len(self._video_session_buffer) >= getattr(self, "decision_min_valid_frames", 6):
+                                # Đã có đủ số mẫu tối thiểu để phân tích -> chốt kết quả
+                                self._capture_session_active = False
+                                self._session_finalized = True
+                                self._last_detected_grade = "NO_APPLE"
+                                status_text = "⏳ Ép chốt kết quả do timeout (đủ frame tối thiểu)"
+                                self._log_event(f"⚠️ Ép chốt kết quả do timeout ({len(self._video_session_buffer)}/{self.capture_frames_required} frame)", "WARNING")
+                                if hasattr(self, "win") and self.win.winfo_exists():
+                                    self.win.after(0, self._finalize_video_session)
+                                else:
+                                    self._finalize_video_session()
+                            else:
+                                # Không đủ số mẫu tối thiểu -> Hủy và dọn phiên
+                                self._capture_session_active = False
+                                self._video_session_buffer = []
+                                self._capture_sample_records = []
+                                self._last_detected_grade = "NO_APPLE"
+                                status_text = "⏳ Chờ trigger cảm biến tiếp theo..."
+                                self._log_event(f"⚠️ Hủy phiên chụp do timeout (chỉ có {len(self._video_session_buffer)} frame)", "ERROR")
                     else:
                         status_text = "⏳ Chờ trigger cảm biến để bắt đầu chụp 10 mẫu"
 
 
-                    
         except Exception as e:
             self._vision_fault_count += 1
             now_ts = time.time()
@@ -3770,15 +3922,41 @@ class CameraWindow:
 
         sensor_on = self.plc.read_sensor_trigger()
         if sensor_on is not None:
+            prev = self._plc_sensor_prev  # Lưu trạng thái trước khi cập nhật
+
+            # Cập nhật label UI
             if hasattr(self, "lbl_sensor_status"):
                 self.lbl_sensor_status.config(
                     text=("🟢 Sensor: ON" if sensor_on else "⚪ Sensor: OFF"),
                     fg=("#16A34A" if sensor_on else "#64748B")
                 )
 
-            if sensor_on and not self._plc_sensor_prev:
+            # CẠNH LÊN: False → True — bật đèn LED sensor + trigger chụp
+            if sensor_on and not prev:
+                import time as _t
+                _ts = _t.strftime("%H:%M:%S", _t.localtime())
+                self._log_event(f"📡 [SENSOR] Cảm biến TRIGGER lúc {_ts} — bắt đầu chụp mẫu", "SUCCESS")
+                # Bật đèn ngay khi bit DB10.DBX0.3 = 1
+                self._set_led("_led_sensor", True)
                 self._start_capture_session("PLC")
+
+            # RE-TRIGGER: Sensor bị kẹt ON (táo kẹt trên băng tải)
+            elif sensor_on and prev and not self._capture_session_active:
+                # Nếu đã finalzie xong phiên trước, có thể trigger lại
+                if getattr(self, '_session_finalized', False):
+                    import time as _t
+                    _ts = _t.strftime("%H:%M:%S", _t.localtime())
+                    self._log_event(f"⚠️ [SENSOR] Re-trigger tự động lúc {_ts} (Táo bị kẹt)", "WARNING")
+                    self._session_finalized = False
+                    self._start_capture_session("PLC_RE-TRIGGER")
+
+            # CẠNH XUỐNG: True → False — tắt đèn LED sensor
+            elif not sensor_on and prev:
+                self._set_led("_led_sensor", False)
+
+            # Cập nhật trạng thái prev sau khi đã xử lý cạnh
             self._plc_sensor_prev = bool(sensor_on)
+
         else:
             plc_cycle_ok = False
 
@@ -3798,10 +3976,6 @@ class CameraWindow:
                     self._set_system_state(self.STATE_RUNNING, "PLC đã phục hồi", level="SUCCESS")
         else:
             self._plc_fault_count += 1
-            self._log_event(
-                f"⚠️ PLC polling lỗi ({self._plc_fault_count}/{self._plc_fault_threshold})",
-                "WARNING"
-            )
             if self._plc_fault_count >= self._plc_fault_threshold:
                 self._set_system_state(self.STATE_FAULT, "Mất giao tiếp PLC", level="ERROR")
                 self._cancel_active_capture_session("⚠️ Hủy phiên chụp do mất giao tiếp PLC")
@@ -3853,6 +4027,9 @@ class CameraWindow:
             # Giữ xung đủ dài để vòng poll bắt được cạnh lên, sau đó reset bit về 0.
             pulse_ms = max(300, int(getattr(self, "_plc_poll_ms", 200)) + 100)
 
+            # Bật đèn ngay khi bit DB10.DBX0.3 = 1; đèn tắt trong callback khi bit về 0
+            self._set_led("_led_sensor", True)
+
             def _reset_test_trigger_bit():
                 ok_off, msg_off = self.plc.write_db_bit(
                     self.plc.PLC_DB_NUMBER,
@@ -3864,6 +4041,8 @@ class CameraWindow:
                     self._log_event("🧪 Trigger TEST: DB10.DBX0.3 = 0", "INFO")
                     if hasattr(self, "lbl_sensor_status"):
                         self.lbl_sensor_status.config(text="⚪ Sensor: OFF", fg="#64748B")
+                    # Tắt đèn đúng lúc bit DB về 0
+                    self._set_led("_led_sensor", False)
                 else:
                     self._log_event(f"⚠️ Không reset được DB10.DBX0.3 về 0: {msg_off}", "WARNING")
 
@@ -3871,9 +4050,26 @@ class CameraWindow:
             return
 
         # Nếu chưa kết nối PLC: fallback mô phỏng nội bộ để test pipeline.
+        self._pulse_led("_led_sensor", 500)
         self._start_capture_session("TEST")
         if hasattr(self, "lbl_sensor_status"):
             self.lbl_sensor_status.config(text="🧪 Sensor Test: TRIGGERED (LOCAL)", fg="#7C3AED")
+
+    def _set_db_bit(self, db_number, byte, bit, value):
+        """Ghi bit liên tục theo trạng thái nhấn nhả (Mô phỏng nút nhấn vật lý)."""
+        if not getattr(self, "plc", None) or not self.plc.connected:
+            if value: # Chỉ báo lỗi khi nhấn xuống, không báo khi nhả ra
+                self._log_event(f"⚠️ Không thể gửi tín hiệu DB{db_number}.DBX{byte}.{bit} (Chưa kết nối PLC)", "WARNING")
+            return
+            
+        ok, msg = self.plc.write_db_bit(db_number, byte, bit, value)
+        if ok:
+            btn_name = {0: "START", 1: "STOP", 2: "RESET"}.get(bit, f"DBX{byte}.{bit}")
+            state_str = "ON (Nhấn)" if value else "OFF (Nhả)"
+            self._log_event(f"📤 Lệnh {btn_name} -> {state_str}", "INFO")
+        else:
+            self._log_event(f"❌ Lỗi ghi PLC: {msg}", "ERROR")
+
 
     def _send_db10_test_value(self, value):
         """Gửi lệnh test DB10 từ UI với 4 giá trị 1/2/3/0."""
@@ -3905,6 +4101,13 @@ class CameraWindow:
             self._log_event(f"✅ Test PLC thành công: {action_txt}", "SUCCESS")
             if hasattr(self, "lbl_db10_test_status"):
                 self.lbl_db10_test_status.config(text=f"🟢 {action_txt}", fg="#059669")
+            # Bật đèn ngay khi bit DB = 1; đèn sẽ tắt trong _reset_grade_bits_plc khi bit về 0
+            if value == 1:
+                self._set_led("_led_grade1", True)
+            elif value == 2:
+                self._set_led("_led_grade2", True)
+            elif value == 3:
+                self._set_led("_led_grade3", True)
             if value != 0:
                 # Tạo xung ngắn giống luồng gửi grade tự động.
                 self.win.after(500, self._reset_grade_bits_plc)
@@ -3922,18 +4125,50 @@ class CameraWindow:
         if self.system_state == self.STATE_FAULT:
             self._log_event("⛔ Chặn gửi grade do hệ thống đang FAULT", "ERROR")
             return
-            
+
         success, msg = self.plc.set_grade(grade)
         if success:
             print(f"[PLC] Sent grade signal: {grade}")
+            # Bật đèn ngay khi bit DB = 1; đèn tắt trong _reset_grade_bits_plc khi bit về 0
+            _grade_led_map = {
+                "Grade-1": "_led_grade1",
+                "Grade-2": "_led_grade2",
+                "Grade-3": "_led_grade3",
+            }
+            led_attr = _grade_led_map.get(grade)
+            if led_attr:
+                self._set_led(led_attr, True)
             self.win.after(500, self._reset_grade_bits_plc)
         else:
             self._log_event(f"❌ Lỗi gửi tín hiệu {grade} xuống PLC: {msg}", "ERROR")
 
     def _reset_grade_bits_plc(self):
-        """Reset các bit phân loại về False."""
+        """Reset các bit phân loại về False và tắt đèn LED grade."""
         if self.plc.connected:
             self.plc.reset_grades()
+        # Tắt tất cả đèn LED grade
+        for attr in ("_led_grade1", "_led_grade2", "_led_grade3"):
+            self._set_led(attr, False)
+
+    # ═══════════════════════════════════════════════════════
+    #  LED INDICATOR HELPERS
+    # ═══════════════════════════════════════════════════════
+
+    def _set_led(self, attr_name, state: bool):
+        """Bật (state=True) hoặc tắt (state=False) đèn LED indicator theo tên attribute."""
+        led_info = getattr(self, attr_name, None)
+        if led_info is None:
+            return
+        cv, circle_id, color_on = led_info
+        if state:
+            cv.itemconfig(circle_id, fill=color_on, outline=color_on)
+        else:
+            cv.itemconfig(circle_id, fill="#CBD5E1", outline="#94A3B8")
+
+    def _pulse_led(self, attr_name, duration_ms: int = 500):
+        """Bật đèn LED rồi tự động tắt sau duration_ms milliseconds."""
+        self._set_led(attr_name, True)
+        self.win.after(duration_ms, lambda: self._set_led(attr_name, False))
 
     # ═══════════════════════════════════════════════════════
     #  BỘ ĐẾM PHÂN LOẠI - DUPLICATE REMOVED

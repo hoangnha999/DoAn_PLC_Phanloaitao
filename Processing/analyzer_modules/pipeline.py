@@ -11,10 +11,7 @@ from Processing.analyzer_modules.tc3_shape import evaluate_shape as evaluate_sha
 
 def analyze_apple(analyzer, frame):
     """Luồng phân tích chính cho một khung hình táo."""
-    # Ép profile ngoài trời nếu cấu hình yêu cầu.
-    if analyzer.FORCE_ASTRA_PRO_OUTDOOR:
-        analyzer._apply_astra_pro_outdoor_profile()
-
+    # (Đã bỏ apply_astra_pro_outdoor_profile mỗi frame vì nó sẽ ghi đè thiết lập của người dùng)
     # Bắt đầu đo thời gian xử lý frame.
     t_start = time.perf_counter()
 
@@ -41,8 +38,21 @@ def analyze_apple(analyzer, frame):
         "status": blur_status,
     }
 
-    # Tách quả táo (gate bởi YOLO + mask màu).
-    apple_mask, main_contour, yolo_info = analyzer._segment_apple(frame)
+    # Áp CLAHE cân bằng sáng nếu được cấu hình bật.
+    # CLAHE chỉ thay đổi kênh độ sáng L trong LAB, giữ nguyên màu sắc.
+    clahe_applied = False
+    frame_for_seg = frame   # Frame đưa vào YOLO segmentation
+    frame_for_hsv = frame   # Frame dùng để tính màu HSV (TC1)
+    if getattr(analyzer, "ENABLE_CLAHE", False):
+        if getattr(analyzer, "CLAHE_APPLY_TO_YOLO", True):
+            frame_for_seg = analyzer.normalize_brightness(frame)
+            clahe_applied = True
+        if getattr(analyzer, "CLAHE_APPLY_TO_HSV", True):
+            frame_for_hsv = analyzer.normalize_brightness(frame)
+            clahe_applied = True
+
+    # Tách quả táo (gate bởi YOLO + mask màu), dùng frame đã CLAHE nếu được bật.
+    apple_mask, main_contour, yolo_info = analyzer._segment_apple(frame_for_seg)
 
     # Không thấy táo -> trả về no-apple với detail mặc định.
     if apple_mask is None or main_contour is None:
@@ -52,8 +62,8 @@ def analyze_apple(analyzer, frame):
     # Diện tích contour dùng cho các thống kê khác.
     apple_area = cv2.contourArea(main_contour)
 
-    # Làm trơn nhiễu rồi đổi HSV để tính tỉ lệ màu ổn định hơn.
-    blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+    # Làm trơn nhiễu rồi đổi HSV; dùng frame_for_hsv (có thể đã CLAHE) để tốt hơn khi sáng mạnh.
+    blurred = cv2.GaussianBlur(frame_for_hsv, (5, 5), 0)
     hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
     # TC1: tính các tỉ lệ đỏ/vàng/xanh.
@@ -156,6 +166,10 @@ def analyze_apple(analyzer, frame):
         "red_ratio": red_ratio,
         "yellow_ratio": yellow_ratio,
         "green_ratio": green_ratio,
+        "center_x": float(cx),
+        "center_y": float(cy),
+        "frame_width": int(frame.shape[1]),
+        "frame_height": int(frame.shape[0]),
         "red_ratio_raw": tc1["red_ratio_raw"],
         "yellow_ratio_raw": tc1["yellow_ratio_raw"],
         "green_ratio_raw": tc1["green_ratio_raw"],
@@ -188,6 +202,9 @@ def analyze_apple(analyzer, frame):
         "tc1_adaptive_hsv": bool(analyzer.TC1_ENABLE_ADAPTIVE_HSV),
         "tc1_temporal_smoothing": bool(analyzer.TC1_ENABLE_TEMPORAL_SMOOTHING),
         "tc1_smoothing_window": int(analyzer.TC1_SMOOTH_WINDOW),
+        "clahe_enabled": bool(getattr(analyzer, "ENABLE_CLAHE", False)),
+        "clahe_applied": bool(clahe_applied),
+        "clahe_clip_limit": float(getattr(analyzer, "CLAHE_CLIP_LIMIT", 2.0)),
     }
 
     # Output chuẩn của pipeline.

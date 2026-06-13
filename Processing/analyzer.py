@@ -4,6 +4,7 @@ from Processing.analyzer_modules.blur_ops import (
     detect_blur as detect_blur_mod,
     sharpen_image as sharpen_image_mod,
     advanced_deblur as advanced_deblur_mod,
+    normalize_brightness as normalize_brightness_mod,
 )
 from Processing.analyzer_modules.tc1_ripeness import (
     adaptive_lower_hsv as adaptive_lower_hsv_mod,
@@ -78,8 +79,8 @@ class FruitAnalyzer:
     PIXEL_TO_MM = 0.28
     DEPTH_REFERENCE_MM = 600.0
     ENABLE_DEPTH_SIZE_COMPENSATION = True
-    REQUIRE_DEPTH_FOR_SIZE_MEASUREMENT = True
-    SIZE_CALIBRATION_GAIN = 2.8
+    REQUIRE_DEPTH_FOR_SIZE_MEASUREMENT = False
+    SIZE_CALIBRATION_GAIN = 1.5
     DEPTH_SMOOTH_WINDOW = 9
     DEPTH_MAX_DELTA_MM = 35.0
     DEPTH_HOLD_FRAMES = 6
@@ -106,9 +107,22 @@ class FruitAnalyzer:
     # ─── ROI ─────────────────────────────────────────────────
     ROI_WIDTH_RATIO = 0.4
     ROI_HEIGHT_RATIO = 0.6
+    # Vùng phát hiện trung tâm (Detection Zone) – tỷ lệ so với frame.
+    # Tâm YOLO bbox phải nằm trong vùng này mới được xử lý phân tích.
+    DETECTION_ZONE_WIDTH_RATIO = 0.55   # Rộng 55% chiều ngang frame
+    DETECTION_ZONE_HEIGHT_RATIO = 0.70  # Cao 70% chiều dọc frame
+
+    # ─── CLAHE Brightness Normalization ─────────────────────
+    # Bật/tắt bước cân bằng sáng CLAHE trước khi đưa frame vào YOLO + HSV.
+    # Hiệu quả cao khi chụp ngoài trời (ánh sáng mạnh, overexpose).
+    ENABLE_CLAHE = True
+    CLAHE_CLIP_LIMIT = 2.0      # Ngưỡng contrast clip (1.0=nhẹ, 4.0=mạnh)
+    CLAHE_TILE_SIZE = 8         # Kích thước ô chia lưới CLAHE (pixel)
+    CLAHE_APPLY_TO_YOLO = True  # Áp dụng CLAHE cho frame đưa vào YOLO
+    CLAHE_APPLY_TO_HSV = True   # Áp dụng CLAHE cho frame tính màu HSV
 
     # ─── YOLO Detection ─────────────────────────────────────
-    YOLO_CONF_THRESH = 0.35
+    YOLO_CONF_THRESH = 0.45
     YOLO_PREDICT_CONF = 0.05
     YOLO_MIN_BBOX_AREA_RATIO = 0.007
     YOLO_MAX_BBOX_AREA_RATIO = 0.60
@@ -117,6 +131,11 @@ class FruitAnalyzer:
     YOLO_TRACKER_NAME = "bytetrack.yaml"
     YOLO_TRACK_PERSIST = True
     YOLO_ROI_SHRINK_RATIO = 0.08
+    FAR_DISTANCE_MM_THRESHOLD = 450.0
+    FAR_YOLO_CONF_SCALE = 0.72
+    FAR_YOLO_MIN_BBOX_AREA_SCALE = 0.30
+    FAR_MIN_APPLE_AREA_SCALE = 0.35
+    FAR_MIN_APPLE_COLOR_RATIO_SCALE = 0.60
 
     # Bật profile ngoài trời để override một số tham số nhạy sáng/depth.
     FORCE_ASTRA_PRO_OUTDOOR = True
@@ -127,14 +146,20 @@ class FruitAnalyzer:
         "pixel_to_mm": 0.28,
         "depth_reference_mm": 600.0,
         "enable_depth_size_compensation": True,
-        "require_depth_for_size_measurement": True,
-        "size_calibration_gain": 2.8,
+        "require_depth_for_size_measurement": False,
+        "size_calibration_gain": 1.5,
         "min_apple_area_ratio": 0.012,
-        "yolo_conf_thresh": 0.35,
+        "yolo_conf_thresh": 0.45,
         "yolo_min_bbox_area_ratio": 0.007,
         "yolo_max_bbox_area_ratio": 0.60,
         "yolo_min_apple_color_ratio": 0.02,
         "blur_threshold": 100.0,
+        # CLAHE: bật mạnh hơn khi ngoài trời (clip cao hơn môi trường trong nhà)
+        "enable_clahe": True,
+        "clahe_clip_limit": 2.5,
+        "clahe_tile_size": 8,
+        "clahe_apply_to_yolo": True,
+        "clahe_apply_to_hsv": True,
     }
 
     def __init__(self):
@@ -195,12 +220,24 @@ class FruitAnalyzer:
         Hiệu quả hơn với motion blur nhưng tốn thời gian hơn.
         
         Args:
-            frame: khung hình BGR bị blur
+            frame: khưng hình BGR bị blur
             
         Returns:
             deblurred: ảnh đã khử blur
         """
         return advanced_deblur_mod(frame)
+
+    def normalize_brightness(self, frame):
+        """Cân bằng ánh sáng bằng CLAHE trên kênh L (LAB) để xử lý overexpose ngoài trời.
+
+        Chỉ thay đổi kênh độ sáng L; giữ nguyên màu sắc (a, b) nên không nhầm lẫn HSV.
+        Gọi hàm này trước khi đưa frame vào YOLO hoặc tính màu HSV khi ENABLE_CLAHE=True.
+        """
+        return normalize_brightness_mod(
+            frame,
+            clip_limit=self.CLAHE_CLIP_LIMIT,
+            tile_size=self.CLAHE_TILE_SIZE,
+        )
 
     def _adaptive_lower_hsv(self, hsv, apple_mask, lower_ref):
         """
@@ -279,12 +316,20 @@ class FruitAnalyzer:
             yolo_tracker_name=self.YOLO_TRACKER_NAME,
             yolo_track_persist=self.YOLO_TRACK_PERSIST,
             yolo_roi_shrink_ratio=self.YOLO_ROI_SHRINK_RATIO,
+            current_depth_mm=self.current_depth_mm,
+            far_distance_mm_threshold=self.FAR_DISTANCE_MM_THRESHOLD,
+            far_yolo_conf_scale=self.FAR_YOLO_CONF_SCALE,
+            far_yolo_min_bbox_area_scale=self.FAR_YOLO_MIN_BBOX_AREA_SCALE,
+            far_min_apple_area_scale=self.FAR_MIN_APPLE_AREA_SCALE,
+            far_min_apple_color_ratio_scale=self.FAR_MIN_APPLE_COLOR_RATIO_SCALE,
             use_yolo=self.use_yolo,
             yolo_model=self.yolo_model,
             yolo_status=self.yolo_status,
             yolo_reason=self.yolo_reason,
             yolo_model_path=self.yolo_model_path,
             run_yolo_inference_cb=self._run_yolo_inference,
+            detection_zone_width_ratio=self.DETECTION_ZONE_WIDTH_RATIO,
+            detection_zone_height_ratio=self.DETECTION_ZONE_HEIGHT_RATIO,
         )
 
     # ═══════════════════════════════════════════════════════════

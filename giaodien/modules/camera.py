@@ -48,6 +48,8 @@ class CameraManager:
         self.depth_status = "depth not initialized"
         self.last_depth_error = ""
         self.require_depth_for_astra = False
+        self._depth_focus_norm = None
+        self._depth_none_count = 0  # Đếm số frame liên tiếp không có mẫu depth hợp lệ
 
         # Source metadata cho cơ chế auto-recover stream.
         self._source_mode = "none"          # none|camera|video_file|single_image|astra
@@ -94,66 +96,96 @@ class CameraManager:
             return []
 
     @staticmethod
-    def detect_available_cameras(max_test=5):
+    def detect_available_cameras(max_test=4):
         """
         Tự động quét và tìm tất cả camera có sẵn trên hệ thống.
-        
+
         Returns:
             list: Danh sách các index camera khả dụng [(index, name), ...]
         """
         available = []
 
-        # Ưu tiên pygrabber (DirectShow) để dò giống AForge/C# và lấy tên camera thật.
-        if PYGRABBER_AVAILABLE:
-            try:
-                graph = FilterGraph()
-                device_names = graph.get_input_devices() or []
-                for i, dshow_name in enumerate(device_names):
-                    if i >= int(max_test):
-                        break
-                    if CameraManager._is_virtual_camera_name(dshow_name):
-                        continue
+        # Tắt log OpenCV tạm thời để chặn warning/error spam khi probe.
+        try:
+            _prev_log = cv2.getLogLevel()
+            cv2.setLogLevel(0)  # LOG_LEVEL_SILENT
+        except Exception:
+            _prev_log = None
+
+        try:
+            # Ư u tiên pygrabber (DirectShow) để lấy tên camera thật.
+            if PYGRABBER_AVAILABLE:
+                try:
+                    graph = FilterGraph()
+                    device_names = graph.get_input_devices() or []
+                    for i, dshow_name in enumerate(device_names):
+                        if i >= int(max_test):
+                            break
+                        if CameraManager._is_virtual_camera_name(dshow_name):
+                            continue
+                        cap = None
+                        try:
+                            # Dùng MSMF để tránh FFMPEG/DSHOW warning.
+                            cap = cv2.VideoCapture(i, cv2.CAP_MSMF)
+                            if not cap.isOpened():
+                                cap.release()
+                                cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+                            if not cap.isOpened():
+                                continue
+                            ret, frame = cap.read()
+                            if ret and frame is not None:
+                                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                                name = f"{dshow_name} ({w}x{h})"
+                                available.append((i, name))
+                                print(f"[CAM] Tim thay (pygrabber): Cong {i} - {name}")
+                        except Exception as e:
+                            print(f"[CAM] Cong {i} error (pygrabber probe): {e}")
+                        finally:
+                            if cap:
+                                try:
+                                    cap.release()
+                                except Exception:
+                                    pass
+                except Exception as e:
+                    print(f"[CAM] pygrabber enumeration failed: {e}")
+
+            # Fallback OpenCV thuần (MSMF → không gây FFMPEG/DShow warning).
+            if not available:
+                for i in range(int(max_test)):
                     cap = None
                     try:
-                        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+                        cap = cv2.VideoCapture(i, cv2.CAP_MSMF)
                         if not cap.isOpened():
-                            continue
-                        ret, frame = cap.read()
-                        if ret and frame is not None:
-                            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                            name = f"{dshow_name} ({w}x{h})"
-                            available.append((i, name))
-                            print(f"[CAM] Tim thay (pygrabber): Cong {i} - {name}")
+                            try:
+                                cap.release()
+                            except Exception:
+                                pass
+                            cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+                        if cap.isOpened():
+                            ret, frame = cap.read()
+                            if ret and frame is not None:
+                                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                                name = f"Camera {i} ({w}x{h})"
+                                if not CameraManager._is_virtual_camera_name(name):
+                                    available.append((i, name))
+                                print(f"[CAM] Tim thay: {name}")
                     except Exception as e:
-                        print(f"[CAM] Cong {i} error (pygrabber probe): {e}")
+                        print(f"[CAM] Cong {i} error: {e}")
                     finally:
                         if cap:
-                            cap.release()
-            except Exception as e:
-                print(f"[CAM] pygrabber enumeration failed: {e}")
-
-        # Fallback OpenCV thuần khi pygrabber thiếu hoặc không dò được camera usable.
-        if not available:
-            for i in range(max_test):
-                cap = None
+                            try:
+                                cap.release()
+                            except Exception:
+                                pass
+        finally:
+            if _prev_log is not None:
                 try:
-                    cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-                    if cap.isOpened():
-                        ret, frame = cap.read()
-                        if ret and frame is not None:
-                            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                            name = f"Camera {i} ({w}x{h})"
-                            if not CameraManager._is_virtual_camera_name(name):
-                                available.append((i, name))
-                            print(f"[CAM] Tim thay: {name}")
-                except Exception as e:
-                    print(f"[CAM] Cong {i} error: {e}")
-                finally:
-                    if cap:
-                        cap.release()
-        
+                    cv2.setLogLevel(_prev_log)
+                except Exception:
+                    pass
+
         return available
 
     def probe_astra_connection(self, preferred_indices=None, strict_identity=True):
@@ -226,18 +258,14 @@ class CameraManager:
         }
 
     def _open_camera_with_backends(self, idx, prefer_external=False):
-        """Open camera index with backend fallback order; returns (cap, backend_code, backend_label)."""
-        # Ưu tiên backend ít cảnh báo hơn để tránh spam WARN DSHOW trên Windows.
+        """Open camera index with backend fallback order; returns (cap, backend_code, backend_label).
+        Dùng MSMF làm primary → tránh FFMPEG/DShow warning và obsensor error.
+        Không dùng CAP_ANY để OpenCV không tự động thử obsensor backend gây out-of-range error.
+        """
         backend_order = [
             (cv2.CAP_MSMF, "Media Foundation"),
-            (cv2.CAP_ANY, "Auto"),
+            (cv2.CAP_DSHOW, "DirectShow"),
         ]
-        # Với môi trường hiện tại, bỏ DSHOW để tránh exception/warning liên tục khi probe index.
-        if prefer_external:
-            backend_order = [
-                (cv2.CAP_MSMF, "Media Foundation"),
-                (cv2.CAP_ANY, "Auto"),
-            ]
 
         for backend_code, backend_label in backend_order:
             cap = None
@@ -247,14 +275,14 @@ class CameraManager:
                     return cap, backend_code, backend_label
             except Exception:
                 pass
+            finally:
+                try:
+                    if cap is not None and not cap.isOpened():
+                        cap.release()
+                except Exception:
+                    pass
 
-            try:
-                if cap is not None:
-                    cap.release()
-            except Exception:
-                pass
-
-        return None, cv2.CAP_ANY, "none"
+        return None, cv2.CAP_MSMF, "none"
 
     def _log(self, msg):
         if self.on_log_callback:
@@ -263,6 +291,25 @@ class CameraManager:
     def _error(self, msg):
         if self.on_error_callback:
             self.on_error_callback(msg)
+
+    def set_depth_focus_point(self, x, y, frame_w, frame_h):
+        """Cập nhật điểm focus depth theo toạ độ tâm táo trên khung RGB hiện tại."""
+        try:
+            fw = float(frame_w)
+            fh = float(frame_h)
+            if fw <= 1.0 or fh <= 1.0:
+                return
+            nx = float(x) / fw
+            ny = float(y) / fh
+            nx = float(np.clip(nx, 0.0, 1.0))
+            ny = float(np.clip(ny, 0.0, 1.0))
+            self._depth_focus_norm = (nx, ny)
+        except Exception:
+            pass
+
+    def clear_depth_focus_point(self):
+        """Xoá focus depth hiện tại khi không còn đối tượng cần đo."""
+        self._depth_focus_norm = None
 
     def is_running(self):
         return self._cam_running
@@ -491,7 +538,144 @@ class CameraManager:
         except Exception as e:
             self._error(f"Lỗi khởi động Astra Pro: {e}")
             return False
-            
+
+    def auto_detect_and_start(self):
+        """
+        Dò toàn bộ camera, ưu tiên Astra Pro.
+        - Nếu pygrabber enum được tên: dùng tên xác thực chính xác.
+        - Nếu pygrabber thất bại: vẫn thử start_astra_camera() – nó tự dò cổng 1→2→0.
+        - Fallback: webcam thường đầu tiên khả dụng.
+        Returns dict: {'success', 'mode', 'port', 'name', 'message'}
+        """
+        self._log("🔍 [AutoDetect] Đang dò camera, ưu tiên Astra Pro...")
+
+        # Tắt log OpenCV trong suốt quá trình dò – chặn warning FFMPEG + obsensor error.
+        try:
+            _prev_log = cv2.getLogLevel()
+            cv2.setLogLevel(0)
+        except Exception:
+            _prev_log = None
+
+        def _restore_log():
+            if _prev_log is not None:
+                try:
+                    cv2.setLogLevel(_prev_log)
+                except Exception:
+                    pass
+
+        try:
+            # ── Bước 1: Dò Astra theo tên DirectShow (pygrabber) ──────────────
+            dshow_names = self._enumerate_dshow_device_names()
+            astra_indices = []
+            webcam_indices = []
+
+            for idx, dev_name in enumerate(dshow_names):
+                if self._is_virtual_camera_name(dev_name):
+                    continue
+                if self._is_astra_camera_name(dev_name):
+                    astra_indices.append((idx, dev_name))
+                else:
+                    webcam_indices.append((idx, dev_name))
+
+            # ── Bước 2a: Có tên Astra → thử theo tên xác thực ───────────────
+            if astra_indices:
+                self._log(f"✅ [AutoDetect] Tìm thấy Astra/Orbbec: {[n for _, n in astra_indices]}")
+                preferred = [1, 2, 0]
+                ordered = (
+                    [p for p in astra_indices if p[0] in preferred]
+                    + [p for p in astra_indices if p[0] not in preferred]
+                )
+                for astra_idx, astra_name in ordered:
+                    self._log(f"🔌 [AutoDetect] Thử Astra cổng {astra_idx} ({astra_name})...")
+                    ok = self.start_astra_camera(color_idx=astra_idx)
+                    if ok:
+                        port = int(getattr(self, "_source_index", astra_idx) or astra_idx)
+                        self._log(f"🟢 [AutoDetect] Astra Pro kết nối thành công: cổng {port}")
+                        _restore_log()
+                        return {
+                            "success": True,
+                            "mode": "astra",
+                            "port": port,
+                            "name": astra_name,
+                            "message": f"Astra Pro RGB: {astra_name} (cổng {port})",
+                        }
+                self._log("⚠️ [AutoDetect] Tìm thấy Astra nhưng không mở được → fallback webcam")
+
+            else:
+                # ── Bước 2b: Không có tên (pygrabber thất bại) → vẫn thử Astra ──────
+                # start_astra_camera(None) tự thử cổng 1→2→0 khi không có dshow_names.
+                self._log("ℹ️ [AutoDetect] pygrabber không được – thử nhận Astra theo thứ tự 1→2→0...")
+                ok = self.start_astra_camera(color_idx=None)
+                if ok:
+                    port = int(getattr(self, "_source_index", 1) or 1)
+                    self._log(f"🟢 [AutoDetect] Astra Pro kết nối (blind): cổng {port}")
+                    _restore_log()
+                    return {
+                        "success": True,
+                        "mode": "astra",
+                        "port": port,
+                        "name": f"Astra Pro (cổng {port})",
+                        "message": f"Astra Pro RGB: cổng {port} (blind detect)",
+                    }
+                self._log("ℹ️ [AutoDetect] Không có Astra, chuyển sang webcam...")
+
+            # ── Bước 3: Fallback webcam thường ───────────────────────────────
+            candidates = list(webcam_indices)  # đã có tên từ pygrabber
+            if not candidates:
+                # Pygrabber không có → quét thủ công với MSMF (không gây FFMPEG warning).
+                for i in range(4):  # chỉ 0–3, tránh obsensor error khi vượt số camera thực
+                    cap = None
+                    try:
+                        cap = cv2.VideoCapture(i, cv2.CAP_MSMF)
+                        if cap.isOpened():
+                            ret, _ = cap.read()
+                            if ret:
+                                candidates.append((i, f"Camera {i}"))
+                    except Exception:
+                        pass
+                    finally:
+                        if cap:
+                            try:
+                                cap.release()
+                            except Exception:
+                                pass
+
+            for cam_idx, cam_name in candidates:
+                self._log(f"🔌 [AutoDetect] Thử webcam cổng {cam_idx} ({cam_name})...")
+                ok = self.start_cv2_camera(cam_idx)
+                if ok:
+                    self._log(f"🟢 [AutoDetect] Webcam kết nối: cổng {cam_idx}")
+                    _restore_log()
+                    return {
+                        "success": True,
+                        "mode": "webcam",
+                        "port": cam_idx,
+                        "name": cam_name,
+                        "message": f"Webcam: {cam_name} (cổng {cam_idx})",
+                    }
+
+            _restore_log()
+            self._log("❌ [AutoDetect] Không tìm thấy camera nào khả dụng")
+            return {
+                "success": False,
+                "mode": "none",
+                "port": None,
+                "name": "",
+                "message": "Không tìm thấy camera nào (Astra hoặc webcam)",
+            }
+
+        except Exception as exc:
+            _restore_log()
+            self._log(f"❌ [AutoDetect] Lỗi ngoại lệ: {exc}")
+            return {
+                "success": False,
+                "mode": "none",
+                "port": None,
+                "name": "",
+                "message": f"Lỗi dò camera: {exc}",
+            }
+
+
     def stop(self):
         self._cam_running = False
 
@@ -699,6 +883,19 @@ class CameraManager:
 
             dev = openni2.Device.open_any()
             depth_stream = dev.create_depth_stream()
+
+            # Set video mode mặc định để tránh buffer toàn 0 do lỗi config từ thiết bị
+            try:
+                from openni import openni2 as oni
+                video_mode = oni.VideoMode()
+                video_mode.fps = 30
+                video_mode.resolutionX = 640
+                video_mode.resolutionY = 480
+                video_mode.pixelFormat = oni.PIXEL_FORMAT_DEPTH_1_MM
+                depth_stream.set_video_mode(video_mode)
+            except Exception as e:
+                self._log(f"[CAM] Không thể set VideoMode, thử chạy default: {e}")
+
             depth_stream.start()
 
             # Probe 1 frame depth để chắc stream usable.
@@ -727,7 +924,7 @@ class CameraManager:
             return False
 
     def _read_depth_distance_mm(self):
-        """Đọc khoảng cách Z tại tâm ảnh từ depth map, trả về đơn vị mm hoặc None."""
+        """Đọc khoảng cách Z tại vùng focus (tâm táo) từ depth map, trả về mm hoặc None."""
         if self.depth_mode == "openni2_python":
             with self._cap_lock:
                 dstream = self._oni_depth_stream
@@ -740,9 +937,15 @@ class CameraManager:
                 w = int(frm.width)
                 h = int(frm.height)
                 data = frm.get_buffer_as_uint16()
-                depth_map = np.frombuffer(data, dtype=np.uint16).reshape((h, w))
-            except Exception:
-                return None
+                try:
+                    # Chuẩn nhất cho CTypes array của openni2
+                    depth_map = np.ndarray((h, w), dtype=np.uint16, buffer=data).copy()
+                except Exception:
+                    # Fallback
+                    depth_map = np.ctypeslib.as_array(data).reshape((h, w))
+            except Exception as e:
+                self._log(f"[CAM] Lỗi decode depth map: {e}")
+                return -1.0
         else:
             with self._cap_lock:
                 dcap = self.depth_cap
@@ -760,13 +963,19 @@ class CameraManager:
                     ok, depth_map = dcap.retrieve(cv2.CAP_OPENNI_DEPTH_MAP)
 
                 if not ok or depth_map is None:
-                    return None
+                    return -4.0
                 h, w = depth_map.shape[:2]
-            except Exception:
-                return None
+            except Exception as e:
+                self._log(f"[CAM] Lỗi retrieve OpenCV depth: {e}")
+                return -5.0
 
         try:
-            cx, cy = w // 2, h // 2
+            if isinstance(self._depth_focus_norm, tuple) and len(self._depth_focus_norm) == 2:
+                nx, ny = self._depth_focus_norm
+                cx = int(np.clip(round(float(nx) * (w - 1)), 0, w - 1))
+                cy = int(np.clip(round(float(ny) * (h - 1)), 0, h - 1))
+            else:
+                cx, cy = w // 2, h // 2
 
             # Một số frame depth có lỗ ở tâm; mở rộng ROI theo nhiều mức để giảm N/A giả.
             for half_win in (4, 10, 20, 35):
@@ -783,14 +992,28 @@ class CameraManager:
 
                 return float(np.median(valid))
 
-            # Không có mẫu hợp lệ ở tâm: nếu đã từng đo được thì giữ giá trị gần nhất.
-            if self.last_depth_distance_mm is not None:
-                return float(self.last_depth_distance_mm)
-            return None
-        except Exception:
-            if self.last_depth_distance_mm is not None:
-                return float(self.last_depth_distance_mm)
-            return None
+            # Fallback khi vùng focus bị lỗ depth: lấy percentile gần nhất ở vùng giữa ảnh.
+            x1 = max(0, int(w * 0.20))
+            x2 = min(w, int(w * 0.80))
+            y1 = max(0, int(h * 0.20))
+            y2 = min(h, int(h * 0.85))
+            roi_mid = depth_map[y1:y2, x1:x2]
+            if roi_mid.size > 0:
+                valid_mid = roi_mid[(roi_mid > 80) & (roi_mid < 10000)]
+                if valid_mid.size > 32:
+                    return float(np.percentile(valid_mid, 20))
+
+            # Fallback cuối: quét toàn bộ ảnh nếu vùng giữa bị che khuất / nhiễu
+            valid_all = depth_map[(depth_map > 80) & (depth_map < 10000)]
+            if valid_all.size > 0:
+                return float(np.median(valid_all))
+
+            # Không có mẫu hợp lệ → trả None để stream_loop tự quản lý giá trị cũ.
+            # KHÔNG fallback sang last_depth_distance_mm vì sẽ tạo vòng lặp đóng băng Z.
+            return -2.0
+        except Exception as e:
+            self._log(f"[CAM] Lỗi tính median Z: {e}")
+            return -3.0
 
     def _read_depth_distance_m(self):
         """Giữ tương thích ngược: trả về mét dựa trên giá trị mm."""
@@ -950,6 +1173,8 @@ class CameraManager:
                 if self.is_astra_mode:
                     z_mm = self._read_depth_distance_mm() if self.depth_available else None
                     if z_mm is not None:
+                        # Có mẫu mới hợp lệ: reset stale counter, cập nhật giá trị
+                        self._depth_none_count = 0
                         self.last_depth_distance_mm = float(z_mm)
                         self.last_depth_distance_m = float(z_mm) / 1000.0
                         depth_info["z_distance_mm"] = self.last_depth_distance_mm
@@ -957,7 +1182,15 @@ class CameraManager:
                         if self.depth_available:
                             depth_info["depth_status"] = f"{self.depth_status} | sample ok"
                     elif self.depth_available:
-                        depth_info["depth_status"] = f"{self.depth_status} | no valid sample"
+                        # Không có mẫu hợp lệ: đếm stale frames
+                        self._depth_none_count += 1
+                        # Sau ~2 giây (~60 frame) liên tục không có mẫu → xóa giá trị cũ
+                        if self._depth_none_count > 60:
+                            self.last_depth_distance_mm = None
+                            self.last_depth_distance_m = None
+                            depth_info["z_distance_mm"] = None
+                            depth_info["z_distance_m"] = None
+                        depth_info["depth_status"] = f"{self.depth_status} | no valid sample ({self._depth_none_count}f)"
 
                 if self.on_frame_callback and self._cam_running:
                     try:

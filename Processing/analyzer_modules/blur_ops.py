@@ -56,3 +56,46 @@ def advanced_deblur(frame):
     hsv[:, :, 2] = deblurred_gray
     # Chuyển lại BGR để tương thích toàn bộ pipeline hiện tại.
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+
+def normalize_brightness(frame, clip_limit=2.0, tile_size=8):
+    """Cân bằng ánh sáng bằng CLAHE trên kênh L của không gian màu LAB.
+
+    Giải quyết vấn đề overexpose khi chụp táo ngoài trời ánh sáng mạnh:
+    - Chuyển BGR → LAB để tách biệt kênh độ sáng L khỏi màu sắc (a, b).
+    - Áp CLAHE lên kênh L để cân bằng histogram cục bộ từng vùng nhỏ.
+    - Ghép lại và chuyển về BGR: màu sắc (a, b) KHÔNG bị thay đổi.
+
+    Không dùng histogram equalization toàn cục vì dễ làm bão hòa màu giả.
+
+    Args:
+        frame:       Khung hình BGR đầu vào.
+        clip_limit:  Ngưỡng cắt contrast cho CLAHE (1.0 = nhẹ, 4.0 = mạnh).
+                     Giá trị cao hơn tăng độ tương phản nhưng có thể gây nhiễu.
+        tile_size:   Kích thước ô lưới CLAHE tính bằng pixel (mặc định 8×8).
+                     Ô nhỏ hơn → cân bằng cục bộ chi tiết hơn.
+
+    Returns:
+        frame_eq:    Khung hình BGR đã cân bằng sáng, cùng kích thước và dtype.
+    """
+    if frame is None:
+        return frame
+    try:
+        # Chuyển không gian màu: BGR → LAB để thao tác riêng kênh độ sáng L.
+        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+        l_ch, a_ch, b_ch = cv2.split(lab)
+
+        # Khởi tạo CLAHE với tham số cấu hình; tileGridSize phải là tuple int.
+        tile = max(2, int(tile_size))
+        clahe = cv2.createCLAHE(clipLimit=float(clip_limit), tileGridSize=(tile, tile))
+
+        # Áp CLAHE chỉ lên kênh sáng L; a, b (màu sắc) giữ nguyên.
+        l_eq = clahe.apply(l_ch)
+
+        # Ghép lại và chuyển về BGR.
+        lab_eq = cv2.merge([l_eq, a_ch, b_ch])
+        return cv2.cvtColor(lab_eq, cv2.COLOR_LAB2BGR)
+    except Exception:
+        # Fallback an toàn: trả về frame gốc nếu CLAHE gặp lỗi bất ngờ.
+        return frame
+

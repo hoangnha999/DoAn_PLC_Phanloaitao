@@ -318,26 +318,14 @@ class PLCManager:
         if not self.connected:
             return False, "Chưa kết nối PLC"
         try:
-            # Đọc byte trạng thái grade hiện tại.
-            data = self.client.read_area(
-                self._s7t.Areas.DB,
-                self.PLC_DB_NUMBER,
-                self.PLC_GRADE_BYTE,
-                1,
-            )
-            # Tắt bit grade1.
-            self._snap7_lib.util.set_bool(data, 0, self.PLC_BIT_GRADE1, False)
-            # Tắt bit grade2.
-            self._snap7_lib.util.set_bool(data, 0, self.PLC_BIT_GRADE2, False)
-            # Tắt bit grade3.
-            self._snap7_lib.util.set_bool(data, 0, self.PLC_BIT_GRADE3, False)
-            # Ghi lại byte đã reset về PLC.
-            self.client.write_area(
-                self._s7t.Areas.DB,
-                self.PLC_DB_NUMBER,
-                self.PLC_GRADE_BYTE,
-                data,
-            )
-            return self._verify_grade_bits((False, False, False))
+            # SỬA LỖI RACE CONDITION: Ghi riêng từng bit, không đọc/ghi cả byte 
+            # để tránh đè lên trạng thái cảm biến (DB10.DBX0.3) đang thay đổi.
+            ok1, _ = self.write_db_bit(self.PLC_DB_NUMBER, self.PLC_GRADE_BYTE, self.PLC_BIT_GRADE1, False)
+            ok2, _ = self.write_db_bit(self.PLC_DB_NUMBER, self.PLC_GRADE_BYTE, self.PLC_BIT_GRADE2, False)
+            ok3, _ = self.write_db_bit(self.PLC_DB_NUMBER, self.PLC_GRADE_BYTE, self.PLC_BIT_GRADE3, False)
+            
+            if ok1 and ok2 and ok3:
+                return self._verify_grade_bits((False, False, False))
+            return False, "Có lỗi khi ghi reset_grades"
         except Exception as e:
             return False, f"Lỗi đọc/ghi khi reset: {e}"

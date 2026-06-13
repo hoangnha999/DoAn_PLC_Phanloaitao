@@ -40,6 +40,12 @@ def apply_astra_pro_outdoor_profile(analyzer):
         p.get("yolo_min_apple_color_ratio", analyzer.YOLO_MIN_APPLE_COLOR_RATIO)
     )
     analyzer.blur_threshold = float(p["blur_threshold"])
+    # Nạp CLAHE từ profile ngoài trời (clip thường cao hơn trong nhà).
+    analyzer.ENABLE_CLAHE = bool(p.get("enable_clahe", analyzer.ENABLE_CLAHE))
+    analyzer.CLAHE_CLIP_LIMIT = float(p.get("clahe_clip_limit", analyzer.CLAHE_CLIP_LIMIT))
+    analyzer.CLAHE_TILE_SIZE = int(p.get("clahe_tile_size", analyzer.CLAHE_TILE_SIZE))
+    analyzer.CLAHE_APPLY_TO_YOLO = bool(p.get("clahe_apply_to_yolo", analyzer.CLAHE_APPLY_TO_YOLO))
+    analyzer.CLAHE_APPLY_TO_HSV = bool(p.get("clahe_apply_to_hsv", analyzer.CLAHE_APPLY_TO_HSV))
 
 
 def initialize_analyzer_state(analyzer):
@@ -128,6 +134,16 @@ def initialize_analyzer_state(analyzer):
     analyzer.auto_sharpen = bool(blur_cfg.get("auto_sharpen", True))
     analyzer.sharpen_strength = float(blur_cfg.get("sharpen_strength", 1.5))
 
+    # Nạp cấu hình CLAHE cân bằng sáng ngoài trời.
+    clahe_cfg = analyzer_cfg.get("clahe", {})
+    analyzer.ENABLE_CLAHE = bool(clahe_cfg.get("enable", analyzer.ENABLE_CLAHE))
+    analyzer.CLAHE_CLIP_LIMIT = float(clahe_cfg.get("clip_limit", analyzer.CLAHE_CLIP_LIMIT))
+    analyzer.CLAHE_TILE_SIZE = int(clahe_cfg.get("tile_size", analyzer.CLAHE_TILE_SIZE))
+    analyzer.CLAHE_APPLY_TO_YOLO = bool(clahe_cfg.get("apply_to_yolo", analyzer.CLAHE_APPLY_TO_YOLO))
+    analyzer.CLAHE_APPLY_TO_HSV = bool(clahe_cfg.get("apply_to_hsv", analyzer.CLAHE_APPLY_TO_HSV))
+    analyzer.CLAHE_TILE_SIZE = max(2, min(32, analyzer.CLAHE_TILE_SIZE))
+    analyzer.CLAHE_CLIP_LIMIT = max(0.5, min(8.0, analyzer.CLAHE_CLIP_LIMIT))
+
     # Nếu bật profile ngoài trời, dùng profile để override các giá trị liên quan.
     if analyzer.FORCE_ASTRA_PRO_OUTDOOR:
         apply_astra_pro_outdoor_profile(analyzer)
@@ -179,6 +195,12 @@ def initialize_analyzer_state(analyzer):
         f"[ANALYZER]    TC1 Temporal Smoothing: "
         f"{'ON' if analyzer.TC1_ENABLE_TEMPORAL_SMOOTHING else 'OFF'} "
         f"(window={analyzer.TC1_SMOOTH_WINDOW})"
+    )
+    clahe_status = "ON" if analyzer.ENABLE_CLAHE else "OFF"
+    print(
+        f"[ANALYZER]    CLAHE Brightness Normalization: {clahe_status} "
+        f"(clip={analyzer.CLAHE_CLIP_LIMIT}, tile={analyzer.CLAHE_TILE_SIZE}x{analyzer.CLAHE_TILE_SIZE}, "
+        f"yolo={analyzer.CLAHE_APPLY_TO_YOLO}, hsv={analyzer.CLAHE_APPLY_TO_HSV})"
     )
     print("[ANALYZER] Performance Monitoring: ENABLED (FPS + Processing Time)")
     print("[ANALYZER] Defect analysis: ENABLED (dark-threshold fallback)")

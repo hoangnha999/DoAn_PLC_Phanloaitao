@@ -27,14 +27,27 @@ def segment_apple(
     yolo_tracker_name,
     yolo_track_persist,
     yolo_roi_shrink_ratio,
+    current_depth_mm,
+    far_distance_mm_threshold,
+    far_yolo_conf_scale,
+    far_yolo_min_bbox_area_scale,
+    far_min_apple_area_scale,
+    far_min_apple_color_ratio_scale,
     use_yolo,
     yolo_model,
     yolo_status,
     yolo_reason,
     yolo_model_path,
     run_yolo_inference_cb,
+    detection_zone_width_ratio=0.55,
+    detection_zone_height_ratio=0.70,
 ):
-    """Phân đoạn lai (hybrid) với điều kiện bắt buộc qua cổng YOLO."""
+    """Phân đoạn lai (hybrid) với điều kiện bắt buộc qua cổng YOLO.
+
+    detection_zone_width_ratio / detection_zone_height_ratio:
+        Tỉ lệ so với kích thước frame để tạo vùng phát hiện trung tâm.
+        Chỉ YOLO bbox có tâm nằm trong vùng này mới được xử lý tiếp.
+    """
 
     def _fallback_from_yolo_bbox():
         """Fallback segmentation dựa trên bbox YOLO, bền hơn khi nền có con lăn đen."""
@@ -84,7 +97,7 @@ def segment_apple(
                 return None, None
 
             best = max(cnts, key=cv2.contourArea)
-            if cv2.contourArea(best) < min_area * 0.45:
+            if cv2.contourArea(best) < effective_min_area * 0.45:
                 return None, None
 
             fallback_mask = np.zeros((h, w), dtype=np.uint8)
@@ -96,6 +109,38 @@ def segment_apple(
     # Kích thước frame và ngưỡng diện tích contour tối thiểu.
     h, w = frame.shape[:2]
     min_area = h * w * float(min_apple_area_ratio)
+
+    # ─── Vùng phát hiện trung tâm (Detection Zone) ────────────────────────
+    # Chỉ YOLO bbox có TÂM nằm trong vùng hình chữ nhật này mới được chấp nhận.
+    dz_w = int(w * float(np.clip(detection_zone_width_ratio, 0.1, 1.0)))
+    dz_h = int(h * float(np.clip(detection_zone_height_ratio, 0.1, 1.0)))
+    dz_x1 = (w - dz_w) // 2
+    dz_y1 = (h - dz_h) // 2
+    dz_x2 = dz_x1 + dz_w
+    dz_y2 = dz_y1 + dz_h
+
+    # Nới ngưỡng khi táo ở xa để tránh rớt detect do vật thể biểu kiến quá nhỏ.
+    is_far_distance = False
+    try:
+        if current_depth_mm is not None and float(current_depth_mm) >= float(far_distance_mm_threshold):
+            is_far_distance = True
+    except Exception:
+        is_far_distance = False
+
+    effective_min_area = float(min_area)
+    effective_yolo_conf_thresh = float(yolo_conf_thresh)
+    effective_yolo_min_bbox_area_ratio = float(yolo_min_bbox_area_ratio)
+    effective_yolo_min_apple_color_ratio = float(yolo_min_apple_color_ratio)
+    if is_far_distance:
+        effective_min_area = float(min_area) * float(np.clip(far_min_apple_area_scale, 0.15, 1.0))
+        effective_yolo_conf_thresh = max(0.15, float(yolo_conf_thresh) * float(np.clip(far_yolo_conf_scale, 0.40, 1.0)))
+        effective_yolo_min_bbox_area_ratio = float(yolo_min_bbox_area_ratio) * float(
+            np.clip(far_yolo_min_bbox_area_scale, 0.15, 1.0)
+        )
+        effective_yolo_min_apple_color_ratio = max(
+            0.004,
+            float(yolo_min_apple_color_ratio) * float(np.clip(far_min_apple_color_ratio_scale, 0.30, 1.0)),
+        )
 
     # yolo_mask là ROI sau khi chọn bbox tốt nhất từ YOLO.
     yolo_mask = None
@@ -116,7 +161,13 @@ def segment_apple(
         "model_path": yolo_model_path,
         "tracker_mode": "predict",
         "tracker_name": yolo_tracker_name,
-        "gate_conf_thresh": float(yolo_conf_thresh),
+        "gate_conf_thresh": float(effective_yolo_conf_thresh),
+        "gate_min_bbox_area_ratio": float(effective_yolo_min_bbox_area_ratio),
+        "gate_min_apple_color_ratio": float(effective_yolo_min_apple_color_ratio),
+        "depth_mm": float(current_depth_mm) if current_depth_mm is not None else None,
+        "far_distance_mode": bool(is_far_distance),
+        # Vùng phát hiện trung tâm (để visualization vẽ lên frame)
+        "detection_zone": (dz_x1, dz_y1, dz_x2, dz_y2),
     }
 
     # Khối gate YOLO: tìm bbox táo hợp lệ trước khi segmentation chi tiết.
@@ -143,7 +194,7 @@ def segment_apple(
             yolo_info["box_count"] = len(boxes)
             names_map = results.names if hasattr(results, "names") and isinstance(results.names, dict) else {}
             single_class_model = len(names_map) == 1 and len(boxes) > 0
-            min_bbox_area = h * w * float(yolo_min_bbox_area_ratio)
+            min_bbox_area = h * w * float(effective_yolo_min_bbox_area_ratio)
             max_bbox_area = h * w * float(np.clip(float(yolo_max_bbox_area_ratio), 0.05, 1.0))
 
             # Duyệt từng bbox để lọc theo class, diện tích và confidence.
@@ -221,9 +272,19 @@ def segment_apple(
             yolo_info["active_tracks"] = sum(1 for c in yolo_info["candidates"] if c.get("track_id") is not None)
 
             # Gate pass khi có bbox hợp lệ và confidence đạt ngưỡng.
-            if best_box is not None and best_conf >= float(yolo_conf_thresh):
+            if best_box is not None and best_conf >= float(effective_yolo_conf_thresh):
                 xyxy = best_box.xyxy[0].cpu().numpy().astype(int)
                 bx1, by1, bx2, by2 = xyxy
+
+                # ─── Kiểm tra tâm bbox có nằm trong Detection Zone ────────
+                bbox_cx = (int(bx1) + int(bx2)) // 2
+                bbox_cy = (int(by1) + int(by2)) // 2
+                if not (dz_x1 <= bbox_cx <= dz_x2 and dz_y1 <= bbox_cy <= dz_y2):
+                    yolo_info["reason"] = (
+                        f"yolo gate blocked: center ({bbox_cx},{bbox_cy}) "
+                        f"outside detection zone ({dz_x1},{dz_y1})-({dz_x2},{dz_y2})"
+                    )
+                    return None, None, yolo_info
 
                 # Gate theo tỉ lệ màu táo trong bbox để chặn false-positive nền/tường.
                 x1 = int(np.clip(bx1, 0, w - 1))
@@ -244,10 +305,10 @@ def segment_apple(
                     roi_apple = cv2.bitwise_or(roi_r1, cv2.bitwise_or(roi_r2, roi_y))
                     color_ratio = float(cv2.countNonZero(roi_apple)) / float(roi_apple.size)
                     yolo_info["apple_color_ratio"] = float(color_ratio)
-                    if color_ratio < float(yolo_min_apple_color_ratio):
+                    if color_ratio < float(effective_yolo_min_apple_color_ratio):
                         yolo_info["reason"] = (
                             f"yolo gate blocked: apple-color ratio {color_ratio:.4f} "
-                            f"< {float(yolo_min_apple_color_ratio):.4f}"
+                            f"< {float(effective_yolo_min_apple_color_ratio):.4f}"
                         )
                         return None, None, yolo_info
 
@@ -283,7 +344,9 @@ def segment_apple(
                 if best_box is None and reject_reason:
                     yolo_info["reason"] = f"yolo gate blocked: {reject_reason}"
                 elif best_box is not None:
-                    yolo_info["reason"] = f"yolo gate blocked: conf {best_conf:.3f} < {float(yolo_conf_thresh):.2f}"
+                    yolo_info["reason"] = (
+                        f"yolo gate blocked: conf {best_conf:.3f} < {float(effective_yolo_conf_thresh):.2f}"
+                    )
                 else:
                     yolo_info["reason"] = "yolo gate blocked: no apple candidate"
         except Exception as e:
@@ -348,7 +411,7 @@ def segment_apple(
             minDist=200,
             param1=50,
             param2=35,
-            minRadius=int(h * 0.1),
+            minRadius=int(h * (0.06 if is_far_distance else 0.1)),
             maxRadius=int(h * 0.45),
         )
         if circles is not None:
@@ -367,7 +430,7 @@ def segment_apple(
 
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < min_area:
+        if area < effective_min_area:
             continue
 
         perimeter = cv2.arcLength(cnt, True)
