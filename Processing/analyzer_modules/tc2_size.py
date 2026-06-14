@@ -29,8 +29,16 @@ def effective_pixel_to_mm(
             return None, "depth_required_no_z"
         return base, "2d_gain"
 
-    # Scale theo tỉ lệ khoảng cách hiện tại so với mốc reference.
-    scale = float(current_depth_mm) / float(depth_reference_mm)
+    # Bù trừ khoảng cách từ camera đến tâm quả táo thay vì đỉnh quả táo:
+    # Tâm quả táo nằm ở trung điểm giữa đỉnh quả táo (current_depth_mm) và mặt băng tải (depth_reference_mm).
+    # Công thức: Z_center = (current_depth_mm + depth_reference_mm) / 2.0
+    z_center = float(current_depth_mm)
+    depth_ref_val = float(depth_reference_mm)
+    if depth_ref_val > 50.0 and z_center < depth_ref_val:
+        z_center = (z_center + depth_ref_val) / 2.0
+
+    # Scale theo tỉ lệ khoảng cách tâm hiện tại so với mốc reference.
+    scale = z_center / depth_ref_val
     # Clamp để tránh bùng giá trị khi depth nhiễu/lỗi.
     scale = float(np.clip(scale, 0.5, 2.0))
     return base * scale, "depth_assisted"
