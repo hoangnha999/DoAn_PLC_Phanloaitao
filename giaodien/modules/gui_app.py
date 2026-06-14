@@ -1324,7 +1324,7 @@ class CameraWindow:
 
         sort_hint_var = tk.StringVar(value="Nhấn tiêu đề % Đỏ / Đường kính / Độ tròn / YOLO để sắp xếp")
 
-        cols = ("Frame", "Thời gian", "Trigger", "Hạng", "% Đỏ", "Đường kính", "Độ tròn", "YOLO")
+        cols = ("Frame", "Thời gian", "Trigger", "Hạng", "% Đỏ", "Đường kính", "Độ tròn", "YOLO", "Z (mm)")
         sort_bar = tk.Frame(table_view, bg="#FFFFFF")
         sort_bar.pack(fill="x", padx=8, pady=(8, 0))
 
@@ -1392,6 +1392,7 @@ class CameraWindow:
                         f"{_to_float(rec.get('diameter_mm', 0.0)):.1f}",
                         _roundness_score_text(rec),
                         f"{_to_float(rec.get('yolo_conf', 0.0)):.3f}",
+                        f"{_to_float(rec.get('z_distance_mm', 0.0)):.1f}" if rec.get("z_distance_mm") is not None else "N/A"
                     )
                 )
 
@@ -1453,6 +1454,7 @@ class CameraWindow:
         tree.column("Đường kính", width=90, anchor="center")
         tree.column("Độ tròn", width=100, anchor="center")
         tree.column("YOLO", width=90, anchor="center")
+        tree.column("Z (mm)", width=90, anchor="center")
         tree.pack(side="left", fill="both", expand=True)
 
         _refresh_table(records)
@@ -1946,6 +1948,7 @@ class CameraWindow:
             ("Frame", rec.get("frame_idx", "N/A")),
             ("Thời gian", rec.get("timestamp", "N/A")),
             ("Trigger", rec.get("trigger_source", "N/A")),
+            ("Z (mm)", f"{float(rec.get('z_distance_mm')):.1f}" if rec.get('z_distance_mm') is not None else "N/A"),
             ("Kết quả cuối frame", rec.get("grade", "N/A")),
             ("Độ phân giải ảnh", captured_resolution),
             ("Đường dẫn ảnh", img_path if img_path else "N/A"),
@@ -2082,7 +2085,7 @@ class CameraWindow:
 
         cols = (
             "Frame", "Thời gian", "Nguồn Trigger", "Hạng",
-            "% Đỏ", "Đường kính (mm)", "Hình dạng", "YOLO Conf"
+            "% Đỏ", "Đường kính (mm)", "Hình dạng", "YOLO Conf", "Z (mm)"
         )
         tree_frame = tk.Frame(self.sheet10_table_view, bg="#FFFFFF")
         tree_frame.pack(fill="both", expand=True, padx=15, pady=10)
@@ -2105,6 +2108,8 @@ class CameraWindow:
         self.sheet10_tree.column("Hình dạng", width=140, anchor="center")
         self.sheet10_tree.heading("YOLO Conf", text="YOLO Conf")
         self.sheet10_tree.column("YOLO Conf", width=100, anchor="center")
+        self.sheet10_tree.heading("Z (mm)", text="Z (mm)")
+        self.sheet10_tree.column("Z (mm)", width=90, anchor="center")
 
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.sheet10_tree.yview)
         self.sheet10_tree.configure(yscrollcommand=vsb.set)
@@ -2203,7 +2208,7 @@ class CameraWindow:
 
         records = getattr(self, "_last_10_capture_records", [])
         if not records:
-            self.sheet10_tree.insert("", "end", values=("-", "-", "-", "-", "-", "-", "-", "-"))
+            self.sheet10_tree.insert("", "end", values=("-", "-", "-", "-", "-", "-", "-", "-", "-"))
             self._refresh_sheet10_gallery([])
             return
 
@@ -2219,6 +2224,7 @@ class CameraWindow:
                     f"{float(rec.get('diameter_mm', 0.0)):.1f}",
                     rec.get("shape", ""),
                     f"{float(rec.get('yolo_conf', 0.0)):.3f}",
+                    f"{float(rec.get('z_distance_mm')):.1f}" if rec.get("z_distance_mm") is not None else "N/A"
                 )
             )
 
