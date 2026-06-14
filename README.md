@@ -9,80 +9,124 @@ Hệ thống có giao diện vận hành, luồng xử lý ảnh riêng, và có
 
 ## 1. Cấu trúc dự án
 
-Dự án đã được tổ chức theo 3 thư mục chính để dễ bảo trì, tách rõ:
-- Dữ liệu (dataset)
+Dự án đã được tổ chức theo các thư mục chính để dễ bảo trì, tách rõ:
+- Dữ liệu (dataset, yolo_dataset)
 - Ứng dụng giao diện vận hành (giaodien)
 - Core xử lý ảnh (Processing)
+- Driver điều khiển camera (OpenNI2)
 
-### 1.1 Cây thư mục chi tiết
+### 1.1 Cây thư mục chi tiết (đầy đủ các tệp tin)
 
 ```text
 DOAN_PLC_Phanloaitao/
 ├── dataset/
-│   ├── train/               # Ảnh nguồn để tạo nhãn/huấn luyện
-│   ├── yolo_dataset/        # Dataset theo định dạng YOLO (images/labels/dataset.yaml)
-│   └── ...
+│   └── dataset_apple/
+│       ├── Image/                 # Thư mục chứa các ảnh quả táo gốc chưa phân chia
+│       └── Label/                 # Thư mục chứa file nhãn của tập gốc
+├── yolo_dataset/                  # Tập dữ liệu YOLO đã phân chia tỉ lệ 80/20
+│   ├── dataset.yaml               # File cấu hình đường dẫn và nhãn lớp cho YOLOv8
+│   ├── images/
+│   │   ├── train/                 # Tập ảnh dùng để huấn luyện mô hình (893 ảnh)
+│   │   └── val/                   # Tập ảnh dùng để kiểm thử mô hình (224 ảnh)
+│   └── labels/
+│       ├── train/                 # File nhãn YOLO tương ứng với tập train (893 file)
+│       └── val/                   # File nhãn YOLO tương ứng với tập val (224 file)
 ├── giaodien/
-│   ├── main.py              # Entry point chạy app
-│   ├── modules/
-│   │   ├── gui_app.py       # Điều phối GUI + gọi FruitAnalyzer
-│   │   ├── camera.py        # Quản lý camera/stream
-│   │   ├── plc.py           # Kết nối PLC
-│   │   └── database.py      # Lưu lịch sử, truy vấn, export
-│   ├── config/              # Cấu hình runtime
-│   ├── images/              # Tài nguyên hình giao diện
-│   ├── history_images/      # Ảnh kết quả đã xử lý
-│   └── dataset/             # Dataset phục vụ GUI/nội bộ (nếu có)
+│   ├── main.py                    # Điểm khởi chạy (Entry Point) giao diện GUI vận hành
+│   ├── best.pt                    # Trọng số mô hình YOLOv8n đã huấn luyện tối ưu
+│   ├── database.db                # Cơ sở dữ liệu SQLite lưu lịch sử phân loại táo
+│   ├── history_images/            # Nơi lưu trữ ảnh chụp quả táo thực tế sau phân loại
+│   ├── config/                    # Thư mục chứa các cấu hình hệ thống
+│   │   ├── runtime_config.py      # Cấu hình các ngưỡng diện tích, camera khi chạy
+│   │   ├── system_config.json     # Lưu trữ cấu hình hệ thống dạng tệp JSON
+│   │   └── system_config.json.bak # File cấu hình dự phòng của hệ thống
+│   ├── images/                    # Tài nguyên hình ảnh tĩnh của giao diện
+│   │   ├── conveyor_system.png    # Hình ảnh mô phỏng băng tải hệ thống
+│   │   ├── faculty_logo.png        # Logo khoa Cơ khí/Điện tử
+│   │   └── ute_logo.png            # Logo trường UTE
+│   └── modules/                   # Các khối xử lý logic chức năng cho giao diện
+│       ├── camera.py              # Quản lý luồng video (Astra Pro/Camera thường)
+│       ├── database.py            # Kết nối SQLite, lưu lịch sử, xuất báo cáo ra Excel
+│       ├── gui_app.py             # Điều phối giao diện Tkinter chính
+│       ├── plc.py                 # Truyền thông PLC S7-1200 qua thư viện Snap7
+│       └── quality_control.py     # Thống kê chất lượng phân hạng táo
 ├── Processing/
-│   ├── analyzer.py          # Facade trung tâm của engine xử lý ảnh
-│   └── analyzer_modules/
-│       ├── pipeline.py      # Pipeline tổng hợp TC1/TC2/TC3
-│       ├── segmentation.py  # Tách quả táo
-│       ├── yolo_runtime.py  # Nạp/chạy YOLO và fallback
-│       ├── tc1_ripeness.py  # Độ chín
-│       ├── tc2_size.py      # Kích thước
-│       ├── tc3_shape.py     # Hình dáng
-│       ├── stabilization.py # Ổn định đo đạc theo thời gian
-│       └── ...
-├── auto_label.py            # Script tạo nhãn tự động
-└── README.md                # Tài liệu hướng dẫn
+│   ├── __init__.py
+│   ├── analyzer.py                # Facade trung tâm của engine xử lý ảnh FruitAnalyzer
+│   └── analyzer_modules/          # Thuật toán chi tiết của lõi xử lý ảnh
+│       ├── __init__.py
+│       ├── blur_ops.py            # Kiểm tra ảnh mờ (deblur), phát hiện ảnh nhòe
+│       ├── bootstrap.py           # Khởi tạo trạng thái ban đầu của bộ phân tích
+│       ├── classification.py      # Phân loại độ chín vỏ và phân hạng kích thước táo
+│       ├── grading.py             # Logic tổng hợp 3 tiêu chí phân hạng táo (Grade 1/2/3)
+│       ├── pipeline.py            # Luồng pipeline xử lý tuần tự trên từng khung hình
+│       ├── segmentation.py        # Tách quả táo (kết hợp YOLOv8 và lọc màu HSV)
+│       ├── session_decision.py    # Phán quyết kết quả phân hạng dựa trên chuỗi 10 khung hình
+│       ├── stabilization.py       # Bộ ổn định đường kính táo và lọc nhiễu chiều sâu Z
+│       ├── tc1_ripeness.py        # Tiêu chí 1: Đo độ chín theo tỷ lệ màu đỏ vỏ quả
+│       ├── tc2_size.py            # Tiêu chí 2: Ước lượng đường kính táo (mm)
+│       ├── tc3_shape.py           # Tiêu chí 3: Đánh giá độ tròn đều (Circularity)
+│       ├── visualization.py       # Vẽ bounding box, overlay mask màu lên màn hình
+│       └── yolo_runtime.py        # Nạp mô hình YOLOv8 và thực hiện Object Tracking
+├── OpenNI2/                       # Thư viện để giao tiếp với camera chiều sâu Astra Pro
+│   └── Redist/                    # Các tệp thực thi và DLL của thư viện OpenNI2
+│       ├── OpenNI2/
+│       │   └── Drivers/           # Trình điều khiển camera (orbbec.dll, OniFile.dll)
+│       ├── DepthUtils.lib
+│       ├── NiViewer.exe           # Phần mềm hiển thị chiều sâu trực quan để test
+│       ├── OpenNI2.dll            # Thư viện liên kết động chính
+│       ├── OpenNI2.lib
+│       ├── PS1080Console.exe
+│       ├── XnLib.lib
+│       └── glut64.dll
+├── image/                         # Thư mục chứa hình ảnh tài liệu dự án
+│   └── README/
+│       ├── 1781008683436.png
+│       └── yolo_predict_test.png  # Hình ảnh kết quả nhận diện thực tế của YOLOv8
+├── .gitignore                     # Cấu hình bỏ qua các tệp tạm của Git
+├── NHAT_KY_DO_AN.md               # Nhật ký cập nhật, sửa lỗi và phát triển đồ án
+├── README.md                      # Tài liệu hướng dẫn sử dụng này
+├── replace_font.py                # File script thay đổi font chữ hiển thị giao diện
+├── requirements.txt               # Danh sách thư viện Python cần cài đặt
+├── split_dataset.py               # Script phân chia tự động tập dataset gốc
+├── test_openni.log                # Log ghi lại quá trình test camera OpenNI2
+└── test_openni.py                 # File python để test nhanh kết nối camera đo chiều sâu
 ```
 
-### 1.2 Vai trò của 3 thư mục chính
+### 1.2 Vai trò của các thư mục chính
 
 1. dataset/
-- Chứa dữ liệu đầu vào (ảnh/video) và dữ liệu huấn luyện.
-- Không chứa logic app.
-- Nên backup trước khi thao tác xóa/sửa lớn.
+- Chứa dữ liệu đầu vào gốc (ảnh/video).
+- Không chứa logic ứng dụng.
 
-2. giaodien/
+2. yolo_dataset/
+- Dữ liệu đã gán nhãn theo đúng định dạng YOLOv8 để huấn luyện.
+
+3. giaodien/
 - Chứa ứng dụng vận hành, nhận frame, hiển thị kết quả, kết nối PLC và DB.
-- Không nên để logic xử lý ảnh phức tạp tại đây.
-- Chỉ nên giữ logic điều phối và I/O.
+- Không chứa logic xử lý ảnh phức tạp tại đây (chỉ giữ logic điều phối và I/O).
 
-3. Processing/
-- Chứa toàn bộ logic xử lý ảnh mang tính core.
-- Có thể test độc lập mà không phụ thuộc GUI.
-- Dễ mở rộng thêm module mới (ví dụ: thêm tiêu chí TC4).
+4. Processing/
+- Chứa toàn bộ logic xử lý ảnh mang tính lõi (core).
+- Có thể chạy và test độc lập mà không cần khởi động GUI.
 
 ### 1.3 Quan hệ phụ thuộc
 
-Chiều phụ thuộc chuẩn:
+Chiêu phụ thuộc chuẩn:
 
 ```text
-giaodien  --->  Processing  --->  dataset (đọc dữ liệu/cấu hình cần thiết)
+giaodien  --->  Processing  --->  dataset/yolo_dataset (đọc dữ liệu/cấu hình)
 ```
 
 Nguyên tắc:
 - Processing không phụ thuộc vào GUI (tránh coupling ngược).
-- dataset không chứa code logic.
-- giaodien là lớp trên cùng, gọi core để lấy kết quả hiển thị.
+- giaodien là lớp trên cùng, gọi core Processing để lấy kết quả hiển thị.
 
 ### 1.4 Entry points quan trọng
 
-- Chạy app: giaodien/main.py
-- Core analyzer: Processing/analyzer.py
-- Script tạo nhãn: auto_label.py
+- Chạy app: `giaodien/main.py`
+- Core analyzer: `Processing/analyzer.py`
+- Script phân chia dataset: `split_dataset.py`
 
 ## 2. Yêu cầu môi trường
 
