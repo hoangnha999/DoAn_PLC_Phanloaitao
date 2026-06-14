@@ -1517,9 +1517,9 @@ class CameraWindow:
                 cell.configure(cursor="hand2")
                 img_lbl.configure(cursor="hand2")
                 meta_lbl.configure(cursor="hand2")
-                cell.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r))
-                img_lbl.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r))
-                meta_lbl.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r))
+                cell.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r, view_mode=view_mode_var.get()))
+                img_lbl.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r, view_mode=view_mode_var.get()))
+                meta_lbl.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r, view_mode=view_mode_var.get()))
 
             top._detail_gallery_items.append({
                 "cell": cell,
@@ -1632,7 +1632,7 @@ class CameraWindow:
 
             show("GRID")
             _highlight_detail_frame(frame_idx)
-            self._open_single_frame_detail_window(rec)
+            self._open_single_frame_detail_window(rec, view_mode=view_mode_var.get())
 
         grid_wrap.bind("<Configure>", _queue_render)
         top.after(120, _render_detail_gallery)
@@ -1711,7 +1711,7 @@ class CameraWindow:
             except Exception:
                 return pil_img
 
-    def _open_single_frame_detail_window(self, rec):
+    def _open_single_frame_detail_window(self, rec, view_mode="OVERLAY"):
         """Mở cửa sổ chi tiết thông số của một frame trong bộ 10 ảnh."""
         top = tk.Toplevel(self.win)
         frame_idx = rec.get("frame_idx", "-")
@@ -1772,38 +1772,91 @@ class CameraWindow:
         img_lbl.pack(fill="both", expand=True, padx=8, pady=8)
 
         img_path = rec.get("image_path", "")
-        # Ưu tiên hiển thị frame đã annotate sẵn để giữ đúng overlay tại thời điểm chụp.
         _displayed = False
-        preview_frame = rec.get("preview_frame_annotated")
-        if preview_frame is None:
-            preview_frame = rec.get("preview_frame")
-        if preview_frame is not None:
+        img_loaded = None
+
+        # 1. Thử lấy từ in-memory preview (cho live session)
+        preview = None
+        if view_mode == "OVERLAY":
+            preview = rec.get("preview_frame_annotated") or rec.get("preview_frame")
+        elif view_mode == "RAW":
+            preview = rec.get("preview_frame_raw")
+        elif view_mode == "BINARY":
+            preview = rec.get("preview_frame_mask")
+            if preview is None:
+                preview_raw = rec.get("preview_frame_raw")
+                if preview_raw is not None:
+                    gray_temp = cv2.cvtColor(preview_raw, cv2.COLOR_BGR2GRAY)
+                    _, preview = cv2.threshold(gray_temp, 75, 255, cv2.THRESH_BINARY)
+        elif view_mode == "GRAY":
+            preview_raw = rec.get("preview_frame_raw")
+            if preview_raw is not None:
+                preview = cv2.cvtColor(preview_raw, cv2.COLOR_BGR2GRAY)
+            else:
+                preview_annotated = rec.get("preview_frame_annotated") or rec.get("preview_frame")
+                if preview_annotated is not None:
+                    preview = cv2.cvtColor(preview_annotated, cv2.COLOR_BGR2GRAY)
+
+        if preview is not None:
             try:
-                rgb = cv2.cvtColor(preview_frame, cv2.COLOR_BGR2RGB)
+                if len(preview.shape) == 2:
+                    rgb = cv2.cvtColor(preview, cv2.COLOR_GRAY2RGB)
+                else:
+                    rgb = cv2.cvtColor(preview, cv2.COLOR_BGR2RGB)
                 if rgb is not None:
-                    img = self._fit_frame_full_color(Image.fromarray(rgb), 620, 380)
-                    photo = ImageTk.PhotoImage(img)
-                    img_lbl.config(image=photo, text="")
-                    img_lbl.image = photo
-                    top._single_detail_photo = photo
+                    img_loaded = Image.fromarray(rgb)
                     _displayed = True
             except Exception:
                 pass
+
+        # 2. Nếu không có preview hoặc lỗi, thử đọc từ file trên đĩa (cho history)
         if not _displayed and img_path and os.path.isfile(img_path):
             try:
-                img = Image.open(img_path)
-                img = self._fit_frame_full_color(img, 620, 380)
+                base_no_ext, ext = os.path.splitext(img_path)
+                target_path = img_path
+                
+                if view_mode == "RAW":
+                    raw_path = f"{base_no_ext}_raw.jpg"
+                    if os.path.isfile(raw_path):
+                        target_path = raw_path
+                elif view_mode == "BINARY":
+                    mask_path = f"{base_no_ext}_mask.png"
+                    if os.path.isfile(mask_path):
+                        target_path = mask_path
+                elif view_mode == "GRAY":
+                    raw_path = f"{base_no_ext}_raw.jpg"
+                    if os.path.isfile(raw_path):
+                        target_path = raw_path
+
+                img_loaded = Image.open(target_path).convert("RGB")
+                if view_mode == "GRAY":
+                    img_loaded = img_loaded.convert("L").convert("RGB")
+                elif view_mode == "BINARY" and not os.path.isfile(f"{base_no_ext}_mask.png"):
+                    gray_temp = img_loaded.convert("L")
+                    img_loaded = gray_temp.point(lambda p: 255 if p > 75 else 0).convert("RGB")
+                
+                _displayed = True
+            except Exception:
+                pass
+
+        # Hiển thị ảnh nếu load thành công
+        if _displayed and img_loaded is not None:
+            try:
+                img = self._fit_frame_full_color(img_loaded, 620, 380)
                 photo = ImageTk.PhotoImage(img)
                 img_lbl.config(image=photo, text="")
                 img_lbl.image = photo
                 top._single_detail_photo = photo
             except Exception:
-                pass
+                img_lbl.config(image="", text="NO IMAGE")
+        else:
+            img_lbl.config(image="", text="NO IMAGE")
 
         # Ưu tiên lấy độ phân giải từ frame preview (đúng thời điểm chụp),
         # fallback sang file ảnh đã lưu nếu không có preview.
         captured_resolution = "N/A"
         try:
+            preview_frame = rec.get("preview_frame_annotated") or rec.get("preview_frame") or rec.get("preview_frame_raw")
             if preview_frame is not None and hasattr(preview_frame, "shape") and len(preview_frame.shape) >= 2:
                 ph, pw = int(preview_frame.shape[0]), int(preview_frame.shape[1])
                 if pw > 0 and ph > 0:
@@ -1943,6 +1996,34 @@ class CameraWindow:
             ("Blur score", _fmt(_num("blur_score"), 1, "")),
         ])
 
+    def _on_sheet10_row_double_click(self, event=None):
+        """Double-click một dòng trong bảng Sheet 10 để xem chi tiết frame đó."""
+        if not hasattr(self, "sheet10_tree"):
+            return
+        sel = self.sheet10_tree.selection()
+        if not sel:
+            return
+        values = self.sheet10_tree.item(sel[0], "values")
+        if not values:
+            return
+        try:
+            frame_idx = int(values[0])
+        except Exception:
+            return
+
+        records = getattr(self, "_last_10_capture_records", [])
+        rec = None
+        for r in records:
+            if int(r.get("frame_idx", 0) or 0) == frame_idx:
+                rec = r
+                break
+        if rec is None:
+            return
+
+        self._show_sheet10_view("GRID")
+        view_mode = self.sheet10_view_mode_var.get() if hasattr(self, "sheet10_view_mode_var") else "OVERLAY"
+        self._open_single_frame_detail_window(rec, view_mode=view_mode)
+
     def _build_sheet_page(self):
         """Trang Sheet 10 ảnh táo: hỗ trợ 2 kiểu xem (Bảng / Lưới ảnh)."""
         container = tk.Frame(self.page_sheet10, bg="#FFFFFF", bd=1, relief="ridge")
@@ -2029,6 +2110,7 @@ class CameraWindow:
         self.sheet10_tree.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
         self.sheet10_tree.pack(side="left", fill="both", expand=True)
+        self.sheet10_tree.bind("<Double-1>", self._on_sheet10_row_double_click)
 
         # Khung lưới 10 ảnh (2 hàng x 5 cột)
         self.sheet10_gallery_cells = []
@@ -2065,6 +2147,7 @@ class CameraWindow:
             meta_lbl.pack(pady=(4, 0))
 
             self.sheet10_gallery_cells.append({
+                "cell": cell,
                 "img_box": img_box,
                 "img_lbl": img_lbl,
                 "meta_lbl": meta_lbl,
@@ -2151,9 +2234,19 @@ class CameraWindow:
             img_box = item.get("img_box")
             img_lbl = item.get("img_lbl")
             meta_lbl = item.get("meta_lbl")
+            cell = item.get("cell")
             if idx < len(records):
                 rec = records[idx]
                 mode_val = self.sheet10_view_mode_var.get() if hasattr(self, "sheet10_view_mode_var") else "OVERLAY"
+
+                # Double-click từng frame để mở popup thông số chi tiết
+                if cell:
+                    cell.configure(cursor="hand2")
+                    cell.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r, view_mode=self.sheet10_view_mode_var.get()))
+                img_lbl.configure(cursor="hand2")
+                img_lbl.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r, view_mode=self.sheet10_view_mode_var.get()))
+                meta_lbl.configure(cursor="hand2")
+                meta_lbl.bind("<Double-1>", lambda e, r=rec: self._open_single_frame_detail_window(r, view_mode=self.sheet10_view_mode_var.get()))
 
                 preview = None
                 if mode_val == "OVERLAY":
@@ -2261,6 +2354,13 @@ class CameraWindow:
                 img_lbl.config(image="", text="NO IMAGE", bg="#0F172A", fg="#94A3B8")
                 img_lbl.image = None
                 meta_lbl.config(text="-")
+                if cell:
+                    cell.configure(cursor="")
+                    cell.unbind("<Double-1>")
+                img_lbl.configure(cursor="")
+                img_lbl.unbind("<Double-1>")
+                meta_lbl.configure(cursor="")
+                meta_lbl.unbind("<Double-1>")
 
     def _clear_sql_history(self):
         """Xóa toàn bộ dữ liệu trong bảng và xóa sạch file ảnh trong thư mục."""
