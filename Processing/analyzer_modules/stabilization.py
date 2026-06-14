@@ -49,6 +49,13 @@ def update_depth_context(analyzer, depth_info=None):
                 np.clip(diff, -analyzer.DEPTH_MAX_DELTA_MM, analyzer.DEPTH_MAX_DELTA_MM)
             )
 
+    # Bù trừ khoảng cách từ camera đến tâm quả táo thay vì đỉnh quả táo:
+    # Tâm quả táo nằm ở trung điểm giữa đỉnh quả táo (z_mm) và mặt băng tải (depth_reference_mm).
+    # Công thức: Z_center = (z_mm + depth_reference_mm) / 2.0
+    depth_ref = getattr(analyzer, "DEPTH_REFERENCE_MM", 0)
+    if depth_ref > 50.0 and z_mm < depth_ref:
+        z_mm = (z_mm + float(depth_ref)) / 2.0
+
     # Lọc median theo cửa sổ lịch sử để tăng ổn định.
     analyzer.depth_mm_history.append(z_mm)
     analyzer.current_depth_mm = float(np.median(analyzer.depth_mm_history))

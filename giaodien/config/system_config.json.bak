@@ -14,7 +14,7 @@
       "pixel_to_mm": 0.28,
       "depth_reference_mm": 600.0,
       "enable_depth_size_compensation": true,
-      "size_calibration_gain": 1.5,
+      "size_calibration_gain": 2.8,
       "require_depth_for_size_measurement": false,
       "depth_smooth_window": 9,
       "depth_max_delta_mm": 35.0,
