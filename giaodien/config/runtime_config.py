@@ -15,7 +15,7 @@ DEFAULT_CONFIG = {
         },
         "size": {
             "large_mm": 70,
-            "medium_mm": 60,
+            "medium_mm": 65,
             "pixel_to_mm": 0.28,
             "depth_reference_mm": 600.0,
             "enable_depth_size_compensation": True,
