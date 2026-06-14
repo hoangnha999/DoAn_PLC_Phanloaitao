@@ -4832,11 +4832,10 @@ class CameraWindow:
                         stt += 1
 
             note_var.set(
-                f"TC1: Đỏ+Vàng+Xanh = 100%. Dùng %Đỏ để xếp mức (M1/M2/M3). | "
-                f"TC2 theo đường kính mm | TC3 theo chỉ số độ tròn (0-1). | "
-                f"Điểm: G1={score_g1}, G2={score_g2}, G3={score_g3} | "
-                f"Ngưỡng kết luận: Grade-1 if >={min_g1}, Grade-2 if >={min_g2}, còn lại Grade-3"
+                f"TC1: Đỏ+Vàng+Xanh = 100%. Dùng %Đỏ để xếp mức (M1/M2/M3). | TC2 theo đường kính mm | TC3 theo chỉ số độ tròn (0-1). | Điểm: G1={score_g1}, G2={score_g2}, G3={score_g3} | Ngưỡng kết luận: Grade-1 if >={min_g1}, Grade-2 if >={min_g2}, còn lại Grade-3\n"
+                f"💡 LUẬT QUYẾT ĐỊNH 10 FRAMES: Chụp 10 khung hình khi táo xoay -> Lọc bỏ khung hình chất lượng thấp (< 0.50 hoặc mờ/méo) -> Biểu quyết có trọng số (Weighted Voting) chọn Grade chiếm ưu thế -> Điều kiện chốt: Độ lệch (Margin) giữa Top 1 và Top 2 >= 10%, nếu không đạt hoặc số khung hình hợp lệ < 6 thì tự động hạ về Grade xấu nhất để đảm bảo an toàn."
             )
+
 
             # Lưu tự động ngay khi cập nhật bảng để lần mở sau giữ đúng giá trị mới nhất.
             self.analyzer.RIPENESS_GOOD_THRESH = t1_good
