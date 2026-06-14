@@ -67,15 +67,15 @@ class FruitAnalyzer:
     """
 
     # ─── TC1 - Ngưỡng phân hạng độ chín (% vùng đỏ) ──────────
-    RIPENESS_GOOD_THRESH = 85
-    RIPENESS_MEDIUM_THRESH = 70
+    RIPENESS_GOOD_THRESH = 80
+    RIPENESS_MEDIUM_THRESH = 60
 
     # ─── TC3 - Ngưỡng phân hạng hình dáng (Độ tròn) ──────────
-    SHAPE_GOOD_THRESH = 0.88
-    SHAPE_MEDIUM_THRESH = 0.78
+    SHAPE_GOOD_THRESH = 0.7
+    SHAPE_MEDIUM_THRESH = 0.5
 
     # ─── TC2 - Kích thước (đường kính mm) ─────────────────────
-    SIZE_THRESHOLDS = {"large": 80, "medium": 60}
+    SIZE_THRESHOLDS = {"large": 70, "medium": 60}
     PIXEL_TO_MM = 0.42  # Đã ước lượng lại cho khoảng cách 45cm (cần tinh chỉnh thêm)
     DEPTH_REFERENCE_MM = 450.0  # Khoảng cách cố định hiện tại từ camera đến băng tải
     ENABLE_DEPTH_SIZE_COMPENSATION = True  # Đã bật
@@ -141,8 +141,8 @@ class FruitAnalyzer:
     FORCE_ASTRA_PRO_OUTDOOR = True
     # Bộ profile tham chiếu cho Astra Pro khi chạy ngoài trời.
     ASTRA_PRO_OUTDOOR_PROFILE = {
-        "ripeness_good_thresh": 85,
-        "ripeness_medium_thresh": 70,
+        "ripeness_good_thresh": 80,
+        "ripeness_medium_thresh": 60,
         "pixel_to_mm": 0.28,
         "depth_reference_mm": 600.0,
         "enable_depth_size_compensation": True,

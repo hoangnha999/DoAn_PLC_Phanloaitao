@@ -6,15 +6,15 @@ from copy import deepcopy
 DEFAULT_CONFIG = {
     "analyzer": {
         "ripeness": {
-            "good_thresh": 85,
-            "medium_thresh": 70
+            "good_thresh": 80,
+            "medium_thresh": 60
         },
         "shape": {
-            "good_thresh": 0.88,
-            "medium_thresh": 0.78
+            "good_thresh": 0.7,
+            "medium_thresh": 0.5
         },
         "size": {
-            "large_mm": 80,
+            "large_mm": 70,
             "medium_mm": 60,
             "pixel_to_mm": 0.28,
             "depth_reference_mm": 600.0,
