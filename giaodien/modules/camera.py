@@ -986,7 +986,7 @@ class CameraManager:
                 if roi.size == 0:
                     continue
 
-                valid = roi[(roi > 80) & (roi < 10000)]
+                valid = roi[(roi > 0) & (roi < 10000)]
                 if valid.size == 0:
                     continue
 
@@ -999,18 +999,18 @@ class CameraManager:
             y2 = min(h, int(h * 0.85))
             roi_mid = depth_map[y1:y2, x1:x2]
             if roi_mid.size > 0:
-                valid_mid = roi_mid[(roi_mid > 80) & (roi_mid < 10000)]
+                valid_mid = roi_mid[(roi_mid > 0) & (roi_mid < 10000)]
                 if valid_mid.size > 32:
                     return float(np.percentile(valid_mid, 20))
 
             # Fallback cuối: quét toàn bộ ảnh nếu vùng giữa bị che khuất / nhiễu
-            valid_all = depth_map[(depth_map > 80) & (depth_map < 10000)]
+            valid_all = depth_map[(depth_map > 0) & (depth_map < 10000)]
             if valid_all.size > 0:
                 return float(np.median(valid_all))
 
             # Không có mẫu hợp lệ → trả None để stream_loop tự quản lý giá trị cũ.
             # KHÔNG fallback sang last_depth_distance_mm vì sẽ tạo vòng lặp đóng băng Z.
-            return -2.0
+            return 0.0
         except Exception as e:
             self._log(f"[CAM] Lỗi tính median Z: {e}")
             return -3.0

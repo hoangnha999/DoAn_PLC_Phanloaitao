@@ -1,7 +1,0 @@
-path: d:\DOAN_PLC_Phanloaitao\dataset\dataset_apple\yolo_dataset # Đường dẫn tuyệt đối tới dataset
-train: images/train
-val: images/val
-
-names:
-  0: fresh_apple
-  1: rotten_apple

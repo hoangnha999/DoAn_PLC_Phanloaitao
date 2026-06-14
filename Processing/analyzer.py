@@ -76,9 +76,9 @@ class FruitAnalyzer:
 
     # ─── TC2 - Kích thước (đường kính mm) ─────────────────────
     SIZE_THRESHOLDS = {"large": 80, "medium": 60}
-    PIXEL_TO_MM = 0.28
-    DEPTH_REFERENCE_MM = 600.0
-    ENABLE_DEPTH_SIZE_COMPENSATION = True
+    PIXEL_TO_MM = 0.42  # Đã ước lượng lại cho khoảng cách 45cm (cần tinh chỉnh thêm)
+    DEPTH_REFERENCE_MM = 450.0  # Khoảng cách cố định hiện tại từ camera đến băng tải
+    ENABLE_DEPTH_SIZE_COMPENSATION = True  # Đã bật
     REQUIRE_DEPTH_FOR_SIZE_MEASUREMENT = False
     SIZE_CALIBRATION_GAIN = 1.5
     DEPTH_SMOOTH_WINDOW = 9
@@ -100,7 +100,7 @@ class FruitAnalyzer:
     UPPER_GREEN = np.array([90, 255, 255])
 
     # ─── Ngưỡng tách nền ─────────────────────────────────────
-    MIN_APPLE_AREA_RATIO = 0.012
+    MIN_APPLE_AREA_RATIO = 0.004  # Đã giảm để nhận táo nhỏ hơn ở 45cm
     DEFECT_DARK_THRESH = 35
     DEFECT_BAD_RATIO = 20.0
     DEFECT_MEDIUM_RATIO = 10.0
@@ -122,11 +122,11 @@ class FruitAnalyzer:
     CLAHE_APPLY_TO_HSV = True   # Áp dụng CLAHE cho frame tính màu HSV
 
     # ─── YOLO Detection ─────────────────────────────────────
-    YOLO_CONF_THRESH = 0.45
+    YOLO_CONF_THRESH = 0.10  # Đã giảm từ 0.25 xuống 0.10 theo yêu cầu
     YOLO_PREDICT_CONF = 0.05
-    YOLO_MIN_BBOX_AREA_RATIO = 0.007
+    YOLO_MIN_BBOX_AREA_RATIO = 0.002  # Đã giảm từ 0.007
     YOLO_MAX_BBOX_AREA_RATIO = 0.60
-    YOLO_MIN_APPLE_COLOR_RATIO = 0.02
+    YOLO_MIN_APPLE_COLOR_RATIO = 0.01  # Đã giảm từ 0.02
     YOLO_ENABLE_TRACKING = True
     YOLO_TRACKER_NAME = "bytetrack.yaml"
     YOLO_TRACK_PERSIST = True

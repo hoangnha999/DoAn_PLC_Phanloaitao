@@ -382,7 +382,7 @@ class CameraWindow:
         self._percent_vars  = {}
         self._throughput_vars = {}
         self.capture_frames_required = int(self.runtime_cfg.get("capture_frames_required", 10))
-        self.capture_wait_timeout_s = float(self.runtime_cfg.get("capture_wait_timeout_s", 6.0))
+        self.capture_wait_timeout_s = float(self.runtime_cfg.get("capture_wait_timeout_s", 10.0))
         self.decision_min_quality_score = float(self.runtime_cfg.get("decision_min_quality_score", 0.50))
         self.decision_margin_delta = float(self.runtime_cfg.get("decision_margin_delta", 0.10))
         self.decision_min_valid_frames = int(self.runtime_cfg.get("decision_min_valid_frames", 6))
@@ -692,7 +692,7 @@ class CameraWindow:
             lot_code=lot_code,
         )
         if success:
-            self._log_event(msg, "INFO")
+            self._log_event(msg, "SUCCESS")
             self._refresh_stats_ui()
             
             # Cập nhật khung hình 10 ảnh
@@ -2562,7 +2562,7 @@ class CameraWindow:
 
         # Cấu hình màu sắc cho các loại log
         self.log_text.tag_configure("info",    foreground="#0F172A")
-        self.log_text.tag_configure("success", foreground="#059669", font=("Consolas", 9, "bold"))
+        self.log_text.tag_configure("success", foreground="#059669", background="#ECFDF5", font=("Consolas", 9, "bold"))
         self.log_text.tag_configure("warning", foreground="#D97706", background="#FFFBEB")
         self.log_text.tag_configure("error",   foreground="#DC2626", background="#FEF2F2", font=("Consolas", 9, "bold"))
         self.log_text.tag_configure("time",    foreground="#64748B")
@@ -3442,6 +3442,28 @@ class CameraWindow:
                                 self.win.after(0, self._finalize_video_session)
                             else:
                                 self._finalize_video_session()
+                        else:
+                            # Kiểm tra timeout ngay cả khi CÓ táo trong khung hình nhưng thu thập quá chậm
+                            elapsed = time.time() - self._capture_session_start_ts
+                            if elapsed > self.capture_wait_timeout_s:
+                                if len(self._video_session_buffer) >= getattr(self, "decision_min_valid_frames", 6):
+                                    self._capture_session_active = False
+                                    self._session_finalized = True
+                                    self._last_detected_grade = "NO_APPLE"
+                                    status_text = "⏳ Ép chốt kết quả do timeout (đủ frame tối thiểu)"
+                                    self._log_event(f"⚠️ Ép chốt kết quả do timeout ({len(self._video_session_buffer)}/{self.capture_frames_required} frame)", "WARNING")
+                                    if hasattr(self, "win") and self.win.winfo_exists():
+                                        self.win.after(0, self._finalize_video_session)
+                                    else:
+                                        self._finalize_video_session()
+                                else:
+                                    self._capture_session_active = False
+                                    self._video_session_buffer = []
+                                    self._capture_sample_records = []
+                                    self._last_detected_grade = "NO_APPLE"
+                                    status_text = "⏳ Chờ trigger cảm biến tiếp theo..."
+                                    self._log_event(f"⚠️ Hủy phiên chụp do timeout (chỉ có {len(self._video_session_buffer)} frame)", "ERROR")
+                                    self.send_timeout_to_plc()
                     else:
                         status_text = f"⏳ Chờ trigger cảm biến | Preview: {grade}"
 
@@ -3474,6 +3496,7 @@ class CameraWindow:
                                 self._last_detected_grade = "NO_APPLE"
                                 status_text = "⏳ Chờ trigger cảm biến tiếp theo..."
                                 self._log_event(f"⚠️ Hủy phiên chụp do timeout (chỉ có {len(self._video_session_buffer)} frame)", "ERROR")
+                                self.send_timeout_to_plc()
                     else:
                         status_text = "⏳ Chờ trigger cảm biến để bắt đầu chụp 10 mẫu"
 
@@ -3940,15 +3963,8 @@ class CameraWindow:
                 self._set_led("_led_sensor", True)
                 self._start_capture_session("PLC")
 
-            # RE-TRIGGER: Sensor bị kẹt ON (táo kẹt trên băng tải)
-            elif sensor_on and prev and not self._capture_session_active:
-                # Nếu đã finalzie xong phiên trước, có thể trigger lại
-                if getattr(self, '_session_finalized', False):
-                    import time as _t
-                    _ts = _t.strftime("%H:%M:%S", _t.localtime())
-                    self._log_event(f"⚠️ [SENSOR] Re-trigger tự động lúc {_ts} (Táo bị kẹt)", "WARNING")
-                    self._session_finalized = False
-                    self._start_capture_session("PLC_RE-TRIGGER")
+            # ĐÃ BỎ CƠ CHẾ RE-TRIGGER ĐỂ TRÁNH CHỤP ẢNH LẦN 2 KHI CHƯA QUA KHỎI CẢM BIẾN
+            # (Hệ thống sẽ chỉ kích hoạt chụp duy nhất khi có Cạnh Lên: False → True)
 
             # CẠNH XUỐNG: True → False — tắt đèn LED sensor
             elif not sensor_on and prev:
@@ -4149,6 +4165,20 @@ class CameraWindow:
         # Tắt tất cả đèn LED grade
         for attr in ("_led_grade1", "_led_grade2", "_led_grade3"):
             self._set_led(attr, False)
+
+    def send_timeout_to_plc(self):
+        """Gửi xung 500ms báo Timeout xuống PLC qua DB10.DBX0.4"""
+        if not self.plc.connected:
+            return
+        # Ghi True vào DB10.DBX0.4
+        success, msg = self.plc.write_db_bit(self.plc.PLC_DB_NUMBER, self.plc.PLC_GRADE_BYTE, 4, True)
+        if success:
+            self._log_event("📡 Đã gửi xung báo TIMEOUT (DB10.DBX0.4) tới PLC", "WARNING")
+            self.win.after(500, self._reset_timeout_bit_plc)
+
+    def _reset_timeout_bit_plc(self):
+        if self.plc.connected:
+            self.plc.write_db_bit(self.plc.PLC_DB_NUMBER, self.plc.PLC_GRADE_BYTE, 4, False)
 
     # ═══════════════════════════════════════════════════════
     #  LED INDICATOR HELPERS
