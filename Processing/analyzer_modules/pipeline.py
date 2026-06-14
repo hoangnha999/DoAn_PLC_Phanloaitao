@@ -11,6 +11,7 @@ from Processing.analyzer_modules.tc3_shape import evaluate_shape as evaluate_sha
 
 def analyze_apple(analyzer, frame):
     """Luồng phân tích chính cho một khung hình táo."""
+    analyzer.last_apple_mask = None
     # (Đã bỏ apply_astra_pro_outdoor_profile mỗi frame vì nó sẽ ghi đè thiết lập của người dùng)
     # Bắt đầu đo thời gian xử lý frame.
     t_start = time.perf_counter()
@@ -53,6 +54,7 @@ def analyze_apple(analyzer, frame):
 
     # Tách quả táo (gate bởi YOLO + mask màu), dùng frame đã CLAHE nếu được bật.
     apple_mask, main_contour, yolo_info = analyzer._segment_apple(frame_for_seg)
+    analyzer.last_apple_mask = apple_mask
 
     # Không thấy táo -> trả về no-apple với detail mặc định.
     if apple_mask is None or main_contour is None:

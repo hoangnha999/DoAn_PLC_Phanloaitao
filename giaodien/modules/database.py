@@ -164,6 +164,18 @@ class AppDatabase:
                         cv2.imwrite(img_path, preview)
                         fallback_frame = preview
 
+                        # Lưu thêm ảnh raw (chưa vẽ overlay) nếu có
+                        raw_frame_val = rec.get("preview_frame_raw")
+                        if raw_frame_val is not None:
+                            raw_img_name = f"app_{history_id}_f{frame_idx}_raw.jpg"
+                            cv2.imwrite(os.path.join(self.img_dir, raw_img_name), raw_frame_val)
+
+                        # Lưu thêm ảnh mask phân đoạn (binary) nếu có
+                        mask_frame_val = rec.get("preview_frame_mask")
+                        if mask_frame_val is not None:
+                            mask_img_name = f"app_{history_id}_f{frame_idx}_mask.png"
+                            cv2.imwrite(os.path.join(self.img_dir, mask_img_name), mask_frame_val)
+
                     cur.execute(
                         """
                         INSERT INTO phan_loai_session_10

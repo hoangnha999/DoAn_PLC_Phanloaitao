@@ -1302,6 +1302,26 @@ class CameraWindow:
                              bg="#E2E8F0", fg="#334155", padx=12, pady=6, cursor="hand2")
         btn_grid.pack(side="left")
 
+        # Chế độ hiển thị ảnh (Overlay, Raw, Binary, Gray) cho 10 ảnh
+        view_mode_var = tk.StringVar(value="OVERLAY")
+        mode_frame = tk.Frame(toggle, bg="#FFFFFF")
+        
+        tk.Label(mode_frame, text="Hiển thị ảnh:", font=("Arial", 9, "bold"), fg="#475569", bg="#FFFFFF").pack(side="left", padx=(15, 6))
+        
+        def on_mode_change(*args):
+            _render_detail_gallery()
+            
+        view_mode_var.trace_add("write", on_mode_change)
+        
+        r1 = tk.Radiobutton(mode_frame, text="Ảnh vẽ khung (Overlay)", font=("Arial", 9), variable=view_mode_var, value="OVERLAY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
+        r1.pack(side="left", padx=4)
+        r2 = tk.Radiobutton(mode_frame, text="Ảnh gốc (Không khung)", font=("Arial", 9), variable=view_mode_var, value="RAW", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
+        r2.pack(side="left", padx=4)
+        r3 = tk.Radiobutton(mode_frame, text="Ảnh nhị phân (Binary)", font=("Arial", 9), variable=view_mode_var, value="BINARY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
+        r3.pack(side="left", padx=4)
+        r4 = tk.Radiobutton(mode_frame, text="Ảnh xám (Gray)", font=("Arial", 9), variable=view_mode_var, value="GRAY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
+        r4.pack(side="left", padx=4)
+
         sort_hint_var = tk.StringVar(value="Nhấn tiêu đề % Đỏ / Đường kính / Độ tròn / YOLO để sắp xếp")
 
         cols = ("Frame", "Thời gian", "Trigger", "Hạng", "% Đỏ", "Đường kính", "Độ tròn", "YOLO")
@@ -1508,6 +1528,7 @@ class CameraWindow:
                 "img_box": img_box,
                 "img_lbl": img_lbl,
                 "pil": pil_img,
+                "rec": rec if i < len(records) else None,
             })
 
         for c in range(5):
@@ -1519,10 +1540,47 @@ class CameraWindow:
 
         def _render_detail_gallery():
             top._detail_imgs = []
+            mode = view_mode_var.get()
             for item in top._detail_gallery_items:
                 img_box = item["img_box"]
                 img_lbl = item["img_lbl"]
-                pil = item["pil"]
+                rec = item.get("rec")
+                
+                pil = None
+                if rec is not None:
+                    img_path = rec.get("image_path", "")
+                    if img_path and os.path.isfile(img_path):
+                        base_no_ext, ext = os.path.splitext(img_path)
+                        target_path = img_path
+                        
+                        if mode == "RAW":
+                            raw_path = f"{base_no_ext}_raw.jpg"
+                            if os.path.isfile(raw_path):
+                                target_path = raw_path
+                        elif mode == "BINARY":
+                            mask_path = f"{base_no_ext}_mask.png"
+                            if os.path.isfile(mask_path):
+                                target_path = mask_path
+                        elif mode == "GRAY":
+                            raw_path = f"{base_no_ext}_raw.jpg"
+                            if os.path.isfile(raw_path):
+                                target_path = raw_path
+                                
+                        try:
+                            img_loaded = Image.open(target_path).convert("RGB")
+                            if mode == "GRAY":
+                                pil = img_loaded.convert("L").convert("RGB")
+                            elif mode == "BINARY" and not os.path.isfile(f"{base_no_ext}_mask.png"):
+                                gray_temp = img_loaded.convert("L")
+                                pil = gray_temp.point(lambda p: 255 if p > 75 else 0).convert("RGB")
+                            else:
+                                pil = img_loaded
+                        except Exception:
+                            pil = item["pil"]
+                    else:
+                        pil = item["pil"]
+                else:
+                    pil = item["pil"]
 
                 if pil is None:
                     img_lbl.config(image="", text="NO IMAGE", bg="#0F172A", fg="#94A3B8")
@@ -1587,10 +1645,12 @@ class CameraWindow:
                 grid_view.pack(fill="both", expand=True)
                 btn_grid.config(bg="#0284C7", fg="white")
                 btn_table.config(bg="#E2E8F0", fg="#334155")
+                mode_frame.pack(side="right", padx=(8, 0))
             else:
                 table_view.pack(fill="both", expand=True)
                 btn_table.config(bg="#0284C7", fg="white")
                 btn_grid.config(bg="#E2E8F0", fg="#334155")
+                mode_frame.pack_forget()
 
         btn_table.config(command=lambda: show("TABLE"))
         btn_grid.config(command=lambda: show("GRID"))
@@ -1913,6 +1973,26 @@ class CameraWindow:
         )
         self.btn_sheet10_grid.pack(side="left")
 
+        # Chế độ hiển thị ảnh (Overlay, Raw, Binary, Gray) cho Sheet 10
+        self.sheet10_view_mode_var = tk.StringVar(value="OVERLAY")
+        self.sheet10_mode_frame = tk.Frame(toggle_bar, bg="#FFFFFF")
+        
+        tk.Label(self.sheet10_mode_frame, text="Hiển thị ảnh:", font=("Arial", 9, "bold"), fg="#475569", bg="#FFFFFF").pack(side="left", padx=(15, 6))
+        
+        def on_sheet10_mode_change(*args):
+            self._refresh_sheet10_gallery(getattr(self, "_last_10_capture_records", []))
+            
+        self.sheet10_view_mode_var.trace_add("write", on_sheet10_mode_change)
+        
+        r1 = tk.Radiobutton(self.sheet10_mode_frame, text="Ảnh vẽ khung (Overlay)", font=("Arial", 9), variable=self.sheet10_view_mode_var, value="OVERLAY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
+        r1.pack(side="left", padx=4)
+        r2 = tk.Radiobutton(self.sheet10_mode_frame, text="Ảnh gốc (Không khung)", font=("Arial", 9), variable=self.sheet10_view_mode_var, value="RAW", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
+        r2.pack(side="left", padx=4)
+        r3 = tk.Radiobutton(self.sheet10_mode_frame, text="Ảnh nhị phân (Binary)", font=("Arial", 9), variable=self.sheet10_view_mode_var, value="BINARY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
+        r3.pack(side="left", padx=4)
+        r4 = tk.Radiobutton(self.sheet10_mode_frame, text="Ảnh xám (Gray)", font=("Arial", 9), variable=self.sheet10_view_mode_var, value="GRAY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
+        r4.pack(side="left", padx=4)
+
         self.sheet10_content = tk.Frame(container, bg="#FFFFFF")
         self.sheet10_content.pack(fill="both", expand=True)
 
@@ -2023,10 +2103,12 @@ class CameraWindow:
             self.sheet10_grid_view.pack(fill="both", expand=True)
             self.btn_sheet10_grid.config(bg="#0284C7", fg="white")
             self.btn_sheet10_table.config(bg="#E2E8F0", fg="#334155")
+            self.sheet10_mode_frame.pack(side="right", padx=(8, 0))
         else:
             self.sheet10_table_view.pack(fill="both", expand=True)
             self.btn_sheet10_table.config(bg="#0284C7", fg="white")
             self.btn_sheet10_grid.config(bg="#E2E8F0", fg="#334155")
+            self.sheet10_mode_frame.pack_forget()
 
     def _refresh_sheet10_table(self):
         """Nạp dữ liệu 10 frame gần nhất cho cả 2 kiểu xem."""
@@ -2071,13 +2153,38 @@ class CameraWindow:
             meta_lbl = item.get("meta_lbl")
             if idx < len(records):
                 rec = records[idx]
-                preview = rec.get("preview_frame_annotated")
-                if preview is None:
-                    preview = rec.get("preview_frame")
+                mode_val = self.sheet10_view_mode_var.get() if hasattr(self, "sheet10_view_mode_var") else "OVERLAY"
+
+                preview = None
+                if mode_val == "OVERLAY":
+                    preview = rec.get("preview_frame_annotated")
+                    if preview is None:
+                        preview = rec.get("preview_frame")
+                elif mode_val == "RAW":
+                    preview = rec.get("preview_frame_raw")
+                elif mode_val == "BINARY":
+                    preview = rec.get("preview_frame_mask")
+                    if preview is None:
+                        preview_raw = rec.get("preview_frame_raw")
+                        if preview_raw is not None:
+                            gray_temp = cv2.cvtColor(preview_raw, cv2.COLOR_BGR2GRAY)
+                            _, preview = cv2.threshold(gray_temp, 75, 255, cv2.THRESH_BINARY)
+                elif mode_val == "GRAY":
+                    preview_raw = rec.get("preview_frame_raw")
+                    if preview_raw is not None:
+                        preview = cv2.cvtColor(preview_raw, cv2.COLOR_BGR2GRAY)
+                    else:
+                        preview_annotated = rec.get("preview_frame_annotated") or rec.get("preview_frame")
+                        if preview_annotated is not None:
+                            preview = cv2.cvtColor(preview_annotated, cv2.COLOR_BGR2GRAY)
+
                 _img_set = False
                 if preview is not None:
                     try:
-                        rgb = cv2.cvtColor(preview, cv2.COLOR_BGR2RGB)
+                        if len(preview.shape) == 2:
+                            rgb = cv2.cvtColor(preview, cv2.COLOR_GRAY2RGB)
+                        else:
+                            rgb = cv2.cvtColor(preview, cv2.COLOR_BGR2RGB)
                         if rgb is not None:
                             box_w = max(int(img_box.winfo_width()) - 4, 80)
                             box_h = max(int(img_box.winfo_height()) - 4, 60)
@@ -2095,7 +2202,31 @@ class CameraWindow:
                         try:
                             box_w = max(int(img_box.winfo_width()) - 4, 80)
                             box_h = max(int(img_box.winfo_height()) - 4, 60)
-                            img = self._fit_frame_full_color(Image.open(img_path), box_w, box_h)
+                            
+                            # Xử lý các chế độ khi đọc từ file
+                            base_no_ext, ext = os.path.splitext(img_path)
+                            target_path = img_path
+                            if mode_val == "RAW":
+                                raw_path = f"{base_no_ext}_raw.jpg"
+                                if os.path.isfile(raw_path):
+                                    target_path = raw_path
+                            elif mode_val == "BINARY":
+                                mask_path = f"{base_no_ext}_mask.png"
+                                if os.path.isfile(mask_path):
+                                    target_path = mask_path
+                            elif mode_val == "GRAY":
+                                raw_path = f"{base_no_ext}_raw.jpg"
+                                if os.path.isfile(raw_path):
+                                    target_path = raw_path
+                            
+                            img_loaded = Image.open(target_path).convert("RGB")
+                            if mode_val == "GRAY":
+                                img_loaded = img_loaded.convert("L").convert("RGB")
+                            elif mode_val == "BINARY" and not os.path.isfile(f"{base_no_ext}_mask.png"):
+                                gray_temp = img_loaded.convert("L")
+                                img_loaded = gray_temp.point(lambda p: 255 if p > 75 else 0).convert("RGB")
+                                
+                            img = self._fit_frame_full_color(img_loaded, box_w, box_h)
                             photo = ImageTk.PhotoImage(img)
                             img_lbl.config(image=photo, text="")
                             img_lbl.image = photo
@@ -3425,6 +3556,7 @@ class CameraWindow:
                             "preview_frame": frame.copy(),
                             "preview_frame_raw": raw_frame.copy(),
                             "preview_frame_annotated": frame.copy(),
+                            "preview_frame_mask": self.analyzer.last_apple_mask.copy() if getattr(self.analyzer, "last_apple_mask", None) is not None else None,
                         })
 
                         count = len(self._video_session_buffer)
