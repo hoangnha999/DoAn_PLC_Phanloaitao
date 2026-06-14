@@ -104,7 +104,7 @@
     "plc_poll_ms": 200,
     "plc_fault_threshold": 3,
     "vision_fault_threshold": 3,
-    "plc_ip": "192.168.0.2",
+    "plc_ip": "192.168.0.1",
     "plc_rack": 0,
     "plc_slot": 1,
     "smooth_frames": 10,
