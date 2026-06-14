@@ -76,8 +76,8 @@ class FruitAnalyzer:
 
     # ─── TC2 - Kích thước (đường kính mm) ─────────────────────
     SIZE_THRESHOLDS = {"large": 70, "medium": 65}
-    PIXEL_TO_MM = 0.42  # Đã ước lượng lại cho khoảng cách 45cm (cần tinh chỉnh thêm)
-    DEPTH_REFERENCE_MM = 450.0  # Khoảng cách cố định hiện tại từ camera đến băng tải
+    PIXEL_TO_MM = 0.28  # Đã cấu hình theo khoảng cách thực tế 60cm
+    DEPTH_REFERENCE_MM = 600.0  # Khoảng cách thực tế hiện tại từ camera đến băng tải
     ENABLE_DEPTH_SIZE_COMPENSATION = True  # Đã bật
     REQUIRE_DEPTH_FOR_SIZE_MEASUREMENT = False
     SIZE_CALIBRATION_GAIN = 1.75

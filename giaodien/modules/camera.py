@@ -775,6 +775,13 @@ class CameraManager:
                         depth_cap.release()
                     continue
 
+                # Bật alignment Depth-to-Color cho OpenCV OpenNI backend (nếu được hỗ trợ)
+                try:
+                    depth_cap.set(cv2.CAP_PROP_OPENNI_REGISTRATION, 1.0)
+                    self._log(f"🛠️ OpenCV OpenNI: Đã cố gắng bật CAP_PROP_OPENNI_REGISTRATION")
+                except Exception as e:
+                    self._log(f"⚠️ Không thể bật registration cho OpenCV OpenNI: {e}")
+
                 # Probe một frame depth để đảm bảo stream thực sự usable.
                 ok_grab = depth_cap.grab()
                 if not ok_grab:
@@ -884,6 +891,17 @@ class CameraManager:
             dev = openni2.Device.open_any()
             depth_stream = dev.create_depth_stream()
 
+            # Bật alignment Depth-to-Color (nếu được hỗ trợ) để vùng focus tọa độ x,y khớp nhau
+            try:
+                from openni import openni2 as oni
+                if dev.is_image_registration_mode_supported(oni.IMAGE_REGISTRATION_DEPTH_TO_COLOR):
+                    dev.set_image_registration_mode(oni.IMAGE_REGISTRATION_DEPTH_TO_COLOR)
+                    self._log("[CAM] OpenNI2: Đã bật alignment Depth-to-Color")
+                else:
+                    self._log("[CAM] OpenNI2: Thiết bị không hỗ trợ alignment Depth-to-Color")
+            except Exception as e:
+                self._log(f"[CAM] Lỗi khi cấu hình alignment Depth-to-Color: {e}")
+
             # Set video mode mặc định để tránh buffer toàn 0 do lỗi config từ thiết bị
             try:
                 from openni import openni2 as oni
@@ -945,7 +963,7 @@ class CameraManager:
                     depth_map = np.ctypeslib.as_array(data).reshape((h, w))
             except Exception as e:
                 self._log(f"[CAM] Lỗi decode depth map: {e}")
-                return -1.0
+                return None
         else:
             with self._cap_lock:
                 dcap = self.depth_cap
@@ -963,11 +981,11 @@ class CameraManager:
                     ok, depth_map = dcap.retrieve(cv2.CAP_OPENNI_DEPTH_MAP)
 
                 if not ok or depth_map is None:
-                    return -4.0
+                    return None
                 h, w = depth_map.shape[:2]
             except Exception as e:
                 self._log(f"[CAM] Lỗi retrieve OpenCV depth: {e}")
-                return -5.0
+                return None
 
         try:
             if isinstance(self._depth_focus_norm, tuple) and len(self._depth_focus_norm) == 2:
@@ -1010,10 +1028,10 @@ class CameraManager:
 
             # Không có mẫu hợp lệ → trả None để stream_loop tự quản lý giá trị cũ.
             # KHÔNG fallback sang last_depth_distance_mm vì sẽ tạo vòng lặp đóng băng Z.
-            return 0.0
+            return None
         except Exception as e:
             self._log(f"[CAM] Lỗi tính median Z: {e}")
-            return -3.0
+            return None
 
     def _read_depth_distance_m(self):
         """Giữ tương thích ngược: trả về mét dựa trên giá trị mm."""
