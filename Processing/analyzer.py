@@ -80,7 +80,7 @@ class FruitAnalyzer:
     DEPTH_REFERENCE_MM = 450.0  # Khoảng cách cố định hiện tại từ camera đến băng tải
     ENABLE_DEPTH_SIZE_COMPENSATION = True  # Đã bật
     REQUIRE_DEPTH_FOR_SIZE_MEASUREMENT = False
-    SIZE_CALIBRATION_GAIN = 2.8
+    SIZE_CALIBRATION_GAIN = 1.75
     DEPTH_SMOOTH_WINDOW = 9
     DEPTH_MAX_DELTA_MM = 35.0
     DEPTH_HOLD_FRAMES = 6
@@ -147,7 +147,7 @@ class FruitAnalyzer:
         "depth_reference_mm": 600.0,
         "enable_depth_size_compensation": True,
         "require_depth_for_size_measurement": False,
-        "size_calibration_gain": 2.8,
+        "size_calibration_gain": 1.75,
         "min_apple_area_ratio": 0.012,
         "yolo_conf_thresh": 0.45,
         "yolo_min_bbox_area_ratio": 0.007,
