@@ -182,6 +182,24 @@ Nếu cần dọn sâu hơn, hãy backup trước (copy cả thư mục dự án
 3. Chạy lại python giaodien/main.py để smoke test
 4. Nếu ổn định mới xóa các thư mục cache
 
+## 9. Vai trò và thông tin mô hình YOLOv8 trong dự án
+
+Dự án này sử dụng phương pháp **Phân đoạn lai (Hybrid Segmentation)** kết hợp giữa trí tuệ nhân tạo **YOLOv8** (Deep Learning) và thuật toán xử lý ảnh truyền thống (**OpenCV HSV**).
+
+### 9.1 Vai trò của YOLOv8 trong luồng xử lý
+- **Cổng chặn thông minh (YOLO Gate):** Tránh nhận diện sai các vật thể không phải táo (ví dụ: tay người vận hành, nền băng tải, bụi bẩn). Hệ thống chỉ thực hiện phân tích khi YOLOv8 phát hiện quả táo với độ tự tin (Confidence) đạt ngưỡng.
+- **Giới hạn vùng xử lý (ROI):** Bounding Box từ YOLOv8 được dùng làm khung vùng quan tâm. OpenCV chỉ tính toán các tiêu chí độ chín, kích thước, hình dáng bên trong vùng này, giúp giảm tải thuật toán và tránh nhiễu bên ngoài.
+- **Phân vùng phát hiện trung tâm (Detection Zone):** Chỉ cho phép xử lý và đẩy kết quả xuống PLC khi tâm của quả táo nằm trong khu vực trung tâm băng tải (tránh chụp/gửi trùng lặp).
+- **Cơ chế dự phòng (Fallback):** Khi ánh sáng thay đổi quá mạnh hoặc màu táo bị lẫn với nền khiến thuật toán OpenCV HSV không tìm được contour táo, hệ thống sẽ tự động vẽ mặt nạ hình học dạng elip dựa trên Bounding Box của YOLOv8 để tiếp tục đo đạc kích thước mà không bị gián đoạn.
+
+### 9.2 Vị trí File Model và tham số cấu hình
+- **Đường dẫn tệp tin:** Hệ thống tự động nạp mô hình từ tệp `giaodien/best.pt` (mô hình đã được train và tải về).
+- **Các thông số cấu hình chính (trong `giaodien/config` và `Processing/analyzer.py`):**
+  - `YOLO_CONF_THRESH`: Ngưỡng độ tin cậy tối thiểu để nhận dạng quả táo (mặc định cấu hình `0.45` cho ngoài trời hoặc tùy chỉnh).
+  - `DETECTION_ZONE_WIDTH_RATIO` / `DETECTION_ZONE_HEIGHT_RATIO`: Tỷ lệ vùng phát hiện trung tâm (mặc định là `0.55` chiều rộng và `0.70` chiều cao của khung hình).
+  - `YOLO_MIN_APPLE_COLOR_RATIO`: Tỉ lệ diện tích màu sắc giống táo tối thiểu nằm trong bounding box để loại trừ các nhận diện giả lập.
+
 ---
 
 Tác giả: hoangnha999
+
