@@ -216,6 +216,10 @@ Mô hình hiện tại đang tích hợp chạy thực tế đã được huấn
     - **mAP50 (Chỉ số trùng khớp IoU >= 50%):** `99.5%`
     - **mAP50-95 (Độ chính xác định vị bbox tối ưu):** `93.9%`
 
+*Ví dụ kết quả nhận diện thực tế của mô hình trên tập validation (độ tự tin đạt 95%):*
+
+![Kết quả nhận diện YOLOv8](image/README/yolo_predict_test.png)
+
 ---
 
 Tác giả: hoangnha999

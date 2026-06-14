@@ -26,6 +26,8 @@
   - **Recall (Tỉ lệ tìm sót quả táo):** `0.996` (99.6%)
   - **mAP50:** `0.995` (99.5%) - Độ khớp khung hình khi IoU >= 0.5
   - **mAP50-95:** `0.939` (93.9%) - Độ khớp khung hình trung bình từ IoU 0.5 đến 0.95 (chỉ số cực kỳ cao và ổn định)
+  
+  ![Kết quả nhận diện test trên Validation](image/README/yolo_predict_test.png)
 
 #### ✅ Giải pháp & Triển khai
 - Xuất tệp tin trọng số tốt nhất `best.pt` (~6.2 MB) và tải về máy.
