@@ -4832,9 +4832,13 @@ class CameraWindow:
                         stt += 1
 
             note_var.set(
-                f"TC1: Đỏ+Vàng+Xanh = 100%. Dùng %Đỏ để xếp mức (M1/M2/M3). | TC2 theo đường kính mm | TC3 theo chỉ số độ tròn (0-1). | Điểm: G1={score_g1}, G2={score_g2}, G3={score_g3} | Ngưỡng kết luận: Grade-1 if >={min_g1}, Grade-2 if >={min_g2}, còn lại Grade-3\n"
-                f"💡 LUẬT QUYẾT ĐỊNH 10 FRAMES: Trong 10 ảnh chụp lúc táo xoay, hệ thống sẽ: (1) Tự động loại bỏ các ảnh bị mờ hoặc bị con lăn che khuất quả táo. (2) Đếm và lấy hạng táo (Grade 1/2/3) xuất hiện nhiều nhất làm kết quả. (3) Nếu tỉ lệ giữa các hạng quá sát nút nhau (không chênh lệch rõ ràng), hệ thống sẽ ưu tiên chọn hạng xấu hơn để đảm bảo an toàn sản phẩm."
+                f"TC1: Đỏ+Vàng+Xanh = 100%. Dùng %Đỏ để xếp mức (M1/M2/M3). | TC2 theo đường kính mm | TC3 theo chỉ số độ tròn (0-1). | Điểm: G1={score_g1}, G2={score_g2}, G3={score_g3} | Ngưỡng kết luận: Grade-1 if >={min_g1}, Grade-2 if >={min_g2}, còn lại Grade-3\n\n"
+                f"💡 LUẬT QUYẾT ĐỊNH 10 FRAMES (khi quả táo xoay trên con lăn):\n"
+                f"• Bước 1: Tự động loại bỏ các bức ảnh bị mờ hoặc bị con lăn che khuất.\n"
+                f"• Bước 2: Đếm và lấy hạng táo (Grade 1/2/3) xuất hiện nhiều nhất làm hạng kết luận.\n"
+                f"• Bước 3: Nếu tỉ lệ các hạng quá sát nút nhau (không chênh lệch rõ rệt), hệ thống tự động ưu tiên chọn hạng xấu hơn để đảm bảo an toàn sản phẩm."
             )
+
 
 
 
