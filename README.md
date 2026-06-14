@@ -264,6 +264,48 @@ Mô hình hiện tại đang tích hợp chạy thực tế đã được huấn
 
 ![Kết quả nhận diện YOLOv8](image/README/yolo_predict_test.png)
 
+## 10. Luật quyết định phân hạng tổng hợp (Multi-Frame Decision Rules)
+
+Để đảm bảo tính ổn định và chống nhiễu trong quá trình vận hành thực tế (như rung động cơ học, bụi bám, hoặc con lăn che khuất một phần quả táo), hệ thống không chỉ dựa vào 1 khung hình duy nhất mà thực hiện chụp liên tiếp **10 khung hình** trong vòng ~1 giây khi táo xoay trên con lăn, sau đó áp dụng luật quyết định tổng hợp 3 mức của 3 tiêu chí chính.
+
+### 10.1 Xếp mức cho từng tiêu chí trên một Khung hình đơn lẻ
+Khi phân tích mỗi khung hình, hệ thống đánh giá độc lập 3 tiêu chí và xếp vào 3 mức (M1: Tốt | M2: Trung bình | M3: Yếu):
+- **Tiêu chí 1 (TC1 - Độ chín):** Dựa trên phần trăm diện tích vỏ có màu đỏ.
+  - **M1:** `% Đỏ >= 85%`
+  - **M2:** `70% <= % Đỏ < 85%`
+  - **M3:** `% Đỏ < 70%` (Vàng/Xanh nhiều)
+- **Tiêu chí 2 (TC2 - Kích cỡ):** Dựa trên đường kính thực tế đo được (quy đổi ra milimét).
+  - **M1:** `Đường kính >= 60 mm`
+  - **M2:** `40 mm <= Đường kính < 60 mm`
+  - **M3:** `Đường kính < 40 mm`
+- **Tiêu chí 3 (TC3 - Hình dáng/Độ tròn):** Dựa trên chỉ số tròn trịa Circularity (từ 0.0 đến 1.0).
+  - **M1:** `Độ tròn >= 0.40`
+  - **M2:** `0.20 <= Độ tròn < 0.40`
+  - **M3:** `Độ tròn < 0.20` (Quả bị méo hoặc lỗi contour)
+
+### 10.2 Tính điểm và xếp hạng khung hình (Frame Grading)
+Mỗi mức xếp hạng của từng tiêu chí tương ứng với số điểm định nghĩa trước (có thể thay đổi trên giao diện điều khiển, mặc định: M1 = 3 điểm, M2 = 2 điểm, M3 = 1 điểm).
+$$\text{Tổng điểm của Frame} = \text{Điểm TC1} + \text{Điểm TC2} + \text{Điểm TC3}$$
+*Tổng điểm của một khung hình sẽ dao động từ 3 (yếu nhất) đến 9 (tốt nhất). Kết quả phân hạng khung hình được tính như sau:*
+- **Grade-1 (Loại 1):** Tổng điểm của frame đạt $\ge 8$.
+- **Grade-2 (Loại 2):** Tổng điểm của frame đạt $\ge 5$ và $< 8$.
+- **Grade-3 (Loại 3):** Tổng điểm của frame đạt $< 5$.
+
+### 10.3 Thuật toán biểu quyết tổng hợp cho chuỗi 10 Khung hình (Fusion Decision)
+Sau khi có kết quả phân hạng của 10 khung hình, hệ thống thực hiện tổng hợp kết quả cuối cùng (kết quả chốt gửi lệnh đẩy piston xuống PLC) thông qua thuật toán biểu quyết có trọng số chất lượng:
+
+1. **Lọc chất lượng khung hình (Quality Filtering):**
+   Mỗi khung hình được gán một điểm chất lượng (`quality_score` từ 0.0 đến 1.0) dựa trên độ tự tin của YOLOv8, độ sắc nét (blur) và độ tròn.
+   - Chỉ các khung hình đạt chất lượng tốt (`quality_score >= 0.50`) mới được tham gia biểu quyết.
+   - Các khung hình quá mờ hoặc bị méo dạng (do con lăn che khuất) sẽ bị loại bỏ hoặc giảm trọng số cực kỳ nặng (phạt từ 28% đến 90% trọng số).
+2. **Biểu quyết có trọng số (Weighted Voting):**
+   - Các khung hình đạt chất lượng hợp lệ được gom nhóm theo Grade (1, 2, 3).
+   - Điểm số tích lũy cho mỗi Grade = Tổng trọng số chất lượng của tất cả các khung hình hợp lệ thuộc Grade đó.
+   - Grade có tổng điểm tích lũy sau chuẩn hóa cao nhất (Top-1) sẽ được chọn làm kết quả chốt dự kiến.
+3. **Cơ chế phòng thủ an toàn (Margin & Fallback):**
+   - **Độ lệch an toàn (Margin Delta):** Khoảng cách tỷ lệ giữa Grade đạt vị trí số 1 (Top-1) và số 2 (Top-2) phải lớn hơn `0.1` (10%). Nếu kết quả biểu quyết phân vân (ví dụ: Grade-1 đạt 48% trọng số, Grade-2 đạt 45% trọng số - margin là 3% < 10%), hệ thống sẽ tự động lấy **Grade xấu nhất** xuất hiện trong các khung hình hợp lệ để tránh rủi ro lọt sản phẩm hỏng.
+   - **Giới hạn số mẫu tối thiểu (Min Valid Frames):** Nếu số lượng khung hình đạt chuẩn chất lượng hợp lệ trong phiên chụp nhỏ hơn `6` khung hình, hệ thống sẽ bỏ qua kết quả biểu quyết và tự động hạ hạng xuống **Grade xấu nhất** có trong toàn phiên để đảm bảo an toàn.
+
 ---
 
 Tác giả: hoangnha999
