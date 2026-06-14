@@ -199,7 +199,25 @@ Dự án này sử dụng phương pháp **Phân đoạn lai (Hybrid Segmentatio
   - `DETECTION_ZONE_WIDTH_RATIO` / `DETECTION_ZONE_HEIGHT_RATIO`: Tỷ lệ vùng phát hiện trung tâm (mặc định là `0.55` chiều rộng và `0.70` chiều cao của khung hình).
   - `YOLO_MIN_APPLE_COLOR_RATIO`: Tỉ lệ diện tích màu sắc giống táo tối thiểu nằm trong bounding box để loại trừ các nhận diện giả lập.
 
+### 9.3 Thông số huấn luyện & Hiệu năng mô hình (YOLOv8 Training)
+Mô hình hiện tại đang tích hợp chạy thực tế đã được huấn luyện với các thông số kỹ thuật sau:
+- **Tập dữ liệu (Dataset):** Gồm 1117 ảnh quả táo thực tế tại băng tải, phân chia 80% học máy (893 ảnh) và 20% thi thử/kiểm thử (224 ảnh).
+- **Phần cứng huấn luyện:** Google Colab GPU Nvidia Tesla T4 (15GB VRAM).
+- **Cấu hình Huấn luyện:**
+  - Kiến trúc: **YOLOv8n (Nano)** gọn nhẹ, tối ưu tốc độ chạy thực tế (Real-time).
+  - Tham số: `epochs=150` (sử dụng Cosine Learning Rate decay), `batch=16`, `imgsz=640`.
+  - Cơ chế tự dừng sớm: `patience=15` (Dừng khi sau 15 epoch không có cải thiện độ chính xác).
+- **Kết quả huấn luyện:**
+  - Huấn luyện tự động dừng sớm (Early Stopping) ở **Epoch thứ 90** (Mô hình tốt nhất đạt được ở **Epoch 75**).
+  - Thời gian huấn luyện: **~31 phút** (0.515 giờ).
+  - Độ chính xác mô hình thu được (Validation Metrics):
+    - **Precision (Độ chính xác dự báo):** `99.9%`
+    - **Recall (Tỉ lệ tìm kiếm đủ táo):** `99.6%`
+    - **mAP50 (Chỉ số trùng khớp IoU >= 50%):** `99.5%`
+    - **mAP50-95 (Độ chính xác định vị bbox tối ưu):** `93.9%`
+
 ---
 
 Tác giả: hoangnha999
+
 

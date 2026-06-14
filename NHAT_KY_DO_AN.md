@@ -5,6 +5,35 @@
 
 ---
 
+## 📅 2026-06-14 (Chủ Nhật)
+
+### 12:45 — Huấn luyện thành công mô hình YOLOv8n nhận dạng táo
+
+#### 🔍 Thông tin huấn luyện (Training Specs)
+- **Dataset:** 1117 ảnh được phân tách theo tỉ lệ 80/20 (893 ảnh train, 224 ảnh validation).
+- **Mô hình gốc:** YOLOv8n (Nano) - 130 layers, 3,011,043 tham số.
+- **Môi trường:** Google Colab với GPU Tesla T4 (15GB VRAM).
+- **Cấu hình tham số train:**
+  - `epochs=150`, `batch=16`, `imgsz=640`
+  - Bật tính năng Tự động dừng sớm (`patience=15`) - tự ngắt nếu 15 epochs liên tiếp không tiến bộ.
+  - Sử dụng Cosine Learning Rate Schedule (`cos_lr=True`).
+
+#### 🔬 Tiến trình & Kết quả
+- **Hiện tượng dừng sớm (Early Stopping):** Quá trình huấn luyện tự động dừng ở epoch thứ 90 vì mô hình đạt kết quả tối ưu nhất ở epoch thứ 75 (không cải thiện thêm trong 15 epoch sau đó).
+- **Thời gian huấn luyện:** 0.515 giờ (~31 phút).
+- **Độ chính xác đạt được (Validation Metrics tại epoch 75):**
+  - **Precision (Độ chính xác dự đoán quả táo):** `0.999` (99.9%)
+  - **Recall (Tỉ lệ tìm sót quả táo):** `0.996` (99.6%)
+  - **mAP50:** `0.995` (99.5%) - Độ khớp khung hình khi IoU >= 0.5
+  - **mAP50-95:** `0.939` (93.9%) - Độ khớp khung hình trung bình từ IoU 0.5 đến 0.95 (chỉ số cực kỳ cao và ổn định)
+
+#### ✅ Giải pháp & Triển khai
+- Xuất tệp tin trọng số tốt nhất `best.pt` (~6.2 MB) và tải về máy.
+- Chép tệp tin `best.pt` vào thư mục `giaodien/best.pt` của dự án để tích hợp trực tiếp vào ứng dụng chạy thời gian thực.
+- Cập nhật tài liệu dự án `README.md` về luồng xử lý Hybrid Segmentation.
+
+---
+
 ## 📅 2026-06-13 (Thứ Bảy)
 
 ### 00:05 — Khắc phục lỗi "Kẹt Session" không lưu lịch sử / không gửi PLC
