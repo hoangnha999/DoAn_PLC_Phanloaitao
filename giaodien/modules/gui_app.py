@@ -3895,8 +3895,7 @@ class CameraWindow:
         
         self._log_event(
             f"📸 ĐÃ CHỤP ĐỦ {len(self._video_session_buffer)} MẪU ({self._capture_session_source}). "
-            f"Kết quả chốt: {final_grade} | method={method} | valid={valid_count} | margin={margin:.3f} | reason={reason} "
-            f"| tracks={int(track_meta.get('total_tracks', 0))} | temporal={float(track_meta.get('temporal_stability', 0.0)):.2f}",
+            f"Kết quả chốt: {final_grade}",
             "INFO"
         )
 
