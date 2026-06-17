@@ -17,3 +17,7 @@ analyzer_log.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Scratch / Temp
+scratch/
+

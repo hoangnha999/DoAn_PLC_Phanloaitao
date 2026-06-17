@@ -4,6 +4,12 @@
       "good_thresh": 80,
       "medium_thresh": 60
     },
+    "tc1": {
+      "enable_adaptive_hsv": true,
+      "temporal_smoothing": false,
+      "min_color_pixels": 300,
+      "smoothing_window": 7
+    },
     "shape": {
       "good_thresh": 0.7,
       "medium_thresh": 0.5
@@ -77,6 +83,7 @@
     "yolo": {
       "conf_thresh": 0.35,
       "predict_conf": 0.05,
+      "predict_iou": 0.80,
       "min_bbox_area_ratio": 0.007,
       "enable_tracking": true,
       "tracker_name": "bytetrack.yaml",
@@ -117,5 +124,16 @@
       "min_grade1": 8,
       "min_grade2": 5
     }
+  },
+  "database": {
+    "type": "sqlserver",
+    "sqlserver": {
+      "driver": "ODBC Driver 17 for SQL Server",
+      "server": "DESKTOP-RF2G40K\\SQLEXPRESS",
+      "database": "AppleClassification",
+      "username": "",
+      "password": "",
+      "trusted_connection": true
+    }
   }
-}
+}

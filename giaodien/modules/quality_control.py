@@ -1,49 +1,43 @@
-"""
-Module Quality Control - Machine Vision Industrial Standard
-Quản lý Ground Truth Labeling và tính toán các chỉ số Accuracy Metrics.
-
-Tính năng:
-- Ground Truth Labeling: Operator xác nhận kết quả phân loại thực tế
-- Confusion Matrix: Ma trận nhầm lẫn giữa predicted vs actual
-- Accuracy Metrics: Precision, Recall, F1-Score, Overall Accuracy
-- Repeatability Test: Kiểm tra độ lặp lại khi phân loại cùng 1 quả nhiều lần
-"""
-
-import sqlite3
 import numpy as np
 from collections import defaultdict
-
 
 class QualityController:
     """Controller để quản lý chất lượng phân loại theo chuẩn công nghiệp."""
     
-    def __init__(self, db_path):
+    def __init__(self, db):
         """
         Khởi tạo Quality Controller.
         
         Args:
-            db_path: Đường dẫn đến database SQLite
+            db: Lớp AppDatabase quản lý cơ sở dữ liệu (SQLite hoặc SQL Server)
         """
-        self.db_path = db_path
+        self.db = db
         self._ensure_ground_truth_column()
         print("[QUALITY] ✅ Quality Control Module initialized (Ground Truth + Metrics)")
     
     def _ensure_ground_truth_column(self):
         """Đảm bảo cột ground_truth tồn tại trong database."""
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            
-            # Kiểm tra xem cột ground_truth đã tồn tại chưa
-            c.execute("PRAGMA table_info(phan_loai_history)")
-            columns = [col[1] for col in c.fetchall()]
-            
-            if 'ground_truth' not in columns:
-                c.execute("ALTER TABLE phan_loai_history ADD COLUMN ground_truth TEXT DEFAULT NULL")
-                conn.commit()
-                print("[QUALITY] ✅ Đã thêm cột 'ground_truth' vào database")
-            
-            conn.close()
+            with self.db._get_conn() as conn:
+                c = conn.cursor()
+                
+                # Kiểm tra xem cột ground_truth đã tồn tại chưa
+                if self.db.db_type == "sqlserver":
+                    c.execute("""
+                        SELECT COLUMN_NAME 
+                        FROM INFORMATION_SCHEMA.COLUMNS 
+                        WHERE TABLE_NAME = 'phan_loai_history'
+                    """)
+                    columns = [row[0] for row in c.fetchall()]
+                    if 'ground_truth' not in columns:
+                        c.execute("ALTER TABLE phan_loai_history ADD ground_truth NVARCHAR(250) DEFAULT NULL")
+                else:
+                    c.execute("PRAGMA table_info(phan_loai_history)")
+                    columns = [col[1] for col in c.fetchall()]
+                    if 'ground_truth' not in columns:
+                        c.execute("ALTER TABLE phan_loai_history ADD COLUMN ground_truth TEXT DEFAULT NULL")
+                        
+                print("[QUALITY] ✅ Đã kiểm tra cột 'ground_truth' trong database")
         except Exception as e:
             print(f"[QUALITY] ⚠️ Lỗi khi kiểm tra database: {e}")
     
@@ -59,12 +53,10 @@ class QualityController:
             bool: True nếu thành công
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute("UPDATE phan_loai_history SET ground_truth = ? WHERE id = ?",
-                     (actual_grade, record_id))
-            conn.commit()
-            conn.close()
+            with self.db._get_conn() as conn:
+                c = conn.cursor()
+                c.execute("UPDATE phan_loai_history SET ground_truth = ? WHERE id = ?",
+                         (actual_grade, record_id))
             return True
         except Exception as e:
             print(f"[QUALITY] ❌ Lỗi set ground truth: {e}")
@@ -82,17 +74,16 @@ class QualityController:
             }
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            
-            # Lấy tất cả bản ghi đã có ground_truth
-            c.execute("""
-                SELECT ket_qua, ground_truth 
-                FROM phan_loai_history 
-                WHERE ground_truth IS NOT NULL
-            """)
-            rows = c.fetchall()
-            conn.close()
+            with self.db._get_conn() as conn:
+                c = conn.cursor()
+                
+                # Lấy tất cả bản ghi đã có ground_truth
+                c.execute("""
+                    SELECT ket_qua, ground_truth 
+                    FROM phan_loai_history 
+                    WHERE ground_truth IS NOT NULL
+                """)
+                rows = c.fetchall()
             
             if not rows:
                 return None
@@ -179,17 +170,25 @@ class QualityController:
             list: [(id, thoi_gian, ket_qua, duong_dan_anh), ...]
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute("""
-                SELECT id, thoi_gian, ket_qua, duong_dan_anh
-                FROM phan_loai_history
-                WHERE ground_truth IS NULL
-                ORDER BY id DESC
-                LIMIT ?
-            """, (limit,))
-            rows = c.fetchall()
-            conn.close()
+            limit = int(limit)
+            with self.db._get_conn() as conn:
+                c = conn.cursor()
+                if self.db.db_type == "sqlserver":
+                    c.execute(f"""
+                        SELECT TOP {limit} id, thoi_gian, ket_qua, duong_dan_anh
+                        FROM phan_loai_history
+                        WHERE ground_truth IS NULL
+                        ORDER BY id DESC
+                    """)
+                else:
+                    c.execute("""
+                        SELECT id, thoi_gian, ket_qua, duong_dan_anh
+                        FROM phan_loai_history
+                        WHERE ground_truth IS NULL
+                        ORDER BY id DESC
+                        LIMIT ?
+                    """, (limit,))
+                rows = c.fetchall()
             return rows
         except Exception as e:
             print(f"[QUALITY] ❌ Lỗi lấy unlabeled records: {e}")
@@ -228,5 +227,8 @@ class QualityController:
 
 if __name__ == "__main__":
     # Test module
-    qc = QualityController("fruit_grading.db")
+    from database import AppDatabase
+    db = AppDatabase(".")
+    qc = QualityController(db)
     print(qc.get_metrics_summary_text())
+

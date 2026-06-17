@@ -110,11 +110,14 @@ def run_yolo_inference(analyzer, frame):
     if analyzer.yolo_model is None:
         raise RuntimeError("YOLO model is not initialized")
 
+    iou_val = getattr(analyzer, "YOLO_PREDICT_IOU", 0.65)
+
     if analyzer.YOLO_ENABLE_TRACKING:
         try:
             tracked = analyzer.yolo_model.track(
                 frame,
                 conf=analyzer.YOLO_PREDICT_CONF,
+                iou=iou_val,
                 verbose=False,
                 persist=analyzer.YOLO_TRACK_PERSIST,
                 tracker=analyzer.YOLO_TRACKER_NAME,
@@ -122,10 +125,20 @@ def run_yolo_inference(analyzer, frame):
             return tracked, "track", ""
         except Exception as e:
             try:
-                predicted = analyzer.yolo_model.predict(frame, conf=analyzer.YOLO_PREDICT_CONF, verbose=False)[0]
+                predicted = analyzer.yolo_model.predict(
+                    frame,
+                    conf=analyzer.YOLO_PREDICT_CONF,
+                    iou=iou_val,
+                    verbose=False,
+                )[0]
                 return predicted, "predict_fallback", str(e)
             except Exception:
                 raise
 
-    predicted = analyzer.yolo_model.predict(frame, conf=analyzer.YOLO_PREDICT_CONF, verbose=False)[0]
+    predicted = analyzer.yolo_model.predict(
+        frame,
+        conf=analyzer.YOLO_PREDICT_CONF,
+        iou=iou_val,
+        verbose=False,
+    )[0]
     return predicted, "predict", ""

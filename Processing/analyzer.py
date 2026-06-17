@@ -124,6 +124,7 @@ class FruitAnalyzer:
     # ─── YOLO Detection ─────────────────────────────────────
     YOLO_CONF_THRESH = 0.10  # Đã giảm từ 0.25 xuống 0.10 theo yêu cầu
     YOLO_PREDICT_CONF = 0.05
+    YOLO_PREDICT_IOU = 0.80  # Ngưỡng IoU cho NMS (mặc định là 0.70 của YOLO)
     YOLO_MIN_BBOX_AREA_RATIO = 0.002  # Đã giảm từ 0.007
     YOLO_MAX_BBOX_AREA_RATIO = 0.60
     YOLO_MIN_APPLE_COLOR_RATIO = 0.01  # Đã giảm từ 0.02

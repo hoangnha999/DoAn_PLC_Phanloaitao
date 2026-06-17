@@ -119,6 +119,7 @@ def initialize_analyzer_state(analyzer):
     # Nạp cấu hình cổng YOLO.
     analyzer.YOLO_CONF_THRESH = float(yolo_cfg.get("conf_thresh", analyzer.YOLO_CONF_THRESH))
     analyzer.YOLO_PREDICT_CONF = float(yolo_cfg.get("predict_conf", analyzer.YOLO_PREDICT_CONF))
+    analyzer.YOLO_PREDICT_IOU = float(yolo_cfg.get("predict_iou", getattr(analyzer, "YOLO_PREDICT_IOU", 0.65)))
     analyzer.YOLO_MIN_BBOX_AREA_RATIO = float(yolo_cfg.get("min_bbox_area_ratio", analyzer.YOLO_MIN_BBOX_AREA_RATIO))
     analyzer.YOLO_MAX_BBOX_AREA_RATIO = float(yolo_cfg.get("max_bbox_area_ratio", analyzer.YOLO_MAX_BBOX_AREA_RATIO))
     analyzer.YOLO_MIN_APPLE_COLOR_RATIO = float(

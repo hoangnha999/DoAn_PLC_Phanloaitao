@@ -9,6 +9,12 @@ DEFAULT_CONFIG = {
             "good_thresh": 80,
             "medium_thresh": 60
         },
+        "tc1": {
+            "enable_adaptive_hsv": True,
+            "temporal_smoothing": False,
+            "min_color_pixels": 300,
+            "smoothing_window": 7
+        },
         "shape": {
             "good_thresh": 0.7,
             "medium_thresh": 0.5
@@ -42,6 +48,7 @@ DEFAULT_CONFIG = {
         "yolo": {
             "conf_thresh": 0.35,
             "predict_conf": 0.05,
+            "predict_iou": 0.80,
             "min_bbox_area_ratio": 0.007,
             "enable_tracking": True,
             "tracker_name": "bytetrack.yaml",
@@ -81,6 +88,17 @@ DEFAULT_CONFIG = {
             "score_grade3": 1,
             "min_grade1": 8,
             "min_grade2": 5
+        }
+    },
+    "database": {
+        "type": "sqlserver",
+        "sqlserver": {
+            "driver": "ODBC Driver 17 for SQL Server",
+            "server": "DESKTOP-RF2G40K\\SQLEXPRESS",
+            "database": "AppleClassification",
+            "username": "",
+            "password": "",
+            "trusted_connection": True
         }
     }
 }

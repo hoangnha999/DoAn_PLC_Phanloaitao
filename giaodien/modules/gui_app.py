@@ -6,7 +6,6 @@ import sys
 import threading
 import time
 import cv2
-import sqlite3
 from datetime import datetime
 
 # Đảm bảo Python tìm thấy cả 2 gốc import:
@@ -1136,14 +1135,13 @@ class CameraWindow:
             self.history_tree.delete(item)
             
         try:
-            conn = sqlite3.connect(self.db.db_path)
-            c = conn.cursor()
-            c.execute(
-                "SELECT id, thoi_gian, nha_vuon, ma_lo, ket_qua, ty_le_yield, duong_dan_anh "
-                "FROM phan_loai_history ORDER BY id ASC"
-            )
-            raw_rows = c.fetchall()
-            conn.close()
+            with self.db._get_conn() as conn:
+                c = conn.cursor()
+                c.execute(
+                    "SELECT id, thoi_gian, nha_vuon, ma_lo, ket_qua, ty_le_yield, duong_dan_anh "
+                    "FROM phan_loai_history ORDER BY id ASC"
+                )
+                raw_rows = c.fetchall()
 
             # Đánh số thùng riêng cho từng loại (10 quả/thùng)
             grade_counter = {"Grade-1": 0, "Grade-2": 0, "Grade-3": 0}
@@ -2372,12 +2370,10 @@ class CameraWindow:
         """Xóa toàn bộ dữ liệu trong bảng và xóa sạch file ảnh trong thư mục."""
         if messagebox.askyesno("Xác nhận", "Bạn có chắc muốn xóa TOÀN BỘ lịch sử và hình ảnh?\n(Hành động này không thể hoàn tác!)"):
             try:
-                conn = sqlite3.connect(self.db.db_path)
-                c = conn.cursor()
-                c.execute("DELETE FROM phan_loai_history")
-                c.execute("DELETE FROM phan_loai_session_10")
-                conn.commit()
-                conn.close()
+                with self.db._get_conn() as conn:
+                    c = conn.cursor()
+                    c.execute("DELETE FROM phan_loai_session_10")
+                    c.execute("DELETE FROM phan_loai_history")
                 
                 if os.path.exists(self.db.img_dir):
                     for f in os.listdir(self.db.img_dir):
@@ -4255,6 +4251,16 @@ class CameraWindow:
         self._track_method_var.set("Decision: collecting...")
         self._session_finalized = False
         self._last_detected_grade = "NO_APPLE"
+
+        # Đảm bảo reset các hàng đợi lịch sử/bộ lọc của bộ phân tích để tránh lag dữ liệu giữa các quả táo
+        if hasattr(self, "analyzer") and self.analyzer is not None:
+            if hasattr(self.analyzer, "tc1_ratio_history") and self.analyzer.tc1_ratio_history is not None:
+                self.analyzer.tc1_ratio_history.clear()
+            if hasattr(self.analyzer, "diameter_history") and self.analyzer.diameter_history is not None:
+                self.analyzer.diameter_history.clear()
+            if hasattr(self.analyzer, "blur_scores") and self.analyzer.blur_scores is not None:
+                self.analyzer.blur_scores.clear()
+
         self._log_event(f"🔔 Trigger {source}: bắt đầu chụp {self.capture_frames_required} mẫu", "INFO")
 
     def _manual_sensor_trigger(self):

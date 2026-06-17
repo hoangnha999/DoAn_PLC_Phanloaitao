@@ -4,6 +4,12 @@
       "good_thresh": 80,
       "medium_thresh": 60
     },
+    "tc1": {
+      "enable_adaptive_hsv": true,
+      "temporal_smoothing": false,
+      "min_color_pixels": 300,
+      "smoothing_window": 7
+    },
     "shape": {
       "good_thresh": 0.7,
       "medium_thresh": 0.5
@@ -104,7 +110,7 @@
     "plc_poll_ms": 200,
     "plc_fault_threshold": 3,
     "vision_fault_threshold": 3,
-    "plc_ip": "192.168.0.2",
+    "plc_ip": "192.168.0.1",
     "plc_rack": 0,
     "plc_slot": 1,
     "smooth_frames": 10,

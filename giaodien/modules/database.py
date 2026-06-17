@@ -6,9 +6,15 @@ import csv
 import shutil
 import numpy as np
 from datetime import datetime
+import contextlib
+
+try:
+    from config.runtime_config import load_runtime_config
+except ImportError:
+    load_runtime_config = None
 
 class AppDatabase:
-    """Module quản lý cơ sở dữ liệu SQLite cho hệ thống phân loại."""
+    """Module quản lý cơ sở dữ liệu SQLite hoặc SQL Server cho hệ thống phân loại."""
     
     def __init__(self, db_dir):
         self.img_dir = os.path.join(db_dir, "history_images")
@@ -16,55 +22,177 @@ class AppDatabase:
             os.makedirs(self.img_dir)
             
         self.db_path = os.path.join(db_dir, "database.db")
+        
+        # Đọc cấu hình database
+        self.db_type = "sqlite"
+        self.sqlserver_config = {}
+        if load_runtime_config is not None:
+            try:
+                cfg = load_runtime_config()
+                db_cfg = cfg.get("database", {})
+                self.db_type = db_cfg.get("type", "sqlite").lower()
+                self.sqlserver_config = db_cfg.get("sqlserver", {})
+            except Exception as e:
+                print(f"[DB] Lỗi load cấu hình database: {e}")
+                
         self._init_db()
+
+    def _get_connection(self):
+        if self.db_type == "sqlserver":
+            import pyodbc
+            drv = self.sqlserver_config.get("driver", "ODBC Driver 17 for SQL Server")
+            srv = self.sqlserver_config.get("server", "LOCALHOST\\SQLEXPRESS")
+            db_name = self.sqlserver_config.get("database", "AppleClassification")
+            trusted = self.sqlserver_config.get("trusted_connection", True)
+            user = self.sqlserver_config.get("username", "")
+            pwd = self.sqlserver_config.get("password", "")
+            
+            if trusted:
+                conn_str = f"DRIVER={{{drv}}};SERVER={srv};DATABASE={db_name};Trusted_Connection=yes;"
+            else:
+                conn_str = f"DRIVER={{{drv}}};SERVER={srv};DATABASE={db_name};UID={user};PWD={pwd};"
+            
+            return pyodbc.connect(conn_str, timeout=3)
+        else:
+            return sqlite3.connect(self.db_path)
+
+    @contextlib.contextmanager
+    def _get_conn(self):
+        conn = self._get_connection()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
 
     def _init_db(self):
         """Khởi tạo bảng nếu chưa có."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                # Thêm diameter_mm REAL vào bảng
-                conn.execute('''CREATE TABLE IF NOT EXISTS phan_loai_history
-                             (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                              thoi_gian TEXT,
-                              ket_qua TEXT,
-                              diameter_mm REAL,
-                              duong_dan_anh TEXT,
-                              ty_le_yield TEXT)''')
-                
-                # Kiểm tra xem cột diameter_mm đã tồn tại chưa (đề phòng db cũ)
-                cursor = conn.cursor()
-                cursor.execute("PRAGMA table_info(phan_loai_history)")
-                columns = [info[1] for info in cursor.fetchall()]
-                if 'diameter_mm' not in columns:
-                    conn.execute("ALTER TABLE phan_loai_history ADD COLUMN diameter_mm REAL DEFAULT 0")
-                if 'nha_vuon' not in columns:
-                    conn.execute("ALTER TABLE phan_loai_history ADD COLUMN nha_vuon TEXT DEFAULT ''")
-                if 'ma_lo' not in columns:
-                    conn.execute("ALTER TABLE phan_loai_history ADD COLUMN ma_lo TEXT DEFAULT ''")
-
-                # Bảng lưu chi tiết 10 ảnh cho mỗi lần phân loại
-                conn.execute('''CREATE TABLE IF NOT EXISTS phan_loai_session_10
-                             (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                              history_id INTEGER,
-                              frame_idx INTEGER,
-                              thoi_gian TEXT,
-                              trigger_source TEXT,
-                              ket_qua TEXT,
-                              ripeness_pct REAL,
-                              diameter_mm REAL,
-                              shape_label TEXT,
-                              yolo_conf REAL,
-                              detail_json TEXT,
-                              duong_dan_anh TEXT,
-                              FOREIGN KEY(history_id) REFERENCES phan_loai_history(id))''')
-
-                # Đảm bảo cột detail_json tồn tại cho DB cũ
-                cursor.execute("PRAGMA table_info(phan_loai_session_10)")
-                s_columns = [info[1] for info in cursor.fetchall()]
-                if 'detail_json' not in s_columns:
-                    conn.execute("ALTER TABLE phan_loai_session_10 ADD COLUMN detail_json TEXT DEFAULT ''")
+            if self.db_type == "sqlserver":
+                self._init_db_sqlserver()
+            else:
+                self._init_db_sqlite()
         except Exception as e:
-            print(f"[DB] Lỗi khởi tạo DB: {e}")
+            print(f"[DB] Lỗi khởi tạo DB ({self.db_type}): {e}")
+
+    def _init_db_sqlite(self):
+        """Khởi tạo SQLite."""
+        with sqlite3.connect(self.db_path) as conn:
+            # Thêm diameter_mm REAL vào bảng
+            conn.execute('''CREATE TABLE IF NOT EXISTS phan_loai_history
+                         (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                          thoi_gian TEXT,
+                          ket_qua TEXT,
+                          diameter_mm REAL,
+                          duong_dan_anh TEXT,
+                          ty_le_yield TEXT)''')
+            
+            # Kiểm tra xem cột diameter_mm đã tồn tại chưa (đề phòng db cũ)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(phan_loai_history)")
+            columns = [info[1] for info in cursor.fetchall()]
+            if 'diameter_mm' not in columns:
+                conn.execute("ALTER TABLE phan_loai_history ADD COLUMN diameter_mm REAL DEFAULT 0")
+            if 'nha_vuon' not in columns:
+                conn.execute("ALTER TABLE phan_loai_history ADD COLUMN nha_vuon TEXT DEFAULT ''")
+            if 'ma_lo' not in columns:
+                conn.execute("ALTER TABLE phan_loai_history ADD COLUMN ma_lo TEXT DEFAULT ''")
+
+            # Bảng lưu chi tiết 10 ảnh cho mỗi lần phân loại
+            conn.execute('''CREATE TABLE IF NOT EXISTS phan_loai_session_10
+                         (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                          history_id INTEGER,
+                          frame_idx INTEGER,
+                          thoi_gian TEXT,
+                          trigger_source TEXT,
+                          ket_qua TEXT,
+                          ripeness_pct REAL,
+                          diameter_mm REAL,
+                          shape_label TEXT,
+                          yolo_conf REAL,
+                          detail_json TEXT,
+                          duong_dan_anh TEXT,
+                          FOREIGN KEY(history_id) REFERENCES phan_loai_history(id))''')
+
+            # Đảm bảo cột detail_json tồn tại cho DB cũ
+            cursor.execute("PRAGMA table_info(phan_loai_session_10)")
+            s_columns = [info[1] for info in cursor.fetchall()]
+            if 'detail_json' not in s_columns:
+                conn.execute("ALTER TABLE phan_loai_session_10 ADD COLUMN detail_json TEXT DEFAULT ''")
+
+    def _init_db_sqlserver(self):
+        """Khởi tạo SQL Server."""
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            
+            # 1. Tạo bảng phan_loai_history nếu chưa có
+            cursor.execute('''
+                IF OBJECT_ID('phan_loai_history', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE phan_loai_history (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        thoi_gian NVARCHAR(50),
+                        ket_qua NVARCHAR(100),
+                        diameter_mm FLOAT,
+                        duong_dan_anh NVARCHAR(500),
+                        ty_le_yield NVARCHAR(100),
+                        nha_vuon NVARCHAR(250) DEFAULT '',
+                        ma_lo NVARCHAR(250) DEFAULT ''
+                    )
+                END
+            ''')
+            
+            # Kiểm tra các cột đã tồn tại chưa
+            cursor.execute("""
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'phan_loai_history'
+            """)
+            columns = [row[0] for row in cursor.fetchall()]
+            if 'diameter_mm' not in columns:
+                cursor.execute("ALTER TABLE phan_loai_history ADD diameter_mm FLOAT DEFAULT 0")
+            if 'nha_vuon' not in columns:
+                cursor.execute("ALTER TABLE phan_loai_history ADD nha_vuon NVARCHAR(250) DEFAULT ''")
+            if 'ma_lo' not in columns:
+                cursor.execute("ALTER TABLE phan_loai_history ADD ma_lo NVARCHAR(250) DEFAULT ''")
+
+            # 2. Tạo bảng phan_loai_session_10 nếu chưa có
+            cursor.execute('''
+                IF OBJECT_ID('phan_loai_session_10', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE phan_loai_session_10 (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        history_id INT,
+                        frame_idx INT,
+                        thoi_gian NVARCHAR(50),
+                        trigger_source NVARCHAR(100),
+                        ket_qua NVARCHAR(100),
+                        ripeness_pct FLOAT,
+                        diameter_mm FLOAT,
+                        shape_label NVARCHAR(100),
+                        yolo_conf FLOAT,
+                        detail_json NVARCHAR(MAX) DEFAULT '',
+                        duong_dan_anh NVARCHAR(500),
+                        FOREIGN KEY(history_id) REFERENCES phan_loai_history(id) ON DELETE CASCADE
+                    )
+                END
+            ''')
+
+            # Đảm bảo cột detail_json tồn tại cho DB cũ
+            cursor.execute("""
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'phan_loai_session_10'
+            """)
+            s_columns = [row[0] for row in cursor.fetchall()]
+            if 'detail_json' not in s_columns:
+                cursor.execute("ALTER TABLE phan_loai_session_10 ADD detail_json NVARCHAR(MAX) DEFAULT ''")
 
     def save_record(self, grade, frame_to_save, diameter_mm=0, orchard_name="", lot_code=""):
         """Lưu bản ghi phân loại và hình ảnh với tên app_x.jpg tăng dần."""
@@ -72,26 +200,36 @@ class AppDatabase:
             return False, "Không lưu các trạng thái rác", None, None
             
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            # Lấy số thứ tự tiếp theo dựa trên ID hoặc số lượng bản ghi để đặt tên file ảnh
+            with self._get_conn() as conn:
                 cursor = conn.cursor()
-                # Lấy số thứ tự tiếp theo dựa trên ID hoặc số lượng bản ghi
                 cursor.execute("SELECT COUNT(*) FROM phan_loai_history")
                 next_id = cursor.fetchone()[0] + 1
                 
-                filename = f"app_{next_id}.jpg"
-                filepath = os.path.join(self.img_dir, filename)
-                
-                # Lưu ảnh xuống thư mục
-                if frame_to_save is not None:
-                    cv2.imwrite(filepath, frame_to_save)
-                
-                # Lưu thông tin vào SQL
-                t_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cursor.execute(
-                    "INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (t_str, grade, diameter_mm, filepath, "", orchard_name, lot_code)
-                )
-                history_id = cursor.lastrowid
+            filename = f"app_{next_id}.jpg"
+            filepath = os.path.join(self.img_dir, filename)
+            
+            # Lưu ảnh xuống thư mục
+            if frame_to_save is not None:
+                cv2.imwrite(filepath, frame_to_save)
+            
+            # Lưu thông tin vào SQL
+            t_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                if self.db_type == "sqlserver":
+                    cursor.execute(
+                        "INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) "
+                        "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (t_str, grade, diameter_mm, filepath, "", orchard_name, lot_code)
+                    )
+                    history_id = cursor.fetchone()[0]
+                else:
+                    cursor.execute(
+                        "INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (t_str, grade, diameter_mm, filepath, "", orchard_name, lot_code)
+                    )
+                    history_id = cursor.lastrowid
                 
             return True, f"SQL Saved: [{grade}] -> {filename}", filepath, history_id
         except Exception as e:
@@ -103,7 +241,7 @@ class AppDatabase:
             return False, "Không có dữ liệu session để lưu"
 
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_conn() as conn:
                 cur = conn.cursor()
                 cur.execute("DELETE FROM phan_loai_session_10 WHERE history_id=?", (history_id,))
 
@@ -242,7 +380,7 @@ class AppDatabase:
     def get_session_10_by_history_id(self, history_id):
         """Lấy chi tiết 10 ảnh theo bản ghi lịch sử."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_conn() as conn:
                 cur = conn.cursor()
                 cur.execute(
                     """
@@ -287,7 +425,7 @@ class AppDatabase:
         """Lấy số lượng đếm."""
         stats = {"Grade-1": 0, "Grade-2": 0, "Grade-3": 0, "TOTAL": 0}
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_conn() as conn:
                 cur = conn.cursor()
                 for grade in ["Grade-1", "Grade-2", "Grade-3"]:
                     cur.execute("SELECT COUNT(*) FROM phan_loai_history WHERE ket_qua=?", (grade,))
@@ -301,13 +439,20 @@ class AppDatabase:
     def get_history(self, limit=1000):
         """Lấy toàn bộ lịch sử phân loại."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            limit = int(limit)
+            with self._get_conn() as conn:
                 cur = conn.cursor()
-                cur.execute(
-                    "SELECT id, thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo "
-                    "FROM phan_loai_history ORDER BY id DESC LIMIT ?",
-                    (limit,)
-                )
+                if self.db_type == "sqlserver":
+                    cur.execute(
+                        f"SELECT TOP {limit} id, thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo "
+                        "FROM phan_loai_history ORDER BY id DESC"
+                    )
+                else:
+                    cur.execute(
+                        "SELECT id, thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo "
+                        "FROM phan_loai_history ORDER BY id DESC LIMIT ?",
+                        (limit,)
+                    )
                 return cur.fetchall()
         except Exception as e:
             print(f"[DB] Lỗi lấy lịch sử: {e}")
@@ -320,8 +465,9 @@ class AppDatabase:
     def clear_all(self):
         """Xóa toàn bộ lịch sử."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("DELETE FROM phan_loai_history")
+            with self._get_conn() as conn:
+                cur = conn.cursor()
+                cur.execute("DELETE FROM phan_loai_history")
             return True, "Đã xóa toàn bộ lịch sử."
         except Exception as e:
             return False, f"Lỗi xóa CSDL: {e}"
@@ -372,7 +518,7 @@ class AppDatabase:
                 f"FROM phan_loai_history {where_sql} ORDER BY thoi_gian ASC, id ASC"
             )
 
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_conn() as conn:
                 cur = conn.cursor()
                 cur.execute(query, tuple(params))
                 rows = cur.fetchall()

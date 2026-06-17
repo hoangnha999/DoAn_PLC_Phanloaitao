@@ -4,3 +4,4 @@ pillow
 python-snap7
 ultralytics
 openni
+pyodbc
