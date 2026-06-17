@@ -1,4 +1,4 @@
-# HỆ THỐNG PHÂN LOẠI TÁO TỰ ĐỘNG
+# HỆ THỐNG PHÂN LOẠI HẠNG CHẤT LƯỢNG TÁO TỰ ĐỘNG
 
 Dự án nhận dạng và phân loại táo theo 3 tiêu chí chính:
 - TC1: Độ chín (tỉ lệ màu đỏ)
