@@ -83,6 +83,7 @@
     "yolo": {
       "conf_thresh": 0.35,
       "predict_conf": 0.05,
+      "predict_iou": 0.8,
       "min_bbox_area_ratio": 0.007,
       "enable_tracking": true,
       "tracker_name": "bytetrack.yaml",
@@ -110,7 +111,7 @@
     "plc_poll_ms": 200,
     "plc_fault_threshold": 3,
     "vision_fault_threshold": 3,
-    "plc_ip": "192.168.0.1",
+    "plc_ip": "192.168.0.2",
     "plc_rack": 0,
     "plc_slot": 1,
     "smooth_frames": 10,
@@ -122,6 +123,17 @@
       "score_grade3": 1,
       "min_grade1": 8,
       "min_grade2": 5
+    }
+  },
+  "database": {
+    "type": "sqlserver",
+    "sqlserver": {
+      "driver": "ODBC Driver 17 for SQL Server",
+      "server": "DESKTOP-RF2G40K\\SQLEXPRESS",
+      "database": "AppleClassification",
+      "username": "",
+      "password": "",
+      "trusted_connection": true
     }
   }
 }

@@ -60,8 +60,6 @@ class FruitClassificationApp:
         self._setup_window()
         self._load_images()
         self._build_ui()
-        # Bỏ bước bấm Start/Stop: mở thẳng cửa sổ vận hành.
-        self.root.after(50, self._on_run)
 
     # ─── Thiết lập cửa sổ ────────────────────────────────────────────
     def _setup_window(self):
@@ -123,7 +121,7 @@ class FruitClassificationApp:
         
         self._build_header()
         self._build_content()
-        # Đã bỏ thanh nút Start/Stop theo yêu cầu.
+        self._build_buttons()
 
     def _build_header(self):
         """Phần header: logo + thông tin khoa/trường."""
