@@ -592,3 +592,53 @@
 [2026-06-21 14:24:16] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
 [2026-06-21 14:24:16] [DB/INFO] [COMMIT] Transaction commit thành công
 [2026-06-21 14:24:16] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:25:21] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:25:21] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLSERVER
+[2026-06-21 14:25:21] [DB/INFO]   Server   : DESKTOP-RF2G40K\SQLEXPRESS
+[2026-06-21 14:25:21] [DB/INFO]   Database : AppleClassification
+[2026-06-21 14:25:21] [DB/INFO]   Driver   : ODBC Driver 17 for SQL Server
+[2026-06-21 14:25:21] [DB/INFO]   Auth     : Windows (Trusted)
+[2026-06-21 14:25:21] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:25:21] [DB/INFO] [INIT] Bắt đầu khởi tạo schema DB (loại=SQLSERVER)
+[2026-06-21 14:25:21] [DB/INFO] [INIT-SS] Kiểm tra & tạo bảng trên SQL Server...
+[2026-06-21 14:25:21] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:25:21] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:25:21] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_history'...
+[2026-06-21 14:25:21] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_history': ['id', 'thoi_gian', 'ket_qua', 'diameter_mm', 'duong_dan_anh', 'ty_le_yield', 'nha_vuon', 'ma_lo']
+[2026-06-21 14:25:21] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_history' sẵn sàng
+[2026-06-21 14:25:21] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_session_10'...
+[2026-06-21 14:25:21] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_session_10': ['id', 'history_id', 'frame_idx', 'thoi_gian', 'trigger_source', 'ket_qua', 'ripeness_pct', 'diameter_mm', 'shape_label', 'yolo_conf', 'detail_json', 'duong_dan_anh']
+[2026-06-21 14:25:21] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_session_10' sẵn sàng
+[2026-06-21 14:25:21] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:25:21] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:25:21] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:25:25] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:25:25] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLSERVER
+[2026-06-21 14:25:25] [DB/INFO]   Server   : DESKTOP-RF2G40K\SQLEXPRESS
+[2026-06-21 14:25:25] [DB/INFO]   Database : AppleClassification
+[2026-06-21 14:25:25] [DB/INFO]   Driver   : ODBC Driver 17 for SQL Server
+[2026-06-21 14:25:25] [DB/INFO]   Auth     : Windows (Trusted)
+[2026-06-21 14:25:25] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:25:25] [DB/INFO] [INIT] Bắt đầu khởi tạo schema DB (loại=SQLSERVER)
+[2026-06-21 14:25:25] [DB/INFO] [INIT-SS] Kiểm tra & tạo bảng trên SQL Server...
+[2026-06-21 14:25:25] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:25:25] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:25:25] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_history'...
+[2026-06-21 14:25:25] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_history': ['id', 'thoi_gian', 'ket_qua', 'diameter_mm', 'duong_dan_anh', 'ty_le_yield', 'nha_vuon', 'ma_lo']
+[2026-06-21 14:25:25] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_history' sẵn sàng
+[2026-06-21 14:25:25] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_session_10'...
+[2026-06-21 14:25:25] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_session_10': ['id', 'history_id', 'frame_idx', 'thoi_gian', 'trigger_source', 'ket_qua', 'ripeness_pct', 'diameter_mm', 'shape_label', 'yolo_conf', 'detail_json', 'duong_dan_anh']
+[2026-06-21 14:25:25] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_session_10' sẵn sàng
+[2026-06-21 14:25:25] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:25:25] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:25:25] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:25:25] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:25:25] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:25:25] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:25:25] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:25:25] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:25:25] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 6, 'Grade-2': 2, 'Grade-3': 3, 'TOTAL': 11}
+[2026-06-21 14:25:42] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:25:42] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:25:42] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:25:42] [DB/INFO] [CONNECT] Connection đã đóng
