@@ -588,7 +588,44 @@ class AppDatabase:
             _log(f"[CLEAR] Chi tiết:\n{traceback.format_exc()}", "error")
             return False, f"Lỗi xóa CSDL: {e}"
 
+    def delete_records(self, record_ids):
+        """Xóa một hoặc nhiều bản ghi theo danh sách ID.
+        
+        Args:
+            record_ids: list[int] – danh sách ID cần xóa.
+        Returns:
+            (bool, str) – (thành_công, thông_báo)
+        """
+        if not record_ids:
+            _log("[DELETE] Không có ID nào để xóa", "warning")
+            return False, "Không có bản ghi nào được chọn"
+
+        ids = [int(i) for i in record_ids]
+        _log(f"[DELETE] ⚠️  Xóa {len(ids)} bản ghi: IDs = {ids}", "warning")
+        try:
+            with self._get_conn() as conn:
+                cur = conn.cursor()
+                placeholders = ",".join(["?"] * len(ids))
+                # Xóa session_10 trước (phòng trường hợp DB không có CASCADE)
+                cur.execute(
+                    f"DELETE FROM phan_loai_session_10 WHERE history_id IN ({placeholders})",
+                    tuple(ids)
+                )
+                _log(f"[DELETE] Đã xóa session_10 liên quan đến IDs {ids}")
+                # Xóa bản ghi lịch sử chính
+                cur.execute(
+                    f"DELETE FROM phan_loai_history WHERE id IN ({placeholders})",
+                    tuple(ids)
+                )
+            _log(f"[DELETE] ✅ Đã xóa thành công {len(ids)} bản ghi")
+            return True, f"Đã xóa {len(ids)} bản ghi."
+        except Exception as e:
+            _log(f"[DELETE] ❌ Lỗi xóa bản ghi: {e}", "error")
+            _log(f"[DELETE] Chi tiết:\n{traceback.format_exc()}", "error")
+            return False, f"Lỗi xóa: {e}"
+
     def export_history_dataset(self, export_base_dir, start_time=None, end_time=None, grades=None):
+
         """
         Xuất lịch sử SQL cực chi tiết + báo cáo theo từng thùng (10 quả/thùng).
 

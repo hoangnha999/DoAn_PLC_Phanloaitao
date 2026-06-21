@@ -1072,7 +1072,8 @@ class CameraWindow:
         tree_frame.pack(fill="both", expand=True, padx=15, pady=10)
 
         cols = ("ID", "Thùng", "Vị trí", "Thời gian", "Nhà vườn", "Mã lô", "Kết quả", "Tỷ lệ", "Đường dẫn ảnh")
-        self.history_tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=15)
+        self.history_tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=15,
+                                         selectmode="extended")  # Cho phép chọn nhiều dòng
         
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.history_tree.yview)
         self.history_tree.configure(yscrollcommand=vsb.set)
@@ -1112,10 +1113,19 @@ class CameraWindow:
         tk.Button(btn_frame, text="📤 XUẤT DỮ LIỆU", font=("Arial", 10, "bold"),
               bg="#16A34A", fg="white", width=18, pady=8, cursor="hand2",
               command=self._export_sql_history).pack(side="left", padx=10)
-                  
+
+        tk.Button(btn_frame, text="🗑️ XÓA DÒNG ĐÃ CHỌN", font=("Arial", 10, "bold"),
+                  bg="#EA580C", fg="white", width=22, pady=8, cursor="hand2",
+                  command=self._delete_selected_history_rows).pack(side="left", padx=10)
+
         tk.Button(btn_frame, text="🗑️ XÓA SẠCH DỮ LIỆU", font=("Arial", 10, "bold"),
                   bg="#EF4444", fg="white", width=20, pady=8, cursor="hand2",
                   command=self._clear_sql_history).pack(side="left", padx=10)
+
+        # Gợi ý cách chọn nhiều dòng
+        tk.Label(container,
+                 text="💡 Giữ Ctrl + Click để chọn nhiều dòng  |  Giữ Shift + Click để chọn một nhóm",
+                 font=("Arial", 8), fg="#64748B", bg="#FFFFFF", pady=4).pack()
 
     def _refresh_history_table(self):
         """Tải lại dữ liệu từ CSDL vào bảng."""
@@ -2364,8 +2374,69 @@ class CameraWindow:
                 meta_lbl.configure(cursor="")
                 meta_lbl.unbind("<Double-1>")
 
+    def _delete_selected_history_rows(self):
+        """Xóa các dòng đang được chọn trong bảng lịch sử."""
+        if not hasattr(self, "history_tree"):
+            return
+
+        selected_items = self.history_tree.selection()
+        if not selected_items:
+            messagebox.showwarning(
+                "Chưa chọn dòng",
+                "Vui lòng chọn ít nhất một dòng cần xóa.\n\n"
+                "💡 Ctrl + Click để chọn nhiều dòng\n"
+                "💡 Shift + Click để chọn một nhóm"
+            )
+            return
+
+        # Thu thập ID và thông tin để hiển thị xác nhận
+        record_ids = []
+        preview_lines = []
+        for item in selected_items:
+            values = self.history_tree.item(item, "values")
+            if values:
+                try:
+                    rid = int(values[0])
+                    record_ids.append(rid)
+                    grade = values[6] if len(values) > 6 else "?"
+                    thoi_gian = values[3] if len(values) > 3 else "?"
+                    preview_lines.append(f"  • ID={rid}  [{grade}]  {thoi_gian}")
+                except (ValueError, IndexError):
+                    pass
+
+        if not record_ids:
+            messagebox.showwarning("Lỗi", "Không đọc được ID của dòng đã chọn.")
+            return
+
+        # Giới hạn preview tối đa 5 dòng
+        preview_text = "\n".join(preview_lines[:5])
+        if len(preview_lines) > 5:
+            preview_text += f"\n  ... và {len(preview_lines) - 5} dòng khác"
+
+        confirm = messagebox.askyesno(
+            "Xác nhận xóa",
+            f"Bạn có chắc muốn xóa {len(record_ids)} bản ghi sau?\n\n"
+            f"{preview_text}\n\n"
+            "⚠️ Hành động này không thể hoàn tác!\n"
+            "(Ảnh liên quan sẽ KHÔNG bị xóa khỏi ổ đĩa)"
+        )
+        if not confirm:
+            return
+
+        # Thực hiện xóa
+        ok, msg = self.db.delete_records(record_ids)
+        if ok:
+            self._refresh_history_table()
+            self._refresh_stats_ui()
+            self._log_event(f"🗑️ Đã xóa {len(record_ids)} bản ghi lịch sử (IDs: {record_ids})", "WARNING")
+            messagebox.showinfo("Thành công", msg)
+        else:
+            self._log_event(f"❌ Xóa thất bại: {msg}", "ERROR")
+            messagebox.showerror("Lỗi xóa", f"Không thể xóa bản ghi:\n{msg}")
+
     def _clear_sql_history(self):
         """Xóa toàn bộ dữ liệu trong bảng và xóa sạch file ảnh trong thư mục."""
+
         if messagebox.askyesno("Xác nhận", "Bạn có chắc muốn xóa TOÀN BỘ lịch sử và hình ảnh?\n(Hành động này không thể hoàn tác!)"):
             try:
                 with self.db._get_conn() as conn:

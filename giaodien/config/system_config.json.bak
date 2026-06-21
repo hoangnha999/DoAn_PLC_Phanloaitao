@@ -11,12 +11,12 @@
       "smoothing_window": 7
     },
     "shape": {
-      "good_thresh": 0.7,
-      "medium_thresh": 0.5
+      "good_thresh": 0.5,
+      "medium_thresh": 0.4
     },
     "size": {
-      "large_mm": 70,
-      "medium_mm": 65,
+      "large_mm": 65,
+      "medium_mm": 55,
       "pixel_to_mm": 0.28,
       "depth_reference_mm": 600.0,
       "enable_depth_size_compensation": true,
