@@ -1077,3 +1077,25 @@
 [2026-06-21 15:07:12] [DB/INFO] [COMMIT] Transaction commit thành công
 [2026-06-21 15:07:12] [DB/INFO] [CONNECT] Connection đã đóng
 [2026-06-21 15:07:12] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 8, 'Grade-2': 2, 'Grade-3': 1, 'TOTAL': 11}
+[2026-06-21 15:10:10] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-2 | diameter=63.7mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 15:10:10] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 15:10:10] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 15:10:10] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 15:10:10] [DB/INFO] [SAVE] Số bản ghi hiện tại: 11 → tên file: app_12.jpg
+[2026-06-21 15:10:10] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_12.jpg
+[2026-06-21 15:10:10] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 15:10:10
+[2026-06-21 15:10:10] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 15:10:10] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4302
+[2026-06-21 15:10:10] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 15:10:10] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 15:10:10] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-2] → app_12.jpg | ID=4302
+[2026-06-21 15:10:10] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 15:10:10] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 15:10:10] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 15:10:10] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 15:10:10] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 8, 'Grade-2': 3, 'Grade-3': 1, 'TOTAL': 12}
+[2026-06-21 15:10:10] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4302 | số_frame=10
+[2026-06-21 15:10:10] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 15:10:10] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 15:10:10] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 15:10:10] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4302

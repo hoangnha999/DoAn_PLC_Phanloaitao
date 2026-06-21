@@ -3867,7 +3867,7 @@ class CameraWindow:
             h_f = frame.shape[0]
             w_f = frame.shape[1]
             color_map_bgr = {"Grade-1": (0, 255, 0), "Grade-2": (0, 255, 255), "Grade-3": (0, 0, 255)}
-            cv2.putText(frame, f"STATUS: {grade}", (20, h_f - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color_map_bgr.get(grade, (255,255,255)), 2)
+            cv2.putText(frame, f"{grade}", (50, h_f - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color_map_bgr.get(grade, (255,255,255)), 2)
 
             # Hiển thị khoảng cách Z (depth) ở góc trên cùng bên phải.
             z_text = "Z: N/A"
