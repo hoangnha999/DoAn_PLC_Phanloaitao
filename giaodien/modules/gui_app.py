@@ -2424,17 +2424,34 @@ class CameraWindow:
             return
 
         # Thực hiện xóa
-        ok, msg = self.db.delete_records(record_ids)
+        try:
+            ok, msg = self.db.delete_records(record_ids)
+        except Exception as ex:
+            import traceback as _tb
+            err_detail = _tb.format_exc()
+            print(f"[GUI-DELETE] Exception khi gọi delete_records: {ex}\n{err_detail}")
+            self._log_event(f"❌ Lỗi xóa ngoại lệ: {ex}", "ERROR")
+            messagebox.showerror(
+                "Lỗi xóa",
+                f"Ngoại lệ không mong đợi:\n{ex}\n\n"
+                "(Xem terminal hoặc giaodien/db_log.txt để biết chi tiết)"
+            )
+            return
+
         if ok:
             self._refresh_history_table()
             self._refresh_stats_ui()
-            self._log_event(f"🗑️ Đã xóa {len(record_ids)} bản ghi lịch sử (IDs: {record_ids})", "WARNING")
+            self._log_event(
+                f"🗑️ Đã xóa {len(record_ids)} bản ghi lịch sử (IDs: {record_ids})",
+                "WARNING"
+            )
             messagebox.showinfo("Thành công", msg)
         else:
             self._log_event(f"❌ Xóa thất bại: {msg}", "ERROR")
             messagebox.showerror("Lỗi xóa", f"Không thể xóa bản ghi:\n{msg}")
 
     def _clear_sql_history(self):
+
         """Xóa toàn bộ dữ liệu trong bảng và xóa sạch file ảnh trong thư mục."""
 
         if messagebox.askyesno("Xác nhận", "Bạn có chắc muốn xóa TOÀN BỘ lịch sử và hình ảnh?\n(Hành động này không thể hoàn tác!)"):

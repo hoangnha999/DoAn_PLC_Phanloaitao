@@ -310,3 +310,285 @@
 [2026-06-21 14:20:45] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
 [2026-06-21 14:20:45] [DB/INFO] [COMMIT] Transaction commit thành công
 [2026-06-21 14:20:45] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:21:45] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:21:45] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLSERVER
+[2026-06-21 14:21:45] [DB/INFO]   Server   : DESKTOP-RF2G40K\SQLEXPRESS
+[2026-06-21 14:21:45] [DB/INFO]   Database : AppleClassification
+[2026-06-21 14:21:45] [DB/INFO]   Driver   : ODBC Driver 17 for SQL Server
+[2026-06-21 14:21:45] [DB/INFO]   Auth     : Windows (Trusted)
+[2026-06-21 14:21:45] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:21:45] [DB/INFO] [INIT] Bắt đầu khởi tạo schema DB (loại=SQLSERVER)
+[2026-06-21 14:21:45] [DB/INFO] [INIT-SS] Kiểm tra & tạo bảng trên SQL Server...
+[2026-06-21 14:21:45] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:21:45] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:21:45] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_history'...
+[2026-06-21 14:21:45] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_history': ['id', 'thoi_gian', 'ket_qua', 'diameter_mm', 'duong_dan_anh', 'ty_le_yield', 'nha_vuon', 'ma_lo']
+[2026-06-21 14:21:45] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_history' sẵn sàng
+[2026-06-21 14:21:45] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_session_10'...
+[2026-06-21 14:21:45] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_session_10': ['id', 'history_id', 'frame_idx', 'thoi_gian', 'trigger_source', 'ket_qua', 'ripeness_pct', 'diameter_mm', 'shape_label', 'yolo_conf', 'detail_json', 'duong_dan_anh']
+[2026-06-21 14:21:45] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_session_10' sẵn sàng
+[2026-06-21 14:21:45] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:21:45] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:21:45] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:21:49] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:21:49] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLSERVER
+[2026-06-21 14:21:49] [DB/INFO]   Server   : DESKTOP-RF2G40K\SQLEXPRESS
+[2026-06-21 14:21:49] [DB/INFO]   Database : AppleClassification
+[2026-06-21 14:21:49] [DB/INFO]   Driver   : ODBC Driver 17 for SQL Server
+[2026-06-21 14:21:49] [DB/INFO]   Auth     : Windows (Trusted)
+[2026-06-21 14:21:49] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:21:49] [DB/INFO] [INIT] Bắt đầu khởi tạo schema DB (loại=SQLSERVER)
+[2026-06-21 14:21:49] [DB/INFO] [INIT-SS] Kiểm tra & tạo bảng trên SQL Server...
+[2026-06-21 14:21:49] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:21:49] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:21:49] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_history'...
+[2026-06-21 14:21:49] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_history': ['id', 'thoi_gian', 'ket_qua', 'diameter_mm', 'duong_dan_anh', 'ty_le_yield', 'nha_vuon', 'ma_lo']
+[2026-06-21 14:21:49] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_history' sẵn sàng
+[2026-06-21 14:21:49] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_session_10'...
+[2026-06-21 14:21:49] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_session_10': ['id', 'history_id', 'frame_idx', 'thoi_gian', 'trigger_source', 'ket_qua', 'ripeness_pct', 'diameter_mm', 'shape_label', 'yolo_conf', 'detail_json', 'duong_dan_anh']
+[2026-06-21 14:21:49] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_session_10' sẵn sàng
+[2026-06-21 14:21:49] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:21:49] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:21:49] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:21:49] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:21:49] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:21:49] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:21:49] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:21:49] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:21:49] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 3, 'Grade-2': 0, 'Grade-3': 2, 'TOTAL': 5}
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] ▶ Bắt đầu lưu bản ghi | grade=Grade-1 | diameter=66.4mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] Đếm số bản ghi hiện có để đặt tên file ảnh...
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:21] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] Số bản ghi hiện tại: 5 → tên file: app_6.jpg
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_6.jpg
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] INSERT vào phan_loai_history | DB=SQLSERVER | thoi_gian=2026-06-21 14:22:21
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] SQL: INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] Params: ('2026-06-21 14:22:21', 'Grade-1', 66.4406863012677, 'D:\\DOAN_PLC_Phanloaitao\\giaodien\\history_images\\app_6.jpg', '', 'NHA_VUON_A', 'LO_20260605_2132')
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=13
+[2026-06-21 14:22:21] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:21] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_6.jpg | ID=13
+[2026-06-21 14:22:21] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:21] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:21] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 4, 'Grade-2': 0, 'Grade-3': 2, 'TOTAL': 6}
+[2026-06-21 14:22:21] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=13 | số_frame=10
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:21] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:22] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:22] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:22] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=13
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] ▶ Bắt đầu lưu bản ghi | grade=Grade-1 | diameter=66.0mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] Đếm số bản ghi hiện có để đặt tên file ảnh...
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:28] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] Số bản ghi hiện tại: 6 → tên file: app_7.jpg
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_7.jpg
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] INSERT vào phan_loai_history | DB=SQLSERVER | thoi_gian=2026-06-21 14:22:28
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] SQL: INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] Params: ('2026-06-21 14:22:28', 'Grade-1', 66.02986982417735, 'D:\\DOAN_PLC_Phanloaitao\\giaodien\\history_images\\app_7.jpg', '', 'NHA_VUON_A', 'LO_20260605_2132')
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=14
+[2026-06-21 14:22:28] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:28] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_7.jpg | ID=14
+[2026-06-21 14:22:28] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:28] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:28] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 5, 'Grade-2': 0, 'Grade-3': 2, 'TOTAL': 7}
+[2026-06-21 14:22:28] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=14 | số_frame=10
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:28] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:28] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:28] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=14
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] ▶ Bắt đầu lưu bản ghi | grade=Grade-2 | diameter=61.1mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] Đếm số bản ghi hiện có để đặt tên file ảnh...
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:36] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] Số bản ghi hiện tại: 7 → tên file: app_8.jpg
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_8.jpg
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] INSERT vào phan_loai_history | DB=SQLSERVER | thoi_gian=2026-06-21 14:22:36
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] SQL: INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] Params: ('2026-06-21 14:22:36', 'Grade-2', 61.13396827134538, 'D:\\DOAN_PLC_Phanloaitao\\giaodien\\history_images\\app_8.jpg', '', 'NHA_VUON_A', 'LO_20260605_2132')
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=15
+[2026-06-21 14:22:36] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:36] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-2] → app_8.jpg | ID=15
+[2026-06-21 14:22:36] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:36] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:36] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 5, 'Grade-2': 1, 'Grade-3': 2, 'TOTAL': 8}
+[2026-06-21 14:22:36] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=15 | số_frame=10
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:36] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:36] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:36] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=15
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] ▶ Bắt đầu lưu bản ghi | grade=Grade-2 | diameter=62.2mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] Đếm số bản ghi hiện có để đặt tên file ảnh...
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:39] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] Số bản ghi hiện tại: 8 → tên file: app_9.jpg
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_9.jpg
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] INSERT vào phan_loai_history | DB=SQLSERVER | thoi_gian=2026-06-21 14:22:39
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] SQL: INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] Params: ('2026-06-21 14:22:39', 'Grade-2', 62.23856528754316, 'D:\\DOAN_PLC_Phanloaitao\\giaodien\\history_images\\app_9.jpg', '', 'NHA_VUON_A', 'LO_20260605_2132')
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=16
+[2026-06-21 14:22:39] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:39] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-2] → app_9.jpg | ID=16
+[2026-06-21 14:22:39] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:39] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:39] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 5, 'Grade-2': 2, 'Grade-3': 2, 'TOTAL': 9}
+[2026-06-21 14:22:39] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=16 | số_frame=10
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:39] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:39] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:39] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=16
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] ▶ Bắt đầu lưu bản ghi | grade=Grade-3 | diameter=64.8mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] Đếm số bản ghi hiện có để đặt tên file ảnh...
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:44] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] Số bản ghi hiện tại: 9 → tên file: app_10.jpg
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_10.jpg
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] INSERT vào phan_loai_history | DB=SQLSERVER | thoi_gian=2026-06-21 14:22:44
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] SQL: INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] Params: ('2026-06-21 14:22:44', 'Grade-3', 64.77624461925906, 'D:\\DOAN_PLC_Phanloaitao\\giaodien\\history_images\\app_10.jpg', '', 'NHA_VUON_A', 'LO_20260605_2132')
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=17
+[2026-06-21 14:22:44] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:44] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-3] → app_10.jpg | ID=17
+[2026-06-21 14:22:44] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:44] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:44] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 5, 'Grade-2': 2, 'Grade-3': 3, 'TOTAL': 10}
+[2026-06-21 14:22:44] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=17 | số_frame=10
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:44] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:44] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:44] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=17
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] ▶ Bắt đầu lưu bản ghi | grade=Grade-1 | diameter=71.7mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] Đếm số bản ghi hiện có để đặt tên file ảnh...
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:51] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] Số bản ghi hiện tại: 10 → tên file: app_11.jpg
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_11.jpg
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] INSERT vào phan_loai_history | DB=SQLSERVER | thoi_gian=2026-06-21 14:22:51
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] SQL: INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] Params: ('2026-06-21 14:22:51', 'Grade-1', 71.68034423715103, 'D:\\DOAN_PLC_Phanloaitao\\giaodien\\history_images\\app_11.jpg', '', 'NHA_VUON_A', 'LO_20260605_2132')
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=18
+[2026-06-21 14:22:51] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:51] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_11.jpg | ID=18
+[2026-06-21 14:22:51] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:51] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:51] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 6, 'Grade-2': 2, 'Grade-3': 3, 'TOTAL': 11}
+[2026-06-21 14:22:51] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=18 | số_frame=10
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:22:51] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:22:51] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:22:51] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=18
+[2026-06-21 14:23:02] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:23:02] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:23:02] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:23:02] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:23:12] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:23:12] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:23:12] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:23:12] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:23:26] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:23:26] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLSERVER
+[2026-06-21 14:23:26] [DB/INFO]   Server   : DESKTOP-RF2G40K\SQLEXPRESS
+[2026-06-21 14:23:26] [DB/INFO]   Database : AppleClassification
+[2026-06-21 14:23:26] [DB/INFO]   Driver   : ODBC Driver 17 for SQL Server
+[2026-06-21 14:23:26] [DB/INFO]   Auth     : Windows (Trusted)
+[2026-06-21 14:23:26] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:23:26] [DB/INFO] [INIT] Bắt đầu khởi tạo schema DB (loại=SQLSERVER)
+[2026-06-21 14:23:26] [DB/INFO] [INIT-SS] Kiểm tra & tạo bảng trên SQL Server...
+[2026-06-21 14:23:26] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:23:26] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:23:26] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_history'...
+[2026-06-21 14:23:26] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_history': ['id', 'thoi_gian', 'ket_qua', 'diameter_mm', 'duong_dan_anh', 'ty_le_yield', 'nha_vuon', 'ma_lo']
+[2026-06-21 14:23:26] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_history' sẵn sàng
+[2026-06-21 14:23:26] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_session_10'...
+[2026-06-21 14:23:26] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_session_10': ['id', 'history_id', 'frame_idx', 'thoi_gian', 'trigger_source', 'ket_qua', 'ripeness_pct', 'diameter_mm', 'shape_label', 'yolo_conf', 'detail_json', 'duong_dan_anh']
+[2026-06-21 14:23:26] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_session_10' sẵn sàng
+[2026-06-21 14:23:26] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:23:26] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:23:26] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:23:28] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:23:28] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLSERVER
+[2026-06-21 14:23:28] [DB/INFO]   Server   : DESKTOP-RF2G40K\SQLEXPRESS
+[2026-06-21 14:23:28] [DB/INFO]   Database : AppleClassification
+[2026-06-21 14:23:28] [DB/INFO]   Driver   : ODBC Driver 17 for SQL Server
+[2026-06-21 14:23:28] [DB/INFO]   Auth     : Windows (Trusted)
+[2026-06-21 14:23:28] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:23:28] [DB/INFO] [INIT] Bắt đầu khởi tạo schema DB (loại=SQLSERVER)
+[2026-06-21 14:23:28] [DB/INFO] [INIT-SS] Kiểm tra & tạo bảng trên SQL Server...
+[2026-06-21 14:23:28] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:23:28] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:23:28] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_history'...
+[2026-06-21 14:23:28] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_history': ['id', 'thoi_gian', 'ket_qua', 'diameter_mm', 'duong_dan_anh', 'ty_le_yield', 'nha_vuon', 'ma_lo']
+[2026-06-21 14:23:28] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_history' sẵn sàng
+[2026-06-21 14:23:28] [DB/INFO] [INIT-SS] Kiểm tra bảng 'phan_loai_session_10'...
+[2026-06-21 14:23:28] [DB/INFO] [INIT-SS] Cột hiện có trong 'phan_loai_session_10': ['id', 'history_id', 'frame_idx', 'thoi_gian', 'trigger_source', 'ket_qua', 'ripeness_pct', 'diameter_mm', 'shape_label', 'yolo_conf', 'detail_json', 'duong_dan_anh']
+[2026-06-21 14:23:28] [DB/INFO] [INIT-SS] ✅ Bảng 'phan_loai_session_10' sẵn sàng
+[2026-06-21 14:23:28] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:23:28] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:23:28] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:23:28] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:23:28] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:23:28] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:23:28] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:23:28] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:23:28] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 6, 'Grade-2': 2, 'Grade-3': 3, 'TOTAL': 11}
+[2026-06-21 14:23:43] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:23:43] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:23:43] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:23:43] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:24:16] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:24:16] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:24:16] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:24:16] [DB/INFO] [CONNECT] Connection đã đóng

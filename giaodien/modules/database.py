@@ -590,7 +590,7 @@ class AppDatabase:
 
     def delete_records(self, record_ids):
         """Xóa một hoặc nhiều bản ghi theo danh sách ID.
-        
+
         Args:
             record_ids: list[int] – danh sách ID cần xóa.
         Returns:
@@ -600,29 +600,57 @@ class AppDatabase:
             _log("[DELETE] Không có ID nào để xóa", "warning")
             return False, "Không có bản ghi nào được chọn"
 
-        ids = [int(i) for i in record_ids]
-        _log(f"[DELETE] ⚠️  Xóa {len(ids)} bản ghi: IDs = {ids}", "warning")
+        ids = []
+        for i in record_ids:
+            try:
+                ids.append(int(i))
+            except (ValueError, TypeError):
+                _log(f"[DELETE] Bỏ qua ID không hợp lệ: {i!r}", "warning")
+
+        if not ids:
+            return False, "Danh sách ID không hợp lệ"
+
+        _log(f"[DELETE] ⚠️  Bắt đầu xóa {len(ids)} bản ghi | IDs = {ids}", "warning")
+
         try:
+            # Build IN clause an toàn
+            placeholders = ",".join(["?" for _ in ids])
+            sql_del_session = f"DELETE FROM phan_loai_session_10 WHERE history_id IN ({placeholders})"
+            sql_del_history = f"DELETE FROM phan_loai_history WHERE id IN ({placeholders})"
+
+            _log(f"[DELETE] SQL session10 : {sql_del_session}")
+            _log(f"[DELETE] SQL history   : {sql_del_history}")
+            _log(f"[DELETE] Params        : {tuple(ids)}")
+
             with self._get_conn() as conn:
                 cur = conn.cursor()
-                placeholders = ",".join(["?"] * len(ids))
-                # Xóa session_10 trước (phòng trường hợp DB không có CASCADE)
-                cur.execute(
-                    f"DELETE FROM phan_loai_session_10 WHERE history_id IN ({placeholders})",
-                    tuple(ids)
-                )
-                _log(f"[DELETE] Đã xóa session_10 liên quan đến IDs {ids}")
-                # Xóa bản ghi lịch sử chính
-                cur.execute(
-                    f"DELETE FROM phan_loai_history WHERE id IN ({placeholders})",
-                    tuple(ids)
-                )
-            _log(f"[DELETE] ✅ Đã xóa thành công {len(ids)} bản ghi")
+
+                # Bước 1: xóa session_10 con trước
+                _log("[DELETE] Bước 1 – Xóa phan_loai_session_10...")
+                cur.execute(sql_del_session, tuple(ids))
+                try:
+                    rows_affected = cur.rowcount
+                    _log(f"[DELETE] session_10 đã xóa: {rows_affected} dòng")
+                except Exception:
+                    _log("[DELETE] Không đọc được rowcount session_10 (bình thường với một số driver)")
+
+                # Bước 2: xóa history chính
+                _log("[DELETE] Bước 2 – Xóa phan_loai_history...")
+                cur.execute(sql_del_history, tuple(ids))
+                try:
+                    rows_affected = cur.rowcount
+                    _log(f"[DELETE] history đã xóa: {rows_affected} dòng")
+                except Exception:
+                    _log("[DELETE] Không đọc được rowcount history (bình thường với một số driver)")
+
+            _log(f"[DELETE] ✅ Xóa thành công {len(ids)} bản ghi | IDs = {ids}")
             return True, f"Đã xóa {len(ids)} bản ghi."
+
         except Exception as e:
             _log(f"[DELETE] ❌ Lỗi xóa bản ghi: {e}", "error")
             _log(f"[DELETE] Chi tiết:\n{traceback.format_exc()}", "error")
             return False, f"Lỗi xóa: {e}"
+
 
     def export_history_dataset(self, export_base_dir, start_time=None, end_time=None, grades=None):
 
