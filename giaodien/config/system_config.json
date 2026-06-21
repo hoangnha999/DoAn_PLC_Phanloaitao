@@ -115,7 +115,7 @@
     "plc_rack": 0,
     "plc_slot": 1,
     "smooth_frames": 10,
-    "orchard": "NHA_VUON_B",
+    "orchard": "NHA_VUON_A",
     "lot": "LO_20260605_2132",
     "decision_rule_table": {
       "score_grade1": 3,
