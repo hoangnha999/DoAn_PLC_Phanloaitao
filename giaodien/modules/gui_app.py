@@ -3204,6 +3204,7 @@ class CameraWindow:
         tk.Label(mode_select_frame, text="CHẾ ĐỘ HIỂN THỊ:", font=("Arial", 9, "bold"), fg="#475569", bg="#FFFFFF").pack(side="left", padx=(0, 6))
         tk.Radiobutton(mode_select_frame, text="Ảnh màu (Color)", font=("Arial", 9), variable=self.live_view_mode_var, value="COLOR", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2").pack(side="left", padx=4)
         tk.Radiobutton(mode_select_frame, text="Ảnh nhị phân (Binary)", font=("Arial", 9), variable=self.live_view_mode_var, value="BINARY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2").pack(side="left", padx=4)
+        tk.Radiobutton(mode_select_frame, text="Ảnh gốc (Raw)", font=("Arial", 9), variable=self.live_view_mode_var, value="RAW", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2").pack(side="left", padx=4)
         
         # Canvas duy nhất hiển thị camera
         self.display_area = tk.Frame(rf, bg="#F8FAFC", highlightthickness=1, highlightbackground="#CBD5E1")
@@ -3926,13 +3927,16 @@ class CameraWindow:
             _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
             f2_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
             f1_rgb = color_rgb
+            raw_rgb = cv2.cvtColor(raw_res, cv2.COLOR_BGR2RGB)
 
             imgtk1 = ImageTk.PhotoImage(image=Image.fromarray(f1_rgb))
             imgtk2 = ImageTk.PhotoImage(image=Image.fromarray(f2_rgb))
+            imgtk_raw = ImageTk.PhotoImage(image=Image.fromarray(raw_rgb))
 
             self.canvas.imgtk = imgtk1
             self.canvas.imgtk_gray = imgtk2
-            self._update_canvas(imgtk1, imgtk2)
+            self.canvas.imgtk_raw = imgtk_raw
+            self._update_canvas(imgtk1, imgtk2, imgtk_raw)
         except Exception as e:
             self._log_event(f"❌ Lỗi cập nhật UI frame: {e}", "ERROR")
 
@@ -4093,11 +4097,16 @@ class CameraWindow:
         except Exception:
             pass
 
-    def _update_canvas(self, imgtk_color, imgtk_gray):
+    def _update_canvas(self, imgtk_color, imgtk_gray, imgtk_raw=None):
         if self.camera.is_running():
             # Chọn ảnh hiển thị dựa trên radio button
             mode = self.live_view_mode_var.get()
-            img_to_show = imgtk_color if mode == "COLOR" else imgtk_gray
+            if mode == "RAW" and imgtk_raw is not None:
+                img_to_show = imgtk_raw
+            elif mode == "BINARY":
+                img_to_show = imgtk_gray
+            else:
+                img_to_show = imgtk_color
 
             if getattr(self, 'img_id_color', None) is None:
                 self.canvas.delete("all")
