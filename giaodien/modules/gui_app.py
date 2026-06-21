@@ -1323,10 +1323,6 @@ class CameraWindow:
         r1.pack(side="left", padx=4)
         r2 = tk.Radiobutton(mode_frame, text="Ảnh gốc (Không khung)", font=("Arial", 9), variable=view_mode_var, value="RAW", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
         r2.pack(side="left", padx=4)
-        r3 = tk.Radiobutton(mode_frame, text="Ảnh nhị phân (Binary)", font=("Arial", 9), variable=view_mode_var, value="BINARY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
-        r3.pack(side="left", padx=4)
-        r4 = tk.Radiobutton(mode_frame, text="Ảnh xám (Gray)", font=("Arial", 9), variable=view_mode_var, value="GRAY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
-        r4.pack(side="left", padx=4)
 
         sort_hint_var = tk.StringVar(value="Nhấn tiêu đề % Đỏ / Đường kính / Độ tròn / YOLO để sắp xếp")
 
@@ -2078,10 +2074,6 @@ class CameraWindow:
         r1.pack(side="left", padx=4)
         r2 = tk.Radiobutton(self.sheet10_mode_frame, text="Ảnh gốc (Không khung)", font=("Arial", 9), variable=self.sheet10_view_mode_var, value="RAW", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
         r2.pack(side="left", padx=4)
-        r3 = tk.Radiobutton(self.sheet10_mode_frame, text="Ảnh nhị phân (Binary)", font=("Arial", 9), variable=self.sheet10_view_mode_var, value="BINARY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
-        r3.pack(side="left", padx=4)
-        r4 = tk.Radiobutton(self.sheet10_mode_frame, text="Ảnh xám (Gray)", font=("Arial", 9), variable=self.sheet10_view_mode_var, value="GRAY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2")
-        r4.pack(side="left", padx=4)
 
         self.sheet10_content = tk.Frame(container, bg="#FFFFFF")
         self.sheet10_content.pack(fill="both", expand=True)
