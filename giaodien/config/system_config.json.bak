@@ -126,14 +126,6 @@
     }
   },
   "database": {
-    "type": "sqlserver",
-    "sqlserver": {
-      "driver": "ODBC Driver 17 for SQL Server",
-      "server": "DESKTOP-RF2G40K\\SQLEXPRESS",
-      "database": "AppleClassification",
-      "username": "",
-      "password": "",
-      "trusted_connection": true
-    }
+    "type": "sqlite"
   }
-}
+}

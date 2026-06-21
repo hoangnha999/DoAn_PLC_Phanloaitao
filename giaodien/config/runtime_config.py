@@ -91,17 +91,10 @@ DEFAULT_CONFIG = {
         }
     },
     "database": {
-        "type": "sqlserver",
-        "sqlserver": {
-            "driver": "ODBC Driver 17 for SQL Server",
-            "server": "DESKTOP-RF2G40K\\SQLEXPRESS",
-            "database": "AppleClassification",
-            "username": "",
-            "password": "",
-            "trusted_connection": True
-        }
+        "type": "sqlite"
     }
 }
+
 
 
 def _deep_merge(base, override):

@@ -9,35 +9,22 @@ class QualityController:
         Khởi tạo Quality Controller.
         
         Args:
-            db: Lớp AppDatabase quản lý cơ sở dữ liệu (SQLite hoặc SQL Server)
+            db: Lớp AppDatabase quản lý cơ sở dữ liệu (SQLite)
         """
         self.db = db
         self._ensure_ground_truth_column()
         print("[QUALITY] ✅ Quality Control Module initialized (Ground Truth + Metrics)")
     
     def _ensure_ground_truth_column(self):
-        """Đảm bảo cột ground_truth tồn tại trong database."""
+        """Đảm bảo cột ground_truth tồn tại trong database SQLite."""
         try:
             with self.db._get_conn() as conn:
                 c = conn.cursor()
-                
-                # Kiểm tra xem cột ground_truth đã tồn tại chưa
-                if self.db.db_type == "sqlserver":
-                    c.execute("""
-                        SELECT COLUMN_NAME 
-                        FROM INFORMATION_SCHEMA.COLUMNS 
-                        WHERE TABLE_NAME = 'phan_loai_history'
-                    """)
-                    columns = [row[0] for row in c.fetchall()]
-                    if 'ground_truth' not in columns:
-                        c.execute("ALTER TABLE phan_loai_history ADD ground_truth NVARCHAR(250) DEFAULT NULL")
-                else:
-                    c.execute("PRAGMA table_info(phan_loai_history)")
-                    columns = [col[1] for col in c.fetchall()]
-                    if 'ground_truth' not in columns:
-                        c.execute("ALTER TABLE phan_loai_history ADD COLUMN ground_truth TEXT DEFAULT NULL")
-                        
-                print("[QUALITY] ✅ Đã kiểm tra cột 'ground_truth' trong database")
+                c.execute("PRAGMA table_info(phan_loai_history)")
+                columns = [col[1] for col in c.fetchall()]
+                if 'ground_truth' not in columns:
+                    c.execute("ALTER TABLE phan_loai_history ADD COLUMN ground_truth TEXT DEFAULT NULL")
+            print("[QUALITY] ✅ Đã kiểm tra cột 'ground_truth' trong database")
         except Exception as e:
             print(f"[QUALITY] ⚠️ Lỗi khi kiểm tra database: {e}")
     
@@ -173,21 +160,13 @@ class QualityController:
             limit = int(limit)
             with self.db._get_conn() as conn:
                 c = conn.cursor()
-                if self.db.db_type == "sqlserver":
-                    c.execute(f"""
-                        SELECT TOP {limit} id, thoi_gian, ket_qua, duong_dan_anh
-                        FROM phan_loai_history
-                        WHERE ground_truth IS NULL
-                        ORDER BY id DESC
-                    """)
-                else:
-                    c.execute("""
-                        SELECT id, thoi_gian, ket_qua, duong_dan_anh
-                        FROM phan_loai_history
-                        WHERE ground_truth IS NULL
-                        ORDER BY id DESC
-                        LIMIT ?
-                    """, (limit,))
+                c.execute("""
+                    SELECT id, thoi_gian, ket_qua, duong_dan_anh
+                    FROM phan_loai_history
+                    WHERE ground_truth IS NULL
+                    ORDER BY id DESC
+                    LIMIT ?
+                """, (limit,))
                 rows = c.fetchall()
             return rows
         except Exception as e:

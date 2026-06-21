@@ -642,3 +642,7 @@
 [2026-06-21 14:25:42] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
 [2026-06-21 14:25:42] [DB/INFO] [COMMIT] Transaction commit thành công
 [2026-06-21 14:25:42] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:31:12] [DB/INFO] [CONNECT] Đang kết nối SQL Server → DESKTOP-RF2G40K\SQLEXPRESS/AppleClassification | driver=ODBC Driver 17 for SQL Server
+[2026-06-21 14:31:12] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:31:12] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:31:12] [DB/INFO] [CONNECT] Connection đã đóng
