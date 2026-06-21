@@ -3913,10 +3913,23 @@ class CameraWindow:
             if cw < 10 or ch < 10:
                 cw, ch = 640, 240
 
-            color_res = cv2.resize(frame, (cw, ch))
+            def resize_keep_aspect(img, target_w, target_h):
+                ih, iw = img.shape[:2]
+                scale = min(target_w / iw, target_h / ih)
+                nw, nh = max(1, int(iw * scale)), max(1, int(ih * scale))
+                res = cv2.resize(img, (nw, nh))
+                if len(img.shape) == 3:
+                    out = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+                else:
+                    out = np.zeros((target_h, target_w), dtype=np.uint8)
+                y, x = (target_h - nh) // 2, (target_w - nw) // 2
+                out[y:y+nh, x:x+nw] = res
+                return out
+
+            color_res = resize_keep_aspect(frame, cw, ch)
             color_rgb = cv2.cvtColor(color_res, cv2.COLOR_BGR2RGB)
 
-            raw_res = cv2.resize(raw_frame, (cw, ch))
+            raw_res = resize_keep_aspect(raw_frame, cw, ch)
             gray_res = cv2.cvtColor(raw_res, cv2.COLOR_BGR2GRAY)
             _, binary = cv2.threshold(gray_res, 127, 255, cv2.THRESH_BINARY)
             f2_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
