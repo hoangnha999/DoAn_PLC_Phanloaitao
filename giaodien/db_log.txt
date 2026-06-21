@@ -1060,3 +1060,20 @@
 [2026-06-21 15:05:25] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
 [2026-06-21 15:05:25] [DB/INFO] [COMMIT] Transaction commit thành công
 [2026-06-21 15:05:25] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 15:06:59] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 15:06:59] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLITE
+[2026-06-21 15:06:59] [DB/INFO]   File: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 15:06:59] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 15:06:59] [DB/INFO] [INIT] Bắt đầu khởi tạo schema SQLite
+[2026-06-21 15:06:59] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 15:07:12] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 15:07:12] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLITE
+[2026-06-21 15:07:12] [DB/INFO]   File: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 15:07:12] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 15:07:12] [DB/INFO] [INIT] Bắt đầu khởi tạo schema SQLite
+[2026-06-21 15:07:12] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 15:07:12] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 15:07:12] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 15:07:12] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 15:07:12] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 15:07:12] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 8, 'Grade-2': 2, 'Grade-3': 1, 'TOTAL': 11}

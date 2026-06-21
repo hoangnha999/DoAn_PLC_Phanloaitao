@@ -3215,7 +3215,7 @@ class CameraWindow:
         # ── Frame Snapshot 10 hình (dưới cùng) ──
         snapshot_header = tk.Frame(rf, bg="#F8FAFC")
         snapshot_header.pack(fill="x", padx=6, pady=(5, 0))
-        tk.Label(snapshot_header, text="📸 10 ẢNH GẦN NHẤT (LIVE BUFFER)", font=("Arial", 9, "bold"), fg="#0284C7", bg="#F8FAFC").pack(side="left")
+        tk.Label(snapshot_header, text="📸 10 ẢNH GẦN NHẤT", font=("Arial", 9, "bold"), fg="#0284C7", bg="#F8FAFC").pack(side="left")
         
         self.is_snapshot_visible = True
         self.btn_toggle_snapshot = tk.Button(snapshot_header, text="Ẩn ➖", font=("Arial", 8), bd=1, relief="ridge", bg="#E2E8F0", cursor="hand2", command=self._toggle_snapshot)
@@ -3898,13 +3898,6 @@ class CameraWindow:
             y_text = 30
             cv2.rectangle(frame, (x_text - 8, y_text - th - 8), (x_text + tw + 8, y_text + baseline + 8), (0, 0, 0), -1)
             cv2.putText(frame, z_text, (x_text, y_text), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-            if z_sub:
-                sub_text = z_sub[:48]
-                (stw, sth), sbase = cv2.getTextSize(sub_text, cv2.FONT_HERSHEY_SIMPLEX, 0.43, 1)
-                sx = max(10, w_f - stw - 20)
-                sy = y_text + 20
-                cv2.putText(frame, sub_text, (sx, sy), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (190, 190, 190), 1)
 
             # Lấy kích thước thực tế của canvas để resize ảnh
             cw = self.canvas.winfo_width()
