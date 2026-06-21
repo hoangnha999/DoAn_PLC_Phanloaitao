@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 import cv2
+import numpy as np
 from datetime import datetime
 
 # Đảm bảo Python tìm thấy cả 2 gốc import:

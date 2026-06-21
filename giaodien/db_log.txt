@@ -646,3 +646,278 @@
 [2026-06-21 14:31:12] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
 [2026-06-21 14:31:12] [DB/INFO] [COMMIT] Transaction commit thành công
 [2026-06-21 14:31:12] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:36:48] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:36:48] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLITE
+[2026-06-21 14:36:48] [DB/INFO]   File: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:36:48] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:36:48] [DB/INFO] [INIT] Bắt đầu khởi tạo schema SQLite
+[2026-06-21 14:36:48] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:36:49] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:36:49] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLITE
+[2026-06-21 14:36:49] [DB/INFO]   File: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:36:49] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:36:49] [DB/INFO] [INIT] Bắt đầu khởi tạo schema SQLite
+[2026-06-21 14:36:49] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:36:49] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:36:49] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:36:49] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:36:49] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:36:49] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 0, 'Grade-2': 0, 'Grade-3': 0, 'TOTAL': 0}
+[2026-06-21 14:37:06] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:06] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:06] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:12] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:12] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:12] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:16] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:16] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:16] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:16] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:16] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:16] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:16] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:37:16] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:16] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:16] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:16] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 0, 'Grade-2': 0, 'Grade-3': 0, 'TOTAL': 0}
+[2026-06-21 14:37:31] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-1 | diameter=75.4mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:37:31] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:31] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:31] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:31] [DB/INFO] [SAVE] Số bản ghi hiện tại: 0 → tên file: app_1.jpg
+[2026-06-21 14:37:31] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_1.jpg
+[2026-06-21 14:37:31] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:37:31
+[2026-06-21 14:37:31] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:31] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4291
+[2026-06-21 14:37:31] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:31] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:31] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_1.jpg | ID=4291
+[2026-06-21 14:37:31] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:37:31] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:31] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:31] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:31] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 1, 'Grade-2': 0, 'Grade-3': 0, 'TOTAL': 1}
+[2026-06-21 14:37:31] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4291 | số_frame=10
+[2026-06-21 14:37:31] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:31] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:31] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:31] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4291
+[2026-06-21 14:37:34] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:34] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:34] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:37:35] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:37:35] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:37:35] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:41] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-2 | diameter=66.3mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:38:41] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:38:41] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:38:41] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:41] [DB/INFO] [SAVE] Số bản ghi hiện tại: 1 → tên file: app_2.jpg
+[2026-06-21 14:38:41] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_2.jpg
+[2026-06-21 14:38:41] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:38:41
+[2026-06-21 14:38:41] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:38:41] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4292
+[2026-06-21 14:38:41] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:38:41] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:41] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-2] → app_2.jpg | ID=4292
+[2026-06-21 14:38:41] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:38:41] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:38:41] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:38:41] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:41] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 1, 'Grade-2': 1, 'Grade-3': 0, 'TOTAL': 2}
+[2026-06-21 14:38:41] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4292 | số_frame=10
+[2026-06-21 14:38:41] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:38:41] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:38:41] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:41] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4292
+[2026-06-21 14:38:58] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-3 | diameter=61.5mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:38:58] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:38:58] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:38:58] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:58] [DB/INFO] [SAVE] Số bản ghi hiện tại: 2 → tên file: app_3.jpg
+[2026-06-21 14:38:58] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_3.jpg
+[2026-06-21 14:38:58] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:38:58
+[2026-06-21 14:38:58] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:38:58] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4293
+[2026-06-21 14:38:58] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:38:58] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:58] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-3] → app_3.jpg | ID=4293
+[2026-06-21 14:38:58] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:38:58] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:38:58] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:38:58] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:58] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 1, 'Grade-2': 1, 'Grade-3': 1, 'TOTAL': 3}
+[2026-06-21 14:38:58] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4293 | số_frame=10
+[2026-06-21 14:38:58] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:38:58] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:38:58] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:38:58] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4293
+[2026-06-21 14:39:01] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-1 | diameter=65.8mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:39:01] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:01] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:01] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:01] [DB/INFO] [SAVE] Số bản ghi hiện tại: 3 → tên file: app_4.jpg
+[2026-06-21 14:39:01] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_4.jpg
+[2026-06-21 14:39:01] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:39:01
+[2026-06-21 14:39:01] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:01] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4294
+[2026-06-21 14:39:01] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:01] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:01] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_4.jpg | ID=4294
+[2026-06-21 14:39:01] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:39:01] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:01] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:01] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:01] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 2, 'Grade-2': 1, 'Grade-3': 1, 'TOTAL': 4}
+[2026-06-21 14:39:01] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4294 | số_frame=10
+[2026-06-21 14:39:01] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:01] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:01] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:01] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4294
+[2026-06-21 14:39:03] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-1 | diameter=66.7mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:39:03] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:03] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:03] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:03] [DB/INFO] [SAVE] Số bản ghi hiện tại: 4 → tên file: app_5.jpg
+[2026-06-21 14:39:03] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_5.jpg
+[2026-06-21 14:39:03] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:39:03
+[2026-06-21 14:39:03] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:03] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4295
+[2026-06-21 14:39:03] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:03] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:03] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_5.jpg | ID=4295
+[2026-06-21 14:39:03] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:39:03] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:03] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:03] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:03] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 3, 'Grade-2': 1, 'Grade-3': 1, 'TOTAL': 5}
+[2026-06-21 14:39:03] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4295 | số_frame=10
+[2026-06-21 14:39:03] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:03] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:03] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:03] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4295
+[2026-06-21 14:39:13] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-2 | diameter=49.6mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:39:13] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:13] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:13] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:13] [DB/INFO] [SAVE] Số bản ghi hiện tại: 5 → tên file: app_6.jpg
+[2026-06-21 14:39:13] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_6.jpg
+[2026-06-21 14:39:13] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:39:13
+[2026-06-21 14:39:13] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:13] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4296
+[2026-06-21 14:39:13] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:13] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:13] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-2] → app_6.jpg | ID=4296
+[2026-06-21 14:39:13] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:39:13] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:13] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:13] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:13] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 3, 'Grade-2': 2, 'Grade-3': 1, 'TOTAL': 6}
+[2026-06-21 14:39:13] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4296 | số_frame=10
+[2026-06-21 14:39:13] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:13] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:13] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:13] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4296
+[2026-06-21 14:39:19] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-1 | diameter=67.9mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:39:19] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:19] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:19] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:19] [DB/INFO] [SAVE] Số bản ghi hiện tại: 6 → tên file: app_7.jpg
+[2026-06-21 14:39:19] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_7.jpg
+[2026-06-21 14:39:19] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:39:19
+[2026-06-21 14:39:19] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:19] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4297
+[2026-06-21 14:39:19] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:19] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:19] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_7.jpg | ID=4297
+[2026-06-21 14:39:19] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:39:19] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:19] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:19] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:19] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 4, 'Grade-2': 2, 'Grade-3': 1, 'TOTAL': 7}
+[2026-06-21 14:39:19] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4297 | số_frame=10
+[2026-06-21 14:39:19] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:19] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:19] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:19] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4297
+[2026-06-21 14:39:40] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-1 | diameter=61.2mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:39:40] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:40] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:40] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:40] [DB/INFO] [SAVE] Số bản ghi hiện tại: 7 → tên file: app_8.jpg
+[2026-06-21 14:39:40] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_8.jpg
+[2026-06-21 14:39:40] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:39:40
+[2026-06-21 14:39:40] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:40] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4298
+[2026-06-21 14:39:40] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:40] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:40] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_8.jpg | ID=4298
+[2026-06-21 14:39:40] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:39:40] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:40] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:40] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:40] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 5, 'Grade-2': 2, 'Grade-3': 1, 'TOTAL': 8}
+[2026-06-21 14:39:40] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4298 | số_frame=10
+[2026-06-21 14:39:40] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:40] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:40] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:40] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4298
+[2026-06-21 14:39:42] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:42] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:42] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:47] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:47] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:47] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:39:58] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:39:58] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:39:58] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:45:35] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:45:35] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:45:35] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:45:37] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:45:37] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:45:37] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:01] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-1 | diameter=67.1mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:46:01] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:46:01] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:46:01] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:01] [DB/INFO] [SAVE] Số bản ghi hiện tại: 8 → tên file: app_9.jpg
+[2026-06-21 14:46:01] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_9.jpg
+[2026-06-21 14:46:01] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:46:01
+[2026-06-21 14:46:01] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:46:01] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4299
+[2026-06-21 14:46:01] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:46:01] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:01] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_9.jpg | ID=4299
+[2026-06-21 14:46:01] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:46:01] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:46:01] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:46:01] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:01] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 6, 'Grade-2': 2, 'Grade-3': 1, 'TOTAL': 9}
+[2026-06-21 14:46:01] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4299 | số_frame=10
+[2026-06-21 14:46:01] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:46:01] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:46:01] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:01] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4299
+[2026-06-21 14:46:42] [DB/INFO] [SAVE] ▶ Lưu bản ghi | grade=Grade-1 | diameter=76.1mm | orchard='NHA_VUON_A' | lot='LO_20260605_2132'
+[2026-06-21 14:46:42] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:46:42] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:46:42] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:42] [DB/INFO] [SAVE] Số bản ghi hiện tại: 9 → tên file: app_10.jpg
+[2026-06-21 14:46:42] [DB/INFO] [SAVE] Ảnh đã lưu: D:\DOAN_PLC_Phanloaitao\giaodien\history_images\app_10.jpg
+[2026-06-21 14:46:42] [DB/INFO] [SAVE] INSERT SQLite | thoi_gian=2026-06-21 14:46:42
+[2026-06-21 14:46:42] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:46:42] [DB/INFO] [SAVE] ✅ INSERT thành công | history_id=4300
+[2026-06-21 14:46:42] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:46:42] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:42] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_10.jpg | ID=4300
+[2026-06-21 14:46:42] [DB/INFO] [STATS] Đọc thống kê số lượng phân loại...
+[2026-06-21 14:46:42] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:46:42] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:46:42] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:42] [DB/INFO] [STATS] ✅ Kết quả: {'Grade-1': 7, 'Grade-2': 2, 'Grade-3': 1, 'TOTAL': 10}
+[2026-06-21 14:46:42] [DB/INFO] [SESSION10] ▶ Lưu session 10 ảnh | history_id=4300 | số_frame=10
+[2026-06-21 14:46:42] [DB/INFO] [CONNECT] Mở SQLite: D:\DOAN_PLC_Phanloaitao\giaodien\database.db
+[2026-06-21 14:46:42] [DB/INFO] [COMMIT] Transaction commit thành công
+[2026-06-21 14:46:42] [DB/INFO] [CONNECT] Connection đã đóng
+[2026-06-21 14:46:42] [DB/INFO] [SESSION10] ✅ Đã lưu đủ 10 frame cho history_id=4300
