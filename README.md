@@ -405,10 +405,116 @@ Khi khởi chạy thành công, phần mềm sẽ tự động sinh ra 2 bảng 
 | `detail_json` | `NVARCHAR(MAX)` | Dữ liệu thô JSON lưu trữ toàn bộ chỉ số phụ hỗ trợ vẽ biểu đồ |
 | `duong_dan_anh` | `NVARCHAR(500)` | Đường dẫn file ảnh riêng của khung hình |
 
-### 11.5 Khắc Phục Sự Cố Kết Nối (Troubleshooting)
+### 11.5 Các Nguyên Nhân Khiến App Không Lưu Được Lịch Sử SQL
 
-- **Lỗi Driver not found**: Cài đặt ODBC Driver bản 17 (hoặc đổi thành bản 18 trong `system_config.json` nếu đã cài bản 18).
-- **Lỗi Communication link failure**: Đảm bảo service SQL Server đang **Running** và giao thức **TCP/IP** được bật (Enable) trong **SQL Server Configuration Manager**, sau đó khởi động lại service.
+Đây là danh sách **đầy đủ và có thứ tự ưu tiên** các nguyên nhân phổ biến khiến dữ liệu phân loại **không được ghi vào cơ sở dữ liệu** (SQL Server hoặc SQLite). Kiểm tra theo thứ tự từ trên xuống.
+
+---
+
+#### 🔴 NHÓM 1 — Kết Nối SQL Server Thất Bại (Không kết nối được)
+
+| # | Nguyên nhân | Cách kiểm tra | Cách sửa |
+|---|---|---|---|
+| 1 | **Service SQL Server chưa chạy** | Mở `Services.msc` → tìm `SQL Server (SQLEXPRESS)` → kiểm tra trạng thái | Nhấp chuột phải → **Start** |
+| 2 | **Tên server sai** | Mở SSMS, xem tên Instance hiện tại (ví dụ: `DESKTOP-ABC\SQLEXPRESS`) | Sửa `"server"` trong `system_config.json` cho đúng tên máy |
+| 3 | **ODBC Driver chưa cài** | Mở `ODBC Data Sources (64-bit)` → tab Drivers → tìm `ODBC Driver 17 for SQL Server` | Tải và cài từ [Microsoft Download](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server) |
+| 4 | **Phiên bản ODBC Driver không khớp** | Driver `17` được cài nhưng config đang ghi `18` (hoặc ngược lại) | Sửa trường `"driver"` trong `system_config.json` cho đúng số phiên bản đã cài |
+| 5 | **Giao thức TCP/IP bị tắt** | Mở `SQL Server Configuration Manager` → `SQL Server Network Configuration` → `Protocols for SQLEXPRESS` | Bật **TCP/IP** → Enable, sau đó restart service SQL Server |
+| 6 | **Tường lửa Windows chặn cổng 1433** | Thử `telnet <tên_server> 1433` hoặc dùng SSMS kết nối thử | Thêm Inbound Rule cho cổng **1433** trong Windows Firewall |
+| 7 | **Database `AppleClassification` chưa tồn tại** | Mở SSMS → kiểm tra danh sách Databases | Tạo mới database với tên đúng như trong `system_config.json` |
+| 8 | **Sai thông tin đăng nhập SQL Login** | Log lỗi sẽ hiện `Login failed for user` | Kiểm tra `username`/`password` trong config, hoặc đổi sang `trusted_connection: true` |
+| 9 | **Timeout kết nối (3 giây) quá ngắn** | Log hiện `Connection timeout expired` | Tăng tham số `timeout=3` trong hàm `_get_connection()` trong `database.py` |
+| 10 | **Thư viện `pyodbc` chưa cài** | Chạy `python -c "import pyodbc"` trong terminal | Cài bằng `pip install pyodbc` |
+
+---
+
+#### 🟠 NHÓM 2 — Kết Nối Được Nhưng Bảng Không Tồn Tại
+
+| # | Nguyên nhân | Cách kiểm tra | Cách sửa |
+|---|---|---|---|
+| 11 | **Lỗi khi khởi tạo schema lần đầu** | Xem file `giaodien/db_log.txt` → tìm dòng `[INIT] ❌` | Khởi động lại app; nếu vẫn lỗi, chạy tay script SQL tạo bảng (xem mục 11.4) |
+| 12 | **App tiếp tục chạy dù tạo bảng thất bại** | Log hiện `⚠️ App tiếp tục chạy nhưng có thể KHÔNG lưu được` | Xem log tại `giaodien/db_log.txt` → fix lỗi kết nối → khởi động lại |
+| 13 | **Tài khoản Windows không có quyền CREATE TABLE** | Log hiện `CREATE TABLE permission denied` | Cấp quyền `db_owner` hoặc `dbcreator` cho tài khoản trong SSMS |
+
+---
+
+#### 🟡 NHÓM 3 — Kết Nối Và Bảng Ổn Nhưng INSERT Thất Bại
+
+| # | Nguyên nhân | Cách kiểm tra | Cách sửa |
+|---|---|---|---|
+| 14 | **`OUTPUT INSERTED.id` trả về None** | Log hiện `❌ OUTPUT INSERTED.id trả về None` | Kiểm tra quyền `INSERT` trên bảng; đảm bảo bảng có cột `IDENTITY` |
+| 15 | **`history_id = None` nên không lưu được session_10** | Log `[SESSION10] ⚠️ Thiếu dữ liệu: history_id=None` | Lỗi do INSERT bảng cha thất bại, sửa theo mục 14 trước |
+| 16 | **Giá trị `grade` là NO_APPLE / UNKNOWN / rỗng** | Log hiện `[SAVE] Bỏ qua lưu – grade không hợp lệ` | App chủ động bỏ qua — đây là thiết kế đúng; kiểm tra lại pipeline phân loại |
+| 17 | **`frame_to_save = None` (không có ảnh)** | Log hiện `Không có frame ảnh để lưu` | Kiểm tra camera đã kết nối và đang nhận frame trước khi trigger lưu |
+| 18 | **Lỗi `cv2.imwrite` ghi ảnh thất bại** | Log hiện `⚠️ cv2.imwrite thất bại` | Kiểm tra đường dẫn `history_images/` có tồn tại và có quyền ghi |
+| 19 | **Transaction bị rollback do lỗi constraint** | Log hiện `[ROLLBACK] Transaction thất bại` | Xem chi tiết lỗi trong log, thường do vi phạm FOREIGN KEY hoặc kiểu dữ liệu |
+| 20 | **Tài khoản không có quyền INSERT/DELETE** | Log hiện `INSERT permission denied` | Cấp quyền `INSERT`, `UPDATE`, `DELETE` cho tài khoản trên 2 bảng trong SSMS |
+
+---
+
+#### 🔵 NHÓM 4 — Vấn Đề Cấu Hình Và Môi Trường
+
+| # | Nguyên nhân | Cách kiểm tra | Cách sửa |
+|---|---|---|---|
+| 21 | **File `system_config.json` bị hỏng (JSON lỗi cú pháp)** | Log hiện `[CONFIG] Warning: cannot read config` | Mở bằng VS Code, sửa lỗi JSON; hoặc copy từ file `.bak` |
+| 22 | **Config vẫn để `"type": "sqlite"` dù muốn dùng SQL Server** | Mở `system_config.json` kiểm tra trường `"type"` | Đổi thành `"type": "sqlserver"` |
+| 23 | **Module `config.runtime_config` import thất bại** | Log hiện `Lỗi load cấu hình database` | Kiểm tra thư mục `giaodien/config/` có tồn tại và có file `runtime_config.py` |
+| 24 | **Thư mục `history_images/` không có quyền ghi** | Thử tạo file test trong thư mục đó | Chuột phải → Properties → Security → cấp Full Control |
+| 25 | **Race condition: tên file ảnh bị trùng** | Hai quả táo ghi cùng lúc, `COUNT(*)+1` bị trùng | Đây là giới hạn thiết kế hiện tại; hệ thống chạy đơn luồng thì không gặp |
+
+---
+
+#### ⚫ NHÓM 5 — SQLite Riêng (Khi Không Dùng SQL Server)
+
+| # | Nguyên nhân | Cách kiểm tra | Cách sửa |
+|---|---|---|---|
+| 26 | **File `database.db` bị khóa bởi tiến trình khác** | Đóng SSMS / DB Browser nếu đang mở file .db | Đóng tất cả tool đang giữ file `.db`, khởi động lại app |
+| 27 | **File `database.db` bị hỏng** | Thử mở bằng DB Browser for SQLite | Xóa file `.db` cũ, app sẽ tự tạo lại (mất dữ liệu cũ) |
+| 28 | **Không đủ dung lượng ổ đĩa** | Kiểm tra dung lượng ổ chứa file `.db` | Giải phóng dung lượng |
+
+---
+
+### 11.6 Cách Đọc Log Để Chẩn Đoán Nhanh
+
+Kể từ phiên bản hiện tại, **toàn bộ thao tác với database đều được ghi log chi tiết** ra 2 nơi:
+
+1. **Console** (cửa sổ terminal đang chạy `python giaodien/main.py`)
+2. **File log**: `giaodien/db_log.txt`
+
+**Cú pháp log:**
+```
+[YYYY-MM-DD HH:MM:SS] [DB/INFO]    → Thao tác thành công
+[YYYY-MM-DD HH:MM:SS] [DB/WARNING] → Cảnh báo cần chú ý
+[YYYY-MM-DD HH:MM:SS] [DB/ERROR]   → Lỗi cần xử lý ngay
+```
+
+**Quy trình đọc log khi gặp sự cố:**
+```
+1. Mở file: giaodien/db_log.txt
+2. Tìm dòng có ký hiệu ❌ hoặc [DB/ERROR]
+3. Đọc phần "Chi tiết:" ngay bên dưới để biết stack trace đầy đủ
+4. Đối chiếu với bảng nguyên nhân ở mục 11.5 để tìm cách sửa
+```
+
+**Ví dụ log khi thành công:**
+```
+[2026-06-21 14:00:01] [DB/INFO] ══════════════════════════════════════════════
+[2026-06-21 14:00:01] [DB/INFO] Khởi động AppDatabase | Loại DB: SQLSERVER
+[2026-06-21 14:00:01] [DB/INFO]   Server   : DESKTOP-RF2G40K\SQLEXPRESS
+[2026-06-21 14:00:01] [DB/INFO]   Database : AppleClassification
+[2026-06-21 14:00:01] [DB/INFO] [CONNECT] ✅ Kết nối SQL Server thành công
+[2026-06-21 14:00:01] [DB/INFO] [INIT] ✅ Khởi tạo schema DB thành công
+[2026-06-21 14:00:05] [DB/INFO] [SAVE] ✅ Lưu hoàn tất: [Grade-1] → app_1.jpg | ID=1
+```
+
+**Ví dụ log khi thất bại:**
+```
+[2026-06-21 14:00:01] [DB/ERROR] [CONNECT] ❌ Kết nối SQL Server THẤT BẠI!
+[2026-06-21 14:00:01] [DB/ERROR]            Server   : DESKTOP-RF2G40K\SQLEXPRESS
+[2026-06-21 14:00:01] [DB/ERROR]            Lỗi chi tiết: [08001] Named Pipes Provider...
+[2026-06-21 14:00:01] [DB/ERROR]            Kiểm tra: SQL Server đang chạy? Tên server đúng? ODBC Driver đã cài?
+[2026-06-21 14:00:01] [DB/WARNING] [INIT] ⚠️  App tiếp tục chạy nhưng có thể KHÔNG lưu được dữ liệu!
+```
 
 ---
 
