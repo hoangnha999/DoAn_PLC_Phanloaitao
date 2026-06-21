@@ -742,9 +742,7 @@ class CameraWindow:
         self._save_to_sql("MANUAL")
 
     def _on_view_mode_change(self, event=None):
-        """Cố định chế độ hiển thị: khung 1 Color, khung 2 Binary."""
-        self.lbl_view1.config(text="📷  CAMERA (COLOR)")
-        self.lbl_view2.config(text="🔳  BINARY/THRESHOLD")
+        pass
 
     def _clear_buffer(self):
         """Xóa sạch bộ nhớ đệm hình ảnh (Buffer)."""
@@ -3259,9 +3257,9 @@ class CameraWindow:
 
     def _draw_placeholder(self):
         self.canvas.delete("all")
-        self.canvas.create_rectangle(0, 0, 1000, 1000, fill="#0A0A0A")
-        self.canvas.create_text(320, 100, text="📷", font=("Arial", 36), fill="#424242")
-        self.canvas.create_text(320, 150,
+        self.canvas.create_rectangle(0, 0, 4000, 4000, fill="#0A0A0A")
+        self.canvas.create_text(500, 150, text="📷", font=("Arial", 36), fill="#424242")
+        self.canvas.create_text(500, 200,
                                 text="[SYSTEM READY - WAITING FOR CAMERA]",
                                 font=("Consolas", 10), fill="#00E676")
         
