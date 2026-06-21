@@ -3213,7 +3213,14 @@ class CameraWindow:
         self.canvas.pack(fill="both", expand=True)
 
         # ── Frame Snapshot 10 hình (dưới cùng) ──
-        tk.Label(rf, text="📸 10 ẢNH GẦN NHẤT (LIVE BUFFER)", font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF").pack(anchor="w", padx=6, pady=(5, 0))
+        snapshot_header = tk.Frame(rf, bg="#F8FAFC")
+        snapshot_header.pack(fill="x", padx=6, pady=(5, 0))
+        tk.Label(snapshot_header, text="📸 10 ẢNH GẦN NHẤT (LIVE BUFFER)", font=("Arial", 9, "bold"), fg="#0284C7", bg="#F8FAFC").pack(side="left")
+        
+        self.is_snapshot_visible = True
+        self.btn_toggle_snapshot = tk.Button(snapshot_header, text="Ẩn ➖", font=("Arial", 8), bd=1, relief="ridge", bg="#E2E8F0", cursor="hand2", command=self._toggle_snapshot)
+        self.btn_toggle_snapshot.pack(side="left", padx=10)
+        
         self.snapshot_frame = tk.Frame(rf, bg="#0F172A", height=60)
         self.snapshot_frame.pack(fill="x", padx=4, pady=2)
         
@@ -3229,6 +3236,16 @@ class CameraWindow:
         
         # Cập nhật tiêu đề hiển thị sau khi các thành phần UI đã được tạo xong
         self._on_view_mode_change()
+
+    def _toggle_snapshot(self):
+        if self.is_snapshot_visible:
+            self.snapshot_frame.pack_forget()
+            self.btn_toggle_snapshot.config(text="Hiện ➕", bg="#E0F2FE")
+            self.is_snapshot_visible = False
+        else:
+            self.snapshot_frame.pack(fill="x", padx=4, pady=2)
+            self.btn_toggle_snapshot.config(text="Ẩn ➖", bg="#E2E8F0")
+            self.is_snapshot_visible = True
 
     def _quick_open_file(self):
         """Hàm mở file nhanh từ nút bấm ở sidebar."""
