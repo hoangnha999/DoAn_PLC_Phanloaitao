@@ -1,0 +1,163 @@
+================================================================================
+2.2 TIÊU CHÍ ĐÁNH GIÁ CHẤT LƯỢNG TÁO VÀ CÁC THUẬT TOÁN ĐO LƯỜNG
+================================================================================
+
+Trong các hệ thống phân loại nông sản tự động, việc kết hợp giữa bộ điều khiển lập trình
+PLC (Programmable Logic Controller) và hệ thống xử lý ảnh (Computer Vision) đóng vai trò
+then chốt. PLC chịu trách nhiệm quản lý cơ cấu chấp hành phần cứng (băng tải, xi lanh gạt,
+cơ chế lăn xoay quả), trong khi máy tính chạy chương trình xử lý ảnh đóng vai trò là "mắt thần"
+đo đạc và phân tích các tiêu chí chất lượng của quả táo thời gian thực.
+
+Hệ thống tiến hành đánh giá chất lượng quả táo dựa trên 3 tiêu chí cốt lõi:
+1. Tiêu chí 1 (TC1) - Độ chín: Dựa trên phân tích tỷ lệ màu sắc chín đỏ trên bề mặt vỏ.
+2. Tiêu chí 2 (TC2) - Kích thước: Dựa trên đường kính thực tế (đơn vị mm) và diện tích vùng ảnh.
+3. Tiêu chí 3 (TC3) - Độ tròn: Dựa trên chỉ số tròn trịa và tỷ lệ các trục đối xứng của quả táo.
+
+Dưới đây là cơ sở lý thuyết toán học và thuật toán đo lường chi tiết của từng tiêu chí.
+
+---
+
+2.1.1 Đánh giá độ chín dựa trên phân tích màu sắc vỏ táo (TC1)
+================================================================================
+
+Độ chín của quả táo đỏ được đánh giá thông qua việc xác định tỷ lệ phần trăm diện tích
+vùng vỏ có màu đỏ so với tổng diện tích bề mặt màu sắc nhận dạng được.
+
+1. Không gian màu HSV (Hue - Saturation - Value)
+Để loại bỏ sự ảnh hưởng của cường độ ánh sáng môi trường thay đổi liên tục trong nhà máy,
+hệ thống thực hiện chuyển đổi ảnh từ không gian màu RGB sang không gian màu HSV:
+- H (Hue - Sắc độ): Đại diện cho màu sắc thực tế (từ 0 đến 180 độ trong OpenCV).
+- S (Saturation - Độ bão hòa): Thể hiện độ thuần khiết hay mức độ đậm nhạt của màu sắc.
+- V (Value - Độ sáng): Thể hiện cường độ sáng của điểm ảnh.
+
+Công thức chuyển đổi từ RGB sang HSV (sao chép công thức bên dưới vào ô Equation của Word):
+- Công thức tính độ sáng V:
+$$V = \max(R, G, B)$$
+
+- Công thức tính độ bão hòa S:
+$$S = \begin{cases} \frac{V - \min(R, G, B)}{V} & \text{nếu } V > 0 \\ 0 & \text{nếu } V = 0 \end{cases}$$
+
+- Công thức tính sắc độ H:
+$$H = \begin{cases} 60^{\circ} \times \frac{G - B}{V - \min(R, G, B)} & \text{nếu } V = R \\ 60^{\circ} \times \left(2 + \frac{B - R}{V - \min(R, G, B)}\right) & \text{nếu } V = G \\ 60^{\circ} \times \left(4 + \frac{R - G}{V - \min(R, G, B)}\right) & \text{nếu } V = B \end{cases}$$
+Nếu H < 0 thì thực hiện bù góc:
+$$H = H + 360^{\circ}$$
+
+2. Ngưỡng phân vùng màu sắc (HSV Color Segmentation)
+Vì màu đỏ nằm ở hai đầu giới hạn của vòng tròn màu sắc Hue, hệ thống sử dụng phép hợp (OR)
+hai dải ngưỡng để tách chính xác vùng màu đỏ:
+- Dải màu Đỏ 1 (Red 1):
+  Lower_Red1 = [0, 65, 40], Upper_Red1 = [15, 255, 255]
+- Dải màu Đỏ 2 (Red 2):
+  Lower_Red2 = [160, 65, 40], Upper_Red2 = [180, 255, 255]
+
+Đồng thời, hệ thống định nghĩa dải cho màu Vàng (Yellow) và màu Xanh (Green):
+- Dải màu Vàng (Yellow):
+  Lower_Yellow = [17, 75, 40], Upper_Yellow = [32, 255, 255]
+- Dải màu Xanh (Green):
+  Lower_Green = [35, 40, 30], Upper_Green = [90, 255, 255]
+
+3. Thuật toán thích nghi ngưỡng sáng (Adaptive HSV Thresholding)
+Hệ thống tự động hiệu chỉnh ngưỡng thấp S và V dựa trên phân tích phân vị 25% (Percentile 25)
+của vùng ảnh quả táo hiện tại:
+- Công thức tính hệ số tỷ lệ tự thích nghi (scale):
+$$S_{scale} = \text{clip}\left(\frac{S_{p25}}{70.0}, 0.80, 1.20\right)$$
+$$V_{scale} = \text{clip}\left(\frac{V_{p25}}{45.0}, 0.80, 1.20\right)$$
+
+- Công thức tính ngưỡng thấp thích nghi cuối cùng:
+$$S_{adapted} = \text{clip}(S_{lower\_ref} \times S_{scale}, 20, 255)$$
+$$V_{adapted} = \text{clip}(V_{lower\_ref} \times V_{scale}, 20, 255)$$
+
+4. Công thức tính tỉ lệ phần trăm màu chín đỏ (Red Ratio):
+Sau khi có số pixel thuộc vùng màu đỏ ($N_{red}$), màu vàng ($N_{yellow}$) và xanh ($N_{green}$):
+$$P_{red} = \frac{N_{red}}{N_{red} + N_{yellow} + N_{green}} \times 100\%$$
+
+5. Bộ lọc làm mượt thời gian (Temporal Smoothing)
+Hệ thống áp dụng bộ lọc trung vị (Median Filter) trên một cửa sổ lịch sử trượt gồm 7 khung hình:
+$$P_{red\_filtered} = \text{Median}\left(P_{red\_raw}[i-6], ..., P_{red\_raw}[i]\right)$$
+
+6. Phân hạng độ chín:
+- Grade-1 (Chín đều): $P_{red\_filtered} \ge 80\%$
+- Grade-2 (Vừa chín): $60\% \le P_{red\_filtered} < 80\%$
+- Grade-3 (Chưa chín / Xanh): $P_{red\_filtered} < 60\%$
+
+---
+
+2.1.2 Đánh giá kích thước dựa trên đường kính và diện tích vùng ảnh (TC2)
+================================================================================
+
+Kích thước quả táo được đánh giá dựa trên đường kính thực tế (đơn vị mm). Quy trình gồm
+hai bước chính: Ước lượng đường kính theo đơn vị pixel và Quy đổi sang mm có bù trừ chiều sâu Z.
+
+1. Ước lượng đường kính Pixel (Diameter estimation in Pixels)
+Hệ thống sử dụng thuật toán ước lượng lai (Hybrid Estimation) kết hợp 4 phương pháp đo đạc:
+
+- Phương pháp A: Đường kính tương đương diện tích hình tròn (Area-equivalent Diameter)
+$$D_{area} = \sqrt{\frac{4 \times \text{Area}_{px}}{\pi}}$$
+
+- Phương pháp B: Khớp Elip (Minimum Least-Squares Fitting Ellipse)
+Khớp elip qua viền viền quả táo thu được độ dài trục lớn ($axis_a$) và trục bé ($axis_b$):
+$$D_{ellipse} = \frac{axis_a + axis_b}{2}$$
+
+- Phương pháp C: Đường kính Feret (Feret Diameter)
+Lấy giá trị bách phân vị 90 (Percentile 90) của các nhịp chiếu bao lồi để loại bỏ gai nhiễu:
+$$D_{feret} = \text{Percentile}(Feret\_spans, 90)$$
+
+- Phương pháp D: Phân tích thành phần chính PCA (Principal Component Analysis)
+Xác định ma trận hiệp phương sai của tập hợp điểm viền (Contour):
+$$\Sigma = \begin{bmatrix} \text{Var}(X) & \text{Cov}(X, Y) \\ \text{Cov}(X, Y) & \text{Var}(Y) \end{bmatrix}$$
+Giải tìm vector riêng tương ứng trị riêng lớn nhất làm vector trục chính. Chiều dài trục chính:
+$$D_{pca} = \max(\text{Projections}) - \min(\text{Projections})$$
+
+- Công thức trộn trọng số tối ưu (Fused Diameter):
+Đường kính pixel tổng hợp:
+$$D_{fused} = 0.35 \times D_{area} + 0.25 \times D_{ellipse} + 0.30 \times D_{feret} + 0.10 \times D_{pca}$$
+Đường kính pixel cuối cùng sau khi trộn 8% vòng tròn ngoại tiếp tối thiểu ($D_{circle\_bounding}$):
+$$D_{final\_px} = 0.92 \times D_{fused} + 0.08 \times D_{circle\_bounding}$$
+
+2. Thuật toán quy đổi sang milimét hỗ trợ chiều sâu Z (Depth-Assisted Compensation)
+- Công thức tính hệ số pixel-to-mm hiệu dụng ($k_{eff}$):
+$$k_{eff} = k_{base} \times \frac{Z_{center}}{Z_{ref}}$$
+
+Trong đó khoảng cách thực tế đến tâm quả táo được tính bằng:
+$$Z_{center} = \frac{Z_{top} + Z_{ref}}{2}$$
+
+- Công thức tính đường kính thực tế bằng milimét:
+$$D_{mm\_raw} = D_{final\_px} \times k_{eff}$$
+
+3. Bộ lọc ổn định đường kính (Diameter Stabilization)
+Áp dụng bộ lọc Trung bình động lũy thừa (EMA - Exponential Moving Average):
+$$D_{mm\_stable} = \alpha \times D_{mm\_raw} + (1 - \alpha) \times D_{mm\_prev}$$
+(với hệ số $\alpha = 0.35$, và khống chế bước nhảy tối đa cho mỗi chu kỳ là 2.5 mm).
+
+4. Phân hạng kích thước:
+- Hạng A (Lớn): $D_{mm\_stable} \ge 70\text{ mm}$ (Grade-1)
+- Hạng B (Vừa): $65\text{ mm} \le D_{mm\_stable} < 70\text{ mm}$ (Grade-2)
+- Hạng C (Nhỏ): $D_{mm\_stable} < 65\text{ mm}$ (Grade-3)
+
+---
+
+2.1.3 Đánh giá độ tròn dựa trên chỉ số hình học Circularity (TC3)
+================================================================================
+
+Độ tròn trịa của quả táo giúp phát hiện các quả bị dị dạng, méo mó tự nhiên hoặc bị
+che khuất một phần trong quá trình vận hành băng tải. Hệ thống sử dụng duy nhất chỉ số
+Circularity làm tiêu chí phân hạng hình dạng (được triển khai trong tc3_shape.py và
+gọi qua analyzer.py với SHAPE_GOOD_THRESH = 0.70, SHAPE_MEDIUM_THRESH = 0.50).
+
+1. Chỉ số tròn trịa phẳng (Planar Circularity)
+Circularity được tính từ diện tích vùng quả táo (Area, đơn vị pixel²) và chu vi
+đường bao ngoài (Perimeter, đơn vị pixel) theo công thức:
+$$Circularity = \frac{4\pi \times \text{Area}}{\text{Perimeter}^2}$$
+
+Giá trị Circularity nằm trong khoảng (0, 1]:
+- Circularity = 1.0: Hình tròn hoàn hảo.
+- Circularity càng thấp: Hình dạng càng méo, lõm, hoặc có nhiều gai lồi lõm trên viền.
+
+Lưu ý: Trong bước tính đường kính (TC2), hệ thống sử dụng thêm hai đại lượng hỗ trợ:
+- Tỷ số trục elip khớp: $R_{symmetry} = axis_b / axis_a$ (phục vụ TC2, không dùng phân hạng TC3).
+- Tỷ số trị riêng PCA: $R_{pca} = \lambda_2 / \lambda_1$ (phục vụ TC2, không dùng phân hạng TC3).
+
+2. Phân hạng hình dạng (chỉ dựa trên Circularity):
+- TRÒN ĐỀU (Grade-1): $Circularity \ge 0.70$
+- HƠI MÉO  (Grade-2): $0.50 \le Circularity < 0.70$
+- MÉO / DỊ DẠNG (Grade-3): $Circularity < 0.50$

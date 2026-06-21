@@ -1,6 +1,6 @@
 # HỆ THỐNG PHÂN LOẠI HẠNG CHẤT LƯỢNG TÁO TỰ ĐỘNG
 
-Dự án nhận dạng và phân loại táo theo 3 tiêu chí chính:
+Dự án nhận dạng và phân loại hạng chất lượng táo theo 3 tiêu chí chính:
 - TC1: Độ chín (tỉ lệ màu đỏ)
 - TC2: Kích thước (đường kính mm)
 - TC3: Hình dáng (độ tròn)

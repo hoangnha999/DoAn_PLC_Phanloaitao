@@ -1,0 +1,226 @@
+================================================================================
+HƯỚNG DẪN CHI TIẾT VÀ ĐẦY ĐỦ VỀ GIẢI THUẬT QUYẾT ĐỊNH 10 TẤM (PHÂN LOẠI TÁO)
+================================================================================
+
+Tài liệu này giải thích chi tiết, rõ ràng và nhất quán (một nghĩa) về cách hoạt động,
+cách tính điểm chất lượng, biểu quyết có trọng số và các cơ chế phòng vệ an toàn
+của thuật toán 10 tấm ảnh trong hệ thống phân loại táo.
+
+---
+
+1. TỔNG QUAN VÌ SAO CẦN CHỤP 10 TẤM ẢNH
+================================================================================
+Khi quả táo di chuyển trên băng tải và xoay trên các con lăn, nếu chỉ chụp 1 ảnh duy
+nhất để phân loại sẽ gặp sai số lớn do:
+- Góc khuất vật lý: Vết sâu, sẹo hoặc vùng chín/xanh nằm ở mặt sau camera không thấy.
+- Nhiễu vật lý: Ảnh bị nhòe do rung lắc (Motion Blur) hoặc bị con lăn che khuất viền
+  dưới quả táo dẫn đến cắt hình bị méo.
+- Thay đổi ánh sáng liên tục làm AI nhận diện kém tự tin.
+
+=> Giải pháp: Camera chụp liên tục 10 ảnh khi táo xoay. Hệ thống áp dụng bộ lọc chất
+lượng để loại ảnh xấu, sau đó bỏ phiếu có trọng số (Weighted Voting) để chốt kết quả.
+
+
+2. GIAI ĐOẠN 1: BỘ LỌC CHẤT LƯỢNG ẢNH (LOẠI BỎ ẢNH XẤU)
+================================================================================
+Trước khi biểu quyết, từng tấm ảnh phải được chấm điểm chất lượng (từ 0% đến 100%)
+dựa trên 3 thông số đo được từ camera:
+
+1. Chỉ số sắc nét (blur_score): Độ rõ nét của biên cạnh trong ảnh.
+2. Độ tự tin AI (yolo_confidence): Độ chắc chắn của mô hình AI khi phát hiện quả táo.
+3. Độ tròn trịa (circularity): Đo xem quả táo có bị con lăn che mất hay cắt hình sai.
+
+--------------------------------------------------------------------------------
+A. CÔNG THỨC CHUẨN HÓA CÁC ĐẦU VÀO VỀ THANG ĐIỂM [0 - 1]:
+--------------------------------------------------------------------------------
+- Điểm sắc nét (blur_quality):
+  blur_quality = min(1.0, blur_score / 200.0)
+  (Lấy mốc 200.0 làm tiêu chuẩn nét tối đa 1.0)
+
+- Điểm AI (yolo_quality):
+  yolo_quality = max(0.0, (yolo_confidence - 0.20) / 0.80)
+  (Bỏ qua nếu độ tự tin quá thấp dưới 0.20)
+
+- Điểm tròn trịa (circ_quality):
+  circ_quality = max(0.0, (circularity - 0.30) / 0.70)
+  (Bỏ qua nếu độ tròn dưới 0.30)
+
+--------------------------------------------------------------------------------
+B. CÔNG THỨC TÍNH ĐIỂM TỔNG SƠ BỘ:
+--------------------------------------------------------------------------------
+Điểm sơ bộ được phối trộn theo tỷ lệ: 50% Sắc nét, 35% AI tự tin, 15% Độ tròn.
+Công thức:
+  Điểm sơ bộ = (0.50 * blur_quality) + (0.35 * yolo_quality) + (0.15 * circ_quality)
+
+--------------------------------------------------------------------------------
+C. QUY TẮC PHẠT VÀ TÍNH ĐIỂM CUỐI CÙNG (Quality Score):
+--------------------------------------------------------------------------------
+- Phạt ảnh mờ:
+  NẾU ảnh bị mờ (blur_score < 100.0) -> THÌ điểm sơ bộ nhân với hệ số 0.75 (giảm 25%).
+  
+- Phạt ảnh méo (do con lăn che):
+  NẾU độ tròn trịa < 0.50 -> THÌ điểm sơ bộ nhân tiếp với hệ số phạt: (circularity / 0.50).
+
+- Điểm chất lượng cuối cùng (quality_score):
+  Giới hạn trong khoảng [0.0 - 1.0].
+  
+- Trọng số phiếu bầu (weight):
+  weight = max(0.05, quality_score)
+  (Đặt cận dưới là 0.05 để lá phiếu không bị biến mất hoàn toàn).
+
+=> QUY TẮC LỌC:
+- NẾU quality_score >= 0.50 -> THÌ ảnh được giữ lại làm "Ảnh Đạt Chuẩn" để bỏ phiếu.
+- NẾU quality_score < 0.50  -> THÌ ảnh bị loại bỏ hoàn toàn, không tham gia bỏ phiếu.
+
+
+3. GIAI ĐOẠN 2: BIỂU QUYẾT CÓ TRỌNG SỐ VÀ CƠ CHẾ PHÒNG VỆ
+================================================================================
+Các tấm "Ảnh Đạt Chuẩn" sẽ tiến hành bỏ phiếu cho phân hạng của nó (Hạng 1, 2 hoặc 3).
+- Hạng (Grade) của tấm ảnh quyết định tấm ảnh đó bỏ phiếu vào giỏ nào.
+- Trọng số (Weight) của tấm ảnh quyết định tấm ảnh đó thả bao nhiêu điểm vào giỏ đó.
+
+Tổng điểm của từng Hạng là tổng trọng số của các tấm ảnh bầu cho Hạng đó.
+Tỷ lệ phần trăm (%) của từng Hạng = Tổng điểm hạng đó / Tổng trọng số tất cả các ảnh đạt chuẩn.
+
+--------------------------------------------------------------------------------
+CÁC CƠ CHẾ PHÒNG VỆ AN TOÀN TRƯỚC KHI RA QUYẾT ĐỊNH CUỐI CÙNG:
+--------------------------------------------------------------------------------
+
+- CƠ CHẾ PHÒNG VỆ 1 (Bảo vệ khi thiếu ảnh rõ nét):
+  NẾU số lượng "Ảnh Đạt Chuẩn" ít hơn 6 tấm (trên tổng 10 tấm đã chụp)
+  THÌ: Hủy bỏ kết quả bỏ phiếu, tự động xếp quả táo vào Hạng xấu nhất từng xuất hiện
+  trong 10 ảnh chụp ban đầu để đảm bảo an toàn.
+
+- CƠ CHẾ PHÒNG VỆ 2 (Bảo vệ khi kết quả tranh chấp sát nút):
+  Gọi Margin là khoảng chênh lệch điểm (%) giữa hạng cao nhất (Top-1) và hạng cao nhì (Top-2).
+  NẾU Margin < 10% (0.10) (Hệ thống đang phân vân không chắc chắn)
+  THÌ: Tự động kích hoạt cơ chế phòng vệ bảo thủ, chọn Hạng xấu nhất trong số các
+  phiếu bầu của những ảnh đạt chuẩn để gạt táo đi.
+
+- QUYẾT ĐỊNH BÌNH THƯỜNG:
+  NẾU số lượng ảnh đạt chuẩn >= 6 tấm VÀ Margin >= 10%
+  THÌ: Chọn Hạng có điểm số cao nhất (Top-1) làm kết quả cuối cùng.
+
+
+4. VÍ DỤ MINH HỌA SỐ LIỆU THỰC TẾ CHI TIẾT TỪNG BƯỚC (2 HẠNG)
+================================================================================
+
+Giả sử camera chụp được 10 tấm ảnh của một quả táo với các thông số đo đạc như sau:
+
+Tấm 1: Hạng 1 | blur_score = 180.0 | yolo_confidence = 0.92 | circularity = 0.93 (Rõ nét)
+Tấm 2: Hạng 1 | blur_score = 190.0 | yolo_confidence = 0.94 | circularity = 0.93 (Rõ nét)
+Tấm 3: Hạng 1 | blur_score = 176.0 | yolo_confidence = 0.90 | circularity = 0.91 (Rõ nét)
+Tấm 4: Hạng 1 | blur_score = 70.0  | yolo_confidence = 0.68 | circularity = 0.86 (Mờ)
+Tấm 5: Hạng 1 | blur_score = 60.0  | yolo_confidence = 0.60 | circularity = 0.86 (Mờ)
+Tấm 6: Hạng 2 | blur_score = 190.0 | yolo_confidence = 0.96 | circularity = 0.93 (Rõ nét)
+Tấm 7: Hạng 2 | blur_score = 180.0 | yolo_confidence = 0.92 | circularity = 0.93 (Rõ nét)
+Tấm 8: Hạng 2 | blur_score = 170.0 | yolo_confidence = 0.88 | circularity = 0.86 (Rõ nét)
+Tấm 9: Hạng 2 | blur_score = 160.0 | yolo_confidence = 0.60 | circularity = 0.20 (Méo do bị che)
+Tấm 10: Hạng 2| blur_score = 150.0 | yolo_confidence = 0.80 | circularity = 0.80 (Rõ nét)
+
+--------------------------------------------------------------------------------
+BƯỚC 1: TÍNH TOÁN ĐIỂM CHẤT LƯỢNG CHO TỪNG TẤM (GIAI ĐOẠN 1)
+--------------------------------------------------------------------------------
+
+- Tấm 1: Điểm cuối = 0.90. Kết quả: ĐẠT (bỏ phiếu cho Hạng 1).
+- Tấm 2: Điểm cuối = 0.93. Kết quả: ĐẠT (bỏ phiếu cho Hạng 1).
+- Tấm 3: Điểm cuối = 0.88. Kết quả: ĐẠT (bỏ phiếu cho Hạng 1).
+- Tấm 4: Điểm cuối = 0.38. Kết quả: ❌ LOẠI (Dưới 0.50).
+- Tấm 5: Điểm cuối = 0.33. Kết quả: ❌ LOẠI (Dưới 0.50).
+- Tấm 6: Điểm cuối = 0.94. Kết quả: ĐẠT (bỏ phiếu cho Hạng 2).
+- Tấm 7: Điểm cuối = 0.90. Kết quả: ĐẠT (bỏ phiếu cho Hạng 2).
+- Tấm 8: Điểm cuối = 0.84. Kết quả: ĐẠT (bỏ phiếu cho Hạng 2).
+- Tấm 9: Điểm cuối = 0.23. Kết quả: ❌ LOẠI (Dưới 0.50).
+- Tấm 10: Điểm cuối = 0.75. Kết quả: ĐẠT (bỏ phiếu cho Hạng 2).
+
+--------------------------------------------------------------------------------
+BƯỚC 2: TÍNH KẾT QUẢ BIỂU QUYẾT (GIAI ĐOẠN 2)
+--------------------------------------------------------------------------------
+- Tổng số ảnh đạt chuẩn hợp lệ: 7 tấm (Tấm 1, 2, 3, 6, 7, 8, 10) -> Thỏa mãn >= 6 tấm.
+- Tổng trọng số hợp lệ: 0.90 + 0.93 + 0.88 + 0.94 + 0.90 + 0.84 + 0.75 = 6.14
+
+Cộng dồn điểm theo từng giỏ hạng táo:
+- Giỏ Hạng 1 (Ảnh 1, 2, 3):
+  Điểm Hạng 1 = 0.90 + 0.93 + 0.88 = 2.71
+  Tỷ lệ chuẩn hóa = 2.71 / 6.14 = 44.1%
+  
+- Giỏ Hạng 2 (Ảnh 6, 7, 8, 10):
+  Điểm Hạng 2 = 0.94 + 0.90 + 0.84 + 0.75 = 3.43
+  Tỷ lệ chuẩn hóa = 3.43 / 6.14 = 55.9%
+
+--------------------------------------------------------------------------------
+BƯỚC 3: XÉT BIÊN AN TOÀN VÀ RA QUYẾT ĐỊNH CUỐI CÙNG
+--------------------------------------------------------------------------------
+Hạng thắng cuộc biểu quyết là Hạng 2 (55.9% điểm), hạng nhì là Hạng 1 (44.1% điểm).
+- Hiệu số chênh lệch (Margin) = 55.9% - 44.1% = 11.8%
+- Kiểm tra điều kiện: Margin 11.8% >= 10% (Đạt).
+
+=> QUYẾT ĐỊNH CHỐT: Máy chọn HẠNG 2.
+
+
+5. VÍ DỤ CHI TIẾT KHI CÓ CẢ 3 HẠNG (HẠNG 1, HẠNG 2 VÀ HẠNG 3)
+================================================================================
+Giả sử quả táo có một phần đỏ đẹp, một phần hơi xanh và một góc bị sâu/sẹo đen.
+Khi táo xoay tròn, camera sẽ ghi nhận được cả 3 trạng thái này trên 10 ảnh:
+
+Tấm 1: Hạng 1 | Điểm chất lượng = 0.92 -> ĐẠT
+Tấm 2: Hạng 1 | Điểm chất lượng = 0.88 -> ĐẠT
+Tấm 3: Hạng 1 | Điểm chất lượng = 0.40 -> ❌ LOẠI (Mờ)
+Tấm 4: Hạng 2 | Điểm chất lượng = 0.90 -> ĐẠT
+Tấm 5: Hạng 2 | Điểm chất lượng = 0.85 -> ĐẠT
+Tấm 6: Hạng 2 | Điểm chất lượng = 0.35 -> ❌ LOẠI (Mờ)
+Tấm 7: Hạng 3 | Điểm chất lượng = 0.95 -> ĐẠT (Nhìn rõ vết sẹo sâu)
+Tấm 8: Hạng 3 | Điểm chất lượng = 0.90 -> ĐẠT
+Tấm 9: Hạng 3 | Điểm chất lượng = 0.20 -> ❌ LOẠI (Méo do bị che)
+Tấm 10: Hạng 3| Điểm chất lượng = 0.80 -> ĐẠT
+
+--------------------------------------------------------------------------------
+BƯỚC 1: KIỂM TRA SỐ ẢNH HỢP LỆ
+--------------------------------------------------------------------------------
+- Tổng số ảnh ĐẠT chuẩn: 7 tấm (1, 2, 4, 5, 7, 8, 10) -> Thỏa mãn >= 6 tấm.
+- Tổng trọng số hợp lệ: 0.92 + 0.88 + 0.90 + 0.85 + 0.95 + 0.90 + 0.80 = 6.20
+
+--------------------------------------------------------------------------------
+BƯỚC 2: CỘNG DỒN ĐIỂM CHO CẢ 3 GIỎ PHIẾU
+--------------------------------------------------------------------------------
+- Giỏ Hạng 1 (Ảnh 1, 2):
+  Tổng điểm = 0.92 + 0.88 = 1.80
+  Tỷ lệ chuẩn hóa = 1.80 / 6.20 = 29.0%
+
+- Giỏ Hạng 2 (Ảnh 4, 5):
+  Tổng điểm = 0.90 + 0.85 = 1.75
+  Tỷ lệ chuẩn hóa = 1.75 / 6.20 = 28.2%
+
+- Giỏ Hạng 3 (Ảnh 7, 8, 10):
+  Tổng điểm = 0.95 + 0.90 + 0.80 = 2.65
+  Tỷ lệ chuẩn hóa = 2.65 / 6.20 = 42.8%
+
+--------------------------------------------------------------------------------
+BƯỚC 3: XẾP HẠNG VÀ XÉT BIÊN AN TOÀN (MARGIN)
+--------------------------------------------------------------------------------
+Sắp xếp tỷ lệ điểm giảm dần:
+- Top-1: Hạng 3 (42.8% điểm)
+- Top-2: Hạng 1 (29.0% điểm)
+- Top-3: Hạng 2 (28.2% điểm)
+
+* Tính biên an toàn (Lấy Top-1 trừ Top-2):
+  Hiệu số chênh lệch (Margin) = 42.8% - 29.0% = 13.8%
+  
+* So sánh điều kiện:
+  Margin 13.8% >= 10% (Đạt, thắng thuyết phục).
+  
+=> QUYẾT ĐỊNH CHỐT: Máy chọn HẠNG 3 và gạt táo sang khay lỗi.
+
+--------------------------------------------------------------------------------
+* NẾU XẢY RA TRANH CHẤP SÁT NÚT GIỮA 3 HẠNG (MARGIN < 10%)
+--------------------------------------------------------------------------------
+Giả sử kết quả bỏ phiếu của 3 giỏ là:
+- Hạng 1: 35.0% điểm
+- Hạng 2: 33.0% điểm
+- Hạng 3: 32.0% điểm
+Trong đó, Top-1 là Hạng 1 (35.0%), Top-2 là Hạng 2 (33.0%).
+- Biên chênh lệch (Margin) = 35.0% - 33.0% = 2.0% (Nhỏ hơn 10%).
+-> Lúc này, do quá phân vân, máy kích hoạt Cơ chế phòng vệ 2:
+   Tự động chọn hạng xấu nhất trong số các phiếu bầu đạt chuẩn.
+   Các phiếu bầu đạt chuẩn có sự xuất hiện của Hạng 1, Hạng 2 và Hạng 3.
+   Do đó, máy sẽ chọn HẠNG 3 (Hạng xấu nhất) làm kết quả cuối cùng để gạt táo đi.

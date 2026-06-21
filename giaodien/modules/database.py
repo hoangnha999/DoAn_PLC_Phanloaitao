@@ -4,9 +4,39 @@ import cv2
 import json
 import csv
 import shutil
+import traceback
 import numpy as np
 from datetime import datetime
 import contextlib
+import logging
+
+# ─────────────────────────────────────────────
+# Logger riêng cho Database – ghi ra console VÀ file
+# ─────────────────────────────────────────────
+_db_logger = logging.getLogger("AppDatabase")
+if not _db_logger.handlers:
+    _db_logger.setLevel(logging.DEBUG)
+    _fmt = logging.Formatter(
+        "[%(asctime)s] [DB/%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    # Handler console
+    _ch = logging.StreamHandler()
+    _ch.setFormatter(_fmt)
+    _db_logger.addHandler(_ch)
+    # Handler file (ghi cạnh database.py)
+    try:
+        _log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+        _log_path = os.path.join(_log_dir, "db_log.txt")
+        _fh = logging.FileHandler(_log_path, encoding="utf-8")
+        _fh.setFormatter(_fmt)
+        _db_logger.addHandler(_fh)
+    except Exception:
+        pass
+
+def _log(msg, level="info"):
+    """Hàm log tiện dụng – dùng _db_logger."""
+    getattr(_db_logger, level, _db_logger.info)(msg)
 
 try:
     from config.runtime_config import load_runtime_config
@@ -33,26 +63,53 @@ class AppDatabase:
                 self.db_type = db_cfg.get("type", "sqlite").lower()
                 self.sqlserver_config = db_cfg.get("sqlserver", {})
             except Exception as e:
-                print(f"[DB] Lỗi load cấu hình database: {e}")
-                
+                _log(f"Lỗi load cấu hình database: {e}", "error")
+
+        _log("══════════════════════════════════════════════")
+        _log(f"Khởi động AppDatabase | Loại DB: {self.db_type.upper()}")
+        if self.db_type == "sqlserver":
+            srv  = self.sqlserver_config.get("server", "(chưa cấu hình)")
+            db_n = self.sqlserver_config.get("database", "(chưa cấu hình)")
+            drv  = self.sqlserver_config.get("driver",   "ODBC Driver 17 for SQL Server")
+            tc   = self.sqlserver_config.get("trusted_connection", True)
+            _log(f"  Server   : {srv}")
+            _log(f"  Database : {db_n}")
+            _log(f"  Driver   : {drv}")
+            _log(f"  Auth     : {'Windows (Trusted)' if tc else 'SQL Login'}")
+        else:
+            _log(f"  File SQLite: {self.db_path}")
+        _log("══════════════════════════════════════════════")
+
         self._init_db()
 
     def _get_connection(self):
         if self.db_type == "sqlserver":
             import pyodbc
-            drv = self.sqlserver_config.get("driver", "ODBC Driver 17 for SQL Server")
-            srv = self.sqlserver_config.get("server", "LOCALHOST\\SQLEXPRESS")
+            drv     = self.sqlserver_config.get("driver",   "ODBC Driver 17 for SQL Server")
+            srv     = self.sqlserver_config.get("server",   "LOCALHOST\\SQLEXPRESS")
             db_name = self.sqlserver_config.get("database", "AppleClassification")
             trusted = self.sqlserver_config.get("trusted_connection", True)
-            user = self.sqlserver_config.get("username", "")
-            pwd = self.sqlserver_config.get("password", "")
-            
+            user    = self.sqlserver_config.get("username", "")
+            pwd     = self.sqlserver_config.get("password", "")
+
             if trusted:
                 conn_str = f"DRIVER={{{drv}}};SERVER={srv};DATABASE={db_name};Trusted_Connection=yes;"
             else:
                 conn_str = f"DRIVER={{{drv}}};SERVER={srv};DATABASE={db_name};UID={user};PWD={pwd};"
-            
-            return pyodbc.connect(conn_str, timeout=3)
+
+            _log(f"[CONNECT] Đang kết nối SQL Server → {srv}/{db_name} | driver={drv}")
+            try:
+                conn = pyodbc.connect(conn_str, timeout=3)
+                _log(f"[CONNECT] ✅ Kết nối SQL Server thành công")
+                return conn
+            except Exception as e:
+                _log(f"[CONNECT] ❌ Kết nối SQL Server THẤT BẠI!", "error")
+                _log(f"           Server   : {srv}", "error")
+                _log(f"           Database : {db_name}", "error")
+                _log(f"           Driver   : {drv}", "error")
+                _log(f"           Lỗi chi tiết: {e}", "error")
+                _log(f"           Kiểm tra: SQL Server đang chạy? Tên server đúng? ODBC Driver đã cài?", "error")
+                raise
         else:
             return sqlite3.connect(self.db_path)
 
@@ -62,24 +119,33 @@ class AppDatabase:
         try:
             yield conn
             conn.commit()
-        except Exception:
+            _log("[COMMIT] Transaction commit thành công")
+        except Exception as e:
+            _log(f"[ROLLBACK] Transaction thất bại – rollback. Lỗi: {e}", "error")
+            _log(f"[ROLLBACK] Chi tiết:\n{traceback.format_exc()}", "error")
             try:
                 conn.rollback()
-            except Exception:
-                pass
+                _log("[ROLLBACK] Rollback thành công")
+            except Exception as re:
+                _log(f"[ROLLBACK] Rollback cũng thất bại: {re}", "error")
             raise
         finally:
             conn.close()
+            _log("[CONNECT] Connection đã đóng")
 
     def _init_db(self):
         """Khởi tạo bảng nếu chưa có."""
+        _log(f"[INIT] Bắt đầu khởi tạo schema DB (loại={self.db_type.upper()})")
         try:
             if self.db_type == "sqlserver":
                 self._init_db_sqlserver()
             else:
                 self._init_db_sqlite()
+            _log("[INIT] ✅ Khởi tạo schema DB thành công")
         except Exception as e:
-            print(f"[DB] Lỗi khởi tạo DB ({self.db_type}): {e}")
+            _log(f"[INIT] ❌ Lỗi khởi tạo DB ({self.db_type}): {e}", "error")
+            _log(f"[INIT] Chi tiết:\n{traceback.format_exc()}", "error")
+            _log("[INIT] ⚠️  App tiếp tục chạy nhưng có thể KHÔNG lưu được dữ liệu!", "warning")
 
     def _init_db_sqlite(self):
         """Khởi tạo SQLite."""
@@ -128,10 +194,12 @@ class AppDatabase:
 
     def _init_db_sqlserver(self):
         """Khởi tạo SQL Server."""
+        _log("[INIT-SS] Kiểm tra & tạo bảng trên SQL Server...")
         with self._get_conn() as conn:
             cursor = conn.cursor()
-            
+
             # 1. Tạo bảng phan_loai_history nếu chưa có
+            _log("[INIT-SS] Kiểm tra bảng 'phan_loai_history'...")
             cursor.execute('''
                 IF OBJECT_ID('phan_loai_history', 'U') IS NULL
                 BEGIN
@@ -147,7 +215,7 @@ class AppDatabase:
                     )
                 END
             ''')
-            
+
             # Kiểm tra các cột đã tồn tại chưa
             cursor.execute("""
                 SELECT COLUMN_NAME 
@@ -155,14 +223,20 @@ class AppDatabase:
                 WHERE TABLE_NAME = 'phan_loai_history'
             """)
             columns = [row[0] for row in cursor.fetchall()]
+            _log(f"[INIT-SS] Cột hiện có trong 'phan_loai_history': {columns}")
             if 'diameter_mm' not in columns:
+                _log("[INIT-SS] Thêm cột 'diameter_mm' vào phan_loai_history")
                 cursor.execute("ALTER TABLE phan_loai_history ADD diameter_mm FLOAT DEFAULT 0")
             if 'nha_vuon' not in columns:
+                _log("[INIT-SS] Thêm cột 'nha_vuon' vào phan_loai_history")
                 cursor.execute("ALTER TABLE phan_loai_history ADD nha_vuon NVARCHAR(250) DEFAULT ''")
             if 'ma_lo' not in columns:
+                _log("[INIT-SS] Thêm cột 'ma_lo' vào phan_loai_history")
                 cursor.execute("ALTER TABLE phan_loai_history ADD ma_lo NVARCHAR(250) DEFAULT ''")
+            _log("[INIT-SS] ✅ Bảng 'phan_loai_history' sẵn sàng")
 
             # 2. Tạo bảng phan_loai_session_10 nếu chưa có
+            _log("[INIT-SS] Kiểm tra bảng 'phan_loai_session_10'...")
             cursor.execute('''
                 IF OBJECT_ID('phan_loai_session_10', 'U') IS NULL
                 BEGIN
@@ -191,53 +265,81 @@ class AppDatabase:
                 WHERE TABLE_NAME = 'phan_loai_session_10'
             """)
             s_columns = [row[0] for row in cursor.fetchall()]
+            _log(f"[INIT-SS] Cột hiện có trong 'phan_loai_session_10': {s_columns}")
             if 'detail_json' not in s_columns:
+                _log("[INIT-SS] Thêm cột 'detail_json' vào phan_loai_session_10")
                 cursor.execute("ALTER TABLE phan_loai_session_10 ADD detail_json NVARCHAR(MAX) DEFAULT ''")
+            _log("[INIT-SS] ✅ Bảng 'phan_loai_session_10' sẵn sàng")
 
     def save_record(self, grade, frame_to_save, diameter_mm=0, orchard_name="", lot_code=""):
         """Lưu bản ghi phân loại và hình ảnh với tên app_x.jpg tăng dần."""
         if grade in ("NO_APPLE", "UNKNOWN", "", None):
+            _log(f"[SAVE] Bỏ qua lưu – grade không hợp lệ: '{grade}'")
             return False, "Không lưu các trạng thái rác", None, None
-            
+
+        _log(f"[SAVE] ▶ Bắt đầu lưu bản ghi | grade={grade} | diameter={diameter_mm:.1f}mm | orchard='{orchard_name}' | lot='{lot_code}'")
         try:
-            # Lấy số thứ tự tiếp theo dựa trên ID hoặc số lượng bản ghi để đặt tên file ảnh
+            # Lấy số thứ tự tiếp theo
+            _log("[SAVE] Đếm số bản ghi hiện có để đặt tên file ảnh...")
             with self._get_conn() as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT COUNT(*) FROM phan_loai_history")
                 next_id = cursor.fetchone()[0] + 1
-                
+            _log(f"[SAVE] Số bản ghi hiện tại: {next_id - 1} → tên file: app_{next_id}.jpg")
+
             filename = f"app_{next_id}.jpg"
             filepath = os.path.join(self.img_dir, filename)
-            
-            # Lưu ảnh xuống thư mục
+
+            # Lưu ảnh
             if frame_to_save is not None:
-                cv2.imwrite(filepath, frame_to_save)
-            
-            # Lưu thông tin vào SQL
+                ok = cv2.imwrite(filepath, frame_to_save)
+                if ok:
+                    _log(f"[SAVE] Ảnh đã lưu: {filepath}")
+                else:
+                    _log(f"[SAVE] ⚠️  cv2.imwrite thất bại cho {filepath}", "warning")
+            else:
+                _log("[SAVE] Không có frame ảnh để lưu (frame_to_save=None)")
+
+            # INSERT vào SQL
             t_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            _log(f"[SAVE] INSERT vào phan_loai_history | DB={self.db_type.upper()} | thoi_gian={t_str}")
             with self._get_conn() as conn:
                 cursor = conn.cursor()
                 if self.db_type == "sqlserver":
-                    cursor.execute(
+                    sql = (
                         "INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) "
-                        "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        (t_str, grade, diameter_mm, filepath, "", orchard_name, lot_code)
+                        "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)"
                     )
-                    history_id = cursor.fetchone()[0]
+                    params = (t_str, grade, diameter_mm, filepath, "", orchard_name, lot_code)
+                    _log(f"[SAVE] SQL: {sql}")
+                    _log(f"[SAVE] Params: {params}")
+                    cursor.execute(sql, params)
+                    row = cursor.fetchone()
+                    if row is None:
+                        _log("[SAVE] ❌ OUTPUT INSERTED.id trả về None – INSERT có thể thất bại!", "error")
+                        return False, "SQL Server INSERT không trả về ID", None, None
+                    history_id = row[0]
+                    _log(f"[SAVE] ✅ INSERT thành công | history_id={history_id}")
                 else:
                     cursor.execute(
                         "INSERT INTO phan_loai_history (thoi_gian, ket_qua, diameter_mm, duong_dan_anh, ty_le_yield, nha_vuon, ma_lo) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         (t_str, grade, diameter_mm, filepath, "", orchard_name, lot_code)
                     )
                     history_id = cursor.lastrowid
-                
+                    _log(f"[SAVE] ✅ INSERT SQLite thành công | history_id={history_id}")
+
+            _log(f"[SAVE] ✅ Lưu hoàn tất: [{grade}] → {filename} | ID={history_id}")
             return True, f"SQL Saved: [{grade}] -> {filename}", filepath, history_id
         except Exception as e:
+            _log(f"[SAVE] ❌ Lỗi lưu bản ghi: {e}", "error")
+            _log(f"[SAVE] Chi tiết:\n{traceback.format_exc()}", "error")
             return False, f"SQL Error: {e}", None, None
 
     def save_session_10_records(self, history_id, session_records):
         """Lưu chi tiết 10 ảnh theo history_id để có thể truy xuất khi double-click lịch sử."""
+        _log(f"[SESSION10] ▶ Lưu session 10 ảnh | history_id={history_id} | số_frame={len(session_records) if session_records else 0}")
         if not history_id or not session_records:
+            _log(f"[SESSION10] ⚠️  Thiếu dữ liệu: history_id={history_id}, session_records={'None/empty' if not session_records else len(session_records)}", "warning")
             return False, "Không có dữ liệu session để lưu"
 
         try:
@@ -373,8 +475,11 @@ class AppDatabase:
                             img_path,
                         )
                     )
+            _log(f"[SESSION10] ✅ Đã lưu đủ 10 frame cho history_id={history_id}")
             return True, "Đã lưu chi tiết 10 ảnh (chuẩn hóa đủ 10 tấm)"
         except Exception as e:
+            _log(f"[SESSION10] ❌ Lỗi lưu session 10 ảnh: {e}", "error")
+            _log(f"[SESSION10] Chi tiết:\n{traceback.format_exc()}", "error")
             return False, f"Lỗi lưu session 10 ảnh: {e}"
 
     def get_session_10_by_history_id(self, history_id):
@@ -423,6 +528,7 @@ class AppDatabase:
 
     def get_stats(self):
         """Lấy số lượng đếm."""
+        _log("[STATS] Đọc thống kê số lượng phân loại...")
         stats = {"Grade-1": 0, "Grade-2": 0, "Grade-3": 0, "TOTAL": 0}
         try:
             with self._get_conn() as conn:
@@ -432,12 +538,15 @@ class AppDatabase:
                     count = cur.fetchone()[0]
                     stats[grade] = count
                     stats["TOTAL"] += count
+            _log(f"[STATS] ✅ Kết quả: {stats}")
         except Exception as e:
-            print(f"Error fetching stats: {e}")
+            _log(f"[STATS] ❌ Lỗi lấy thống kê: {e}", "error")
+            _log(f"[STATS] Chi tiết:\n{traceback.format_exc()}", "error")
         return stats
 
     def get_history(self, limit=1000):
         """Lấy toàn bộ lịch sử phân loại."""
+        _log(f"[HISTORY] Đọc lịch sử (limit={limit}, DB={self.db_type.upper()})...")
         try:
             limit = int(limit)
             with self._get_conn() as conn:
@@ -453,9 +562,12 @@ class AppDatabase:
                         "FROM phan_loai_history ORDER BY id DESC LIMIT ?",
                         (limit,)
                     )
-                return cur.fetchall()
+                rows = cur.fetchall()
+            _log(f"[HISTORY] ✅ Đọc được {len(rows)} bản ghi")
+            return rows
         except Exception as e:
-            print(f"[DB] Lỗi lấy lịch sử: {e}")
+            _log(f"[HISTORY] ❌ Lỗi lấy lịch sử: {e}", "error")
+            _log(f"[HISTORY] Chi tiết:\n{traceback.format_exc()}", "error")
             return []
 
     def get_recent_records(self, limit=50):
@@ -464,12 +576,16 @@ class AppDatabase:
 
     def clear_all(self):
         """Xóa toàn bộ lịch sử."""
+        _log("[CLEAR] ⚠️  Xóa toàn bộ lịch sử trong phan_loai_history!", "warning")
         try:
             with self._get_conn() as conn:
                 cur = conn.cursor()
                 cur.execute("DELETE FROM phan_loai_history")
+            _log("[CLEAR] ✅ Đã xóa toàn bộ lịch sử")
             return True, "Đã xóa toàn bộ lịch sử."
         except Exception as e:
+            _log(f"[CLEAR] ❌ Lỗi xóa CSDL: {e}", "error")
+            _log(f"[CLEAR] Chi tiết:\n{traceback.format_exc()}", "error")
             return False, f"Lỗi xóa CSDL: {e}"
 
     def export_history_dataset(self, export_base_dir, start_time=None, end_time=None, grades=None):
@@ -1234,4 +1350,6 @@ class AppDatabase:
                 "fruits_full_10": fruits_full_10,
             }
         except Exception as e:
+            _log(f"[EXPORT] ❌ Lỗi xuất dataset: {e}", "error")
+            _log(f"[EXPORT] Chi tiết:\n{traceback.format_exc()}", "error")
             return False, str(e)

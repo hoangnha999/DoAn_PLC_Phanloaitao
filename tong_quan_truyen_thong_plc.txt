@@ -1,0 +1,43 @@
+BÁO CÁO KỸ THUẬT: TRUYỀN THÔNG ĐỒNG BỘ PYTHON & PLC S7-1200 (SNAP7)
+
+1. Bản đồ bộ nhớ Data Block 10 (DB10) - Chuẩn truyền thông
+Bộ nhớ DB10 (Non-Optimized Access) phân bổ cụ thể như sau:
+
+1.1. Trạng thái & Điều khiển (Byte 0 - DB10.DBB0):
+- DB10.DBX0.0 (PLC_BIT_GRADE1 = 0) -> Python ghi 1: Xác nhận táo Hạng 1 (Apple_GOOD)
+- DB10.DBX0.1 (PLC_BIT_GRADE2 = 1) -> Python ghi 1: Xác nhận táo Hạng 2 (Apple_MEDIUM)
+- DB10.DBX0.2 (PLC_BIT_GRADE3 = 2) -> Python ghi 1: Xác nhận táo Hạng 3 (Apple_BAD)
+- DB10.DBX0.3 (PLC_CAMERA_BIT = 3) -> PLC ghi 1: Cảm biến phát hiện vật thể (Trigger)
+- DB10.DBX0.4 (Timeout)            -> Python ghi 1: Báo lỗi xử lý camera quá hạn
+
+1.2. Bộ đếm sản phẩm (Đọc từ Word 2 - Độ dài 6 Byte):
+- DB10.DBW2 (Word) -> PLC tự đếm: Tổng số táo Grade-1 đã phân loại thành công
+- DB10.DBW4 (Word) -> PLC tự đếm: Tổng số táo Grade-2 đã phân loại thành công
+- DB10.DBW6 (Word) -> PLC tự đếm: Tổng số táo Grade-3 đã phân loại thành công
+
+2. Luồng xử lý đồng bộ (Handshake Flow) và hàm thực tế
+2.1. Quét cảm biến & Nhận diện sườn tín hiệu (Tại gui_app.py -> _poll_plc()):
+- Chu kỳ quét: 200ms gọi `self.plc.read_sensor_trigger()` đọc bit `DB10.DBX0.3`.
+- Cạnh lên (False -> True): Gọi `_start_capture_session("PLC")` để chụp liên tiếp 10 ảnh của quả táo hiện tại.
+- Cạnh xuống (True -> False): Reset đèn trạng thái cảm biến trên giao diện UI.
+- Đọc bộ đếm: Chu kỳ 1.0 giây gọi `self.plc.read_counters()` để lấy dữ liệu từ `DB10.DBW2/4/6` cập nhật UI qua `_update_counts()`.
+
+2.2. Gửi kết quả & Tạo xung điều khiển (Pulse 500ms):
+- Khi chốt kết quả phân loại (Ví dụ: Grade-1):
+  + Python gọi `send_grade_to_plc("Grade-1")` -> gọi tiếp `plc.set_grade("Grade-1")`.
+  + `plc.py -> set_grade()`: Reset toàn bộ bit cũ bằng cách gọi `reset_grades()`. Sau đó bật bit tương ứng (`write_db_bit(10, 0, 0, True)`).
+  + Thực hiện kiểm tra lại `_verify_grade_bits()` (Đọc ngược trạng thái tối đa 3 lần).
+  + Trì hoãn xung: Tkinter hẹn giờ `self.win.after(500, self._reset_grade_bits_plc)`.
+  + Sau 500ms: Gọi `_reset_grade_bits_plc()` -> gọi `plc.reset_grades()` ghi trả 3 bit grade về False để kết thúc 1 xung điều khiển.
+
+3. Các giải pháp tối ưu hóa lập trình trong mã nguồn
+3.1. Chống Race Condition (Tranh chấp vùng nhớ):
+- Không ghi cả byte `DB10.DBB0` (tránh đè mất trạng thái thay đổi của cảm biến `DB10.DBX0.3`).
+- Sử dụng hàm `write_db_bit` để ghi tách biệt từng bit (Grade-1, Grade-2, Grade-3) dùng:
+  `self._snap7_lib.util.set_bool(data, 0, bit_addr, value)`
+
+3.2. Chẩn đoán kết nối 4 bước (plc.py -> _diagnose_connection()):
+- Bước 1: Kiểm tra định dạng chuỗi IP bằng `socket.inet_aton(ip)`.
+- Bước 2: Thực hiện ping mạng qua `subprocess.run()`.
+- Bước 3: Thử kết nối TCP socket cổng 102 để kiểm tra cổng S7 của thiết bị.
+- Bước 4: Bắt ngoại lệ để chẩn đoán lỗi cấu hình Rack/Slot hoặc chưa bật PUT/GET trên TIA Portal.

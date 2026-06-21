@@ -1,0 +1,112 @@
+4.4.2 GIẢI THUẬT KẾT HỢP ĐÁNH GIÁ ĐA TIÊU CHÍ QUA CHUỖI KHUNG HÌNH KHI TÁO XOAY
+
+================================================================================
+1. ĐẶT VẤN ĐỀ VÀ THÁCH THỨC THỰC TẾ
+================================================================================
+Trong các hệ thống phân loại sản phẩm nông sản tự động, việc chỉ sử dụng một bức ảnh 
+duy nhất để đánh giá toàn bộ quả táo thường dẫn đến sai số rất lớn vì các lý do sau:
+- Quả táo có dạng hình cầu, các lỗi khuyết tật (vết thối, sẹo) hoặc vùng chưa chín 
+  (màu xanh) có thể nằm ở mặt phía sau mà camera không nhìn thấy ở một góc chụp cố định.
+- Khi quả táo di chuyển trên băng tải, nó được thiết kế xoay tròn trên các con lăn 
+  để camera có thể quét toàn bộ bề mặt.
+- Tuy nhiên, khi táo xoay và băng tải chuyển động liên tục sẽ phát sinh các nhiễu vật lý:
+  + Ảnh bị nhòe, mờ do chuyển động (Motion Blur).
+  + Con lăn của băng tải che khuất một phần quả táo, khiến thuật toán nhận diện sai kích 
+    thước hoặc hình dạng (tưởng quả táo bị méo).
+  + Ánh sáng phản chiếu thay đổi liên tục làm ảnh hưởng đến độ chính xác nhận diện của AI.
+
+Để giải quyết triệt để vấn đề này, dự án không đưa ra quyết định ngay lập tức mà chụp 
+liên tục 10 bức ảnh (chuỗi khung hình) khi quả táo xoay. Sau đó, một giải thuật thông minh 
+tích hợp đánh giá chất lượng ảnh và bỏ phiếu bầu chọn (Weighted Voting) kèm cơ chế phòng vệ 
+an toàn sẽ được áp dụng để đưa ra kết quả phân loại chuẩn xác nhất.
+
+================================================================================
+2. CHI TIẾT GIẢI THUẬT 2 GIAI ĐOẠN XỬ LÝ
+================================================================================
+
+--------------------------------------------------------------------------------
+GIAI ĐOẠN 1: BỘ LỌC CHẤT LƯỢNG ẢNH (LOẠI BỎ ẢNH XẤU)
+--------------------------------------------------------------------------------
+Trước khi cho các bức ảnh tham gia bầu chọn hạng chất lượng táo, hệ thống phải kiểm tra 
+xem mỗi bức ảnh có đủ "tư cách" hay không bằng cách chấm điểm chất lượng (từ 0% đến 100%) 
+dựa trên 3 tiêu chí kỹ thuật:
+
+- Độ sắc nét (Sharpness): Hệ thống đo lường mức độ sắc nét của bức ảnh. Nếu ảnh bị nhòe 
+  do rung lắc hoặc táo di chuyển quá nhanh, điểm sắc nét sẽ bị sụt giảm nghiêm trọng.
+- Độ tự tin của trí tuệ nhân tạo (AI Confidence): Mô hình AI (YOLOv8) nhận diện quả táo 
+  trong ảnh với mức độ tin tưởng bao nhiêu phần trăm. Nếu quả táo bị che khuất hoặc bị 
+  nhiễu ánh sáng, AI sẽ phân vân và điểm tự tin sẽ thấp.
+- Độ tròn trịa của quả táo (Circularity): Nếu quả táo bị con lăn băng tải che mất một 
+  phần dưới, hình dáng trên ảnh trông sẽ rất méo mó. Hệ thống phát hiện độ méo này để 
+  đánh giá chất lượng khung hình.
+
+* Quy tắc phạt điểm (Penalties):
+- Nếu bức ảnh bị xác định là mờ (nhòe): Điểm chất lượng lập tức bị trừ thẳng 25%.
+- Nếu quả táo bị méo nặng (do con lăn che khuất): Điểm chất lượng bị phạt rất nặng (tỷ 
+  lệ thuận với độ méo), chỉ giữ lại tối đa 10% đến 30% giá trị của bức ảnh đó.
+=> Kết luận Giai đoạn 1: Chỉ những bức ảnh có điểm chất lượng tốt (từ 50% trở lên) mới 
+được giữ lại để tham gia biểu quyết. Những bức ảnh kém chất lượng hơn sẽ bị loại bỏ hoàn 
+toàn để tránh làm sai lệch kết quả chung.
+
+--------------------------------------------------------------------------------
+GIAI ĐOẠN 2: BỎ PHIẾU CÓ TRỌNG SỐ VÀ CƠ CHẾ PHÒNG VỆ AN TOÀN
+--------------------------------------------------------------------------------
+Các bức ảnh vượt qua Giai đoạn 1 sẽ tiến hành "bỏ phiếu bầu chọn" để quyết định quả táo 
+thuộc Hạng 1 (Tốt), Hạng 2 (Trung bình) hay Hạng 3 (Lỗi). 
+
+- Bỏ phiếu có trọng số (Weighted Voting): Không phải lá phiếu nào cũng có giá trị như nhau.
+  + Một bức ảnh chụp cực kỳ sắc nét, rõ ràng, không bị méo sẽ có trọng số là 1.0 (tương 
+    đương 1 lá phiếu trọn vẹn).
+  + Một bức ảnh đạt chuẩn nhưng hơi mờ hoặc hơi lệch góc chỉ có trọng số là 0.2 hoặc 0.3 
+    (chỉ bằng 1/5 hoặc 1/3 lá phiếu chuẩn).
+  + Điểm số của từng Hạng táo sẽ là tổng trọng số của các bức ảnh bầu chọn cho hạng đó.
+
+- Cơ chế phòng vệ 1 - Bảo vệ khi thiếu dữ liệu (Thiếu ảnh đạt chuẩn):
+  Nếu sau khi lọc, số lượng ảnh đạt chuẩn chất lượng còn lại ít hơn 6 ảnh (trên tổng số 
+  10 ảnh ban đầu), hệ thống đánh giá dữ liệu thu về quá mờ hoặc quá lỗi, không đủ cơ sở 
+  để đưa ra phán quyết chính xác. 
+  -> Hành động: Để đảm bảo an toàn, hệ thống tự động hủy kết quả biểu quyết và lập tức 
+     hạ hạng quả táo xuống mức Hạng xấu nhất xuất hiện trong toàn bộ phiên chụp.
+
+- Cơ chế phòng vệ 2 - Bảo vệ khi kết quả tranh chấp sát nút:
+  Sau khi cộng dồn phiếu bầu, hệ thống tìm ra hạng đạt điểm cao nhất (Top-1) và hạng đứng 
+  thứ hai (Top-2). Hiệu số chênh lệch giữa hai hạng này gọi là Biên an toàn (Margin).
+  Ví dụ: Hạng 1 đạt 48% tổng điểm phiếu bầu, Hạng 2 đạt 45% tổng điểm. Khoảng chênh lệch 
+  chỉ là 3%.
+  -> Hành động: Khoảng chênh lệch dưới 10% chứng tỏ hệ thống đang phân vân không chắc chắn. 
+     Để bảo vệ chất lượng sản phẩm đầu ra ở mức cao nhất, hệ thống kích hoạt cơ chế 
+     phòng thủ bảo thủ: Tự động chọn hạng táo xấu nhất trong số các phiếu bầu để gạt đi 
+     (thà loại nhầm táo tốt còn hơn để lọt táo lỗi).
+
+- Ra quyết định cuối cùng:
+  Chỉ khi một hạng táo giành chiến thắng thuyết phục với biên an toàn lớn hơn hoặc bằng 
+  10%, kết quả đó mới được chấp nhận để gửi lệnh điều khiển gạt táo xuống PLC.
+
+================================================================================
+3. CÁC KỊCH BẢN MINH HỌA THỰC TẾ
+================================================================================
+
+Dưới đây là 3 kịch bản thực tế mô tả cách hoạt động của giải thuật:
+
+- Kịch bản A (Quả táo hoàn hảo - Grade 1):
+  Quả táo đi qua cảm biến, camera chụp 10 ảnh đều rất rõ nét và tròn trịa. Cả 10 ảnh đều 
+  đạt chất lượng 90% - 95%. Kết quả: 10 ảnh đều bỏ phiếu chọn Hạng 1 với trọng số tối đa.
+  Hạng 1 chiến thắng tuyệt đối với tỷ lệ 100%. Hệ thống gửi lệnh báo PLC gạt táo khay Hạng 1.
+
+- Kịch bản B (Quả táo bị rung lắc mạnh và che khuất nhiều):
+  Khi đi qua, băng tải bị rung khiến 6 bức ảnh bị nhòe mờ nghiêm trọng, con lăn che khuất 
+  làm quả táo méo mó trong ảnh.
+  + Giai đoạn 1 chấm điểm: 6 bức ảnh này chỉ đạt chất lượng 20% - 30% và bị loại bỏ thẳng. 
+    Chỉ còn lại 4 bức ảnh rõ nét đạt chuẩn để bỏ phiếu.
+  + Giai đoạn 2 kiểm tra: Vì số lượng ảnh đạt chuẩn chỉ có 4 (nhỏ hơn ngưỡng tối thiểu là 6), 
+    hệ thống kích hoạt Phòng vệ 1. Dù 4 ảnh kia có bầu chọn Hạng 1, hệ thống vẫn tự động 
+    hạ hạng quả táo xuống mức xấu nhất để chuyển sang khay táo lỗi.
+
+- Kịch bản C (Sự phân vân giữa Hạng 1 và Hạng 2):
+  Quả táo có một nửa chín đỏ đẹp, nửa còn lại hơi xanh. Khi xoay, 6 ảnh đầu chụp nửa đỏ 
+  nên bầu chọn Hạng 1 (đạt tổng trọng số 4.8 phiếu), 4 ảnh sau chụp nửa xanh nên bầu chọn 
+  Hạng 2 (đạt tổng trọng số 4.0 phiếu).
+  + Tỷ lệ tương đương: Hạng 1 đạt 54.5%, Hạng 2 đạt 45.5%.
+  + Hiệu số chênh lệch (Margin) = 54.5% - 45.5% = 9% (nhỏ hơn ngưỡng an toàn 10%).
+  + Do khoảng chênh lệch quá sát sao và có dấu hiệu phân vân, hệ thống kích hoạt Phòng vệ 2, 
+    quyết định chọn hạng bảo thủ hơn là Hạng 2 để gạt táo vào đúng khay.

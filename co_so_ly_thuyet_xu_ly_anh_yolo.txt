@@ -1,0 +1,196 @@
+================================================================================
+2.3 CƠ SỞ LÝ THUYẾT VỀ XỬ LÝ ẢNH VÀ MẠNG HỌC SÂU ULTRALYTICS YOLO
+================================================================================
+
+Hệ thống phân loại táo trong đồ án kết hợp hai nhóm kỹ thuật: xử lý ảnh
+truyền thống (OpenCV) và mạng học sâu nhận diện vật thể (Ultralytics YOLO).
+Mỗi khung hình từ camera đi qua chuỗi 5 bước xử lý tuần tự dưới đây trước
+khi cho ra kết quả phân loại gửi về PLC.
+
+─────────────────────────────────────────────────────────────────────────────
+BƯỚC 1 — PHÁT HIỆN MỜ VÀ LÀM NÉT ẢNH
+─────────────────────────────────────────────────────────────────────────────
+
+Vấn đề: Băng tải rung làm ảnh bị nhòe, phân tích màu sắc và YOLO sẽ cho kết
+quả sai nếu dùng ảnh mờ.
+
+Giải pháp — Đo độ sắc nét bằng Phương sai Laplacian:
+Toán tử Laplacian tính đạo hàm bậc hai của ảnh, phản ứng mạnh tại các đường
+biên (viền quả táo, vết sẹo,...). Ảnh nét thì biên rõ → phương sai cao;
+ảnh mờ thì biên nhòe → phương sai thấp.
+
+Công thức toán tử Laplacian rời rạc:
+$$\nabla^2 I(x,y) = I(x+1,y) + I(x-1,y) + I(x,y+1) + I(x,y-1) - 4 \cdot I(x,y)$$
+
+Chỉ số sắc nét của cả ảnh:
+$$\text{blur\_score} = \text{Var}\!\left(\nabla^2 I\right)$$
+
+Quy tắc phán quyết (ngưỡng = 100.0):
+$$\text{Ảnh mờ nếu: blur\_score} < 100.0$$
+
+Xử lý khi phát hiện mờ — Làm nét bằng Unsharp Masking:
+Lấy ảnh gốc trừ đi phiên bản làm mờ của chính nó để làm nổi biên:
+$$I_{sharp} = (1 + \alpha) \cdot I_{goc} - \alpha \cdot G(I_{goc}), \quad \alpha = 1.5$$
+
+Trong đó $G(\cdot)$ là bộ lọc Gaussian làm mờ nhẹ (cửa sổ $3 \times 3$).
+
+─────────────────────────────────────────────────────────────────────────────
+BƯỚC 2 — CÂN BẰNG ÁNH SÁNG CLAHE
+─────────────────────────────────────────────────────────────────────────────
+
+Vấn đề: Điều kiện chiếu sáng thay đổi (nắng mạnh, bóng đổ, đèn phòng) làm
+ảnh quá sáng hoặc quá tối ở từng vùng, khiến nhận diện màu sắc bị sai.
+
+Giải pháp — CLAHE (Contrast Limited Adaptive Histogram Equalization):
+Không cân bằng sáng toàn cục mà chia ảnh thành nhiều ô nhỏ (tile) $8 \times 8$
+pixel, cân bằng histogram riêng trong từng ô, nhưng giới hạn mức tăng tối đa
+để không tạo ra vùng quá sáng giả tạo.
+
+Công thức cân bằng histogram trong từng ô lưới:
+$$I_{out}(x,y) = \frac{L_{max}}{N} \cdot \sum_{j=0}^{I_{in}(x,y)} H_{clip}(j)$$
+
+Trong đó $H_{clip}$ là histogram đã bị cắt tại ngưỡng Clip Limit $C_L$:
+$$H_{clip}(i) = \min\!\left(H(i),\ C_L\right), \quad C_L = 2.0$$
+
+Điểm đặc biệt trong hệ thống: CLAHE không áp trực tiếp lên ảnh màu BGR mà
+chỉ áp lên kênh độ sáng $L^*$ trong không gian màu CIE L*a*b* để màu sắc
+không bị ảnh hưởng:
+$$\text{BGR} \rightarrow \text{L*a*b*} \xrightarrow{\text{CLAHE chỉ trên } L^*} \text{L*a*b*}^* \rightarrow \text{BGR}^*$$
+
+Cài đặt: Clip Limit = 2.0, Tile Size = $8 \times 8$ pixel.
+Áp dụng cho cả ảnh đưa vào YOLO lẫn ảnh tính màu HSV (TC1).
+
+─────────────────────────────────────────────────────────────────────────────
+BƯỚC 3 — NHẬN DIỆN VỊ TRÍ QUẢ TÁO BẰNG MẠNG YOLO (YOLO GATE)
+─────────────────────────────────────────────────────────────────────────────
+
+3.1 YOLO hoạt động như thế nào?
+
+YOLO (You Only Look Once) là mạng học sâu nhận diện vật thể trong ảnh.
+Khác với các phương pháp cũ phải quét ảnh nhiều lần, YOLO xử lý toàn bộ ảnh
+chỉ trong một lần truyền thẳng qua mạng (single forward pass), nên rất nhanh —
+phù hợp với yêu cầu thời gian thực của băng tải.
+
+Kiến trúc 3 phần:
+  (a) Backbone (Trích xuất đặc trưng): Các lớp tích chập CNN thu nhỏ ảnh dần
+      từ $W \times H$ xuống các bản đồ đặc trưng (feature maps) nhỏ hơn, giúp
+      mạng "hiểu" hình dạng và kết cấu của vật thể.
+
+  (b) Neck — Feature Pyramid (PANet): Kết hợp đặc trưng từ nhiều tầng để
+      nhận diện đồng thời vật thể nhỏ (táo xa) và vật thể lớn (táo gần).
+
+  (c) Head (Đầu ra): Dự đoán trên 3 lưới tỉ lệ (stride 8, 16, 32 pixel).
+      Mỗi ô lưới cho ra: tọa độ bbox $(x, y, w, h)$, độ tin cậy $conf$,
+      và xác suất lớp $P(class)$.
+
+3.2 Công thức đánh giá độ trùng khớp bbox — IoU (Intersection over Union):
+
+Để đo độ chính xác của bbox dự đoán so với bbox thật trong quá trình huấn
+luyện, YOLO dùng chỉ số IoU:
+$$IoU = \frac{\text{Diện tích giao} (B_{du\_doan} \cap B_{that})}{\text{Diện tích hợp} (B_{du\_doan} \cup B_{that})}$$
+
+IoU = 1.0: bbox khớp hoàn hảo. IoU = 0: không có phần giao nào.
+
+3.3 Hàm mất mát huấn luyện:
+
+Mạng YOLO được huấn luyện tối thiểu hóa hàm mất mát tổng hợp:
+$$\mathcal{L} = \lambda_{box} \cdot \mathcal{L}_{CIoU} + \lambda_{cls} \cdot \mathcal{L}_{cls} + \lambda_{dfl} \cdot \mathcal{L}_{dfl}$$
+
+  - $\mathcal{L}_{CIoU}$: Phạt sai số định vị bbox (tính cả tỉ lệ khung hình
+    và khoảng cách tâm):
+    $$\mathcal{L}_{CIoU} = 1 - IoU + \frac{d^2}{c^2} + \alpha \cdot v$$
+    Trong đó $d$ là khoảng cách tâm hai bbox, $c$ là đường chéo bbox bao,
+    $v$ đo sự khác biệt tỉ lệ khung hình.
+
+  - $\mathcal{L}_{cls}$: Binary Cross-Entropy, phạt phân loại sai lớp vật thể.
+  - $\mathcal{L}_{dfl}$: Distribution Focal Loss, phạt sai số phân phối tọa độ biên.
+
+3.4 Lọc bbox trùng lặp — NMS (Non-Maximum Suppression):
+
+YOLO thường cho ra nhiều bbox cho cùng một vật thể. NMS chọn bbox tốt nhất:
+1. Giữ bbox có $conf$ cao nhất.
+2. Loại bỏ mọi bbox còn lại nếu $IoU \ge 0.80$ với bbox vừa chọn.
+3. Lặp lại cho đến khi không còn bbox nào bị loại.
+
+3.5 Vai trò YOLO trong đồ án — Cổng xác nhận (YOLO Gate):
+
+YOLO không phân loại chất lượng táo. YOLO chỉ xác nhận "có táo thật không?".
+Chỉ khi YOLO xác nhận đủ 4 điều kiện sau thì pipeline mới chạy tiếp:
+
+$$conf \ge 0.10 \;\wedge\; A_{bbox} \in [A_{min},\, A_{max}] \;\wedge\; R_{mau\_tao} \ge 1\% \;\wedge\; (c_x, c_y) \in \text{Vùng trung tâm}$$
+
+  - $conf \ge 0.10$: Mạng chắc chắn ít nhất 10% đây là táo.
+  - $A_{bbox}$: Diện tích bbox hợp lệ (không quá nhỏ hoặc quá lớn).
+  - $R_{mau\_tao} \ge 1\%$: Bên trong bbox phải có ít nhất 1% pixel màu đỏ/vàng.
+  - $(c_x, c_y)$ trong vùng $55\% \times 70\%$ tâm frame: Tránh phát hiện sai
+    táo đang còn ở mép băng tải, chưa đến vị trí chụp.
+
+─────────────────────────────────────────────────────────────────────────────
+BƯỚC 4 — THEO DÕI QUẢ TÁO ĐA KHUNG HÌNH — BYTETRACK
+─────────────────────────────────────────────────────────────────────────────
+
+Vấn đề: Quả táo xoay trên băng tải qua nhiều frame. Cần biết 10 khung hình
+nào thuộc cùng một quả táo, tránh nhầm lẫn khi có nhiều quả trên băng tải.
+
+Giải pháp: Bộ theo dõi ByteTrack gán một mã Track ID cố định cho mỗi quả
+táo xuyên suốt hành trình trên băng tải.
+
+ByteTrack dùng Bộ lọc Kalman dự đoán vị trí quả táo trong frame tiếp theo
+dựa trên chuyển động từ frame trước, rồi dùng Thuật toán Hungary để ghép
+bbox YOLO hiện tại với dự đoán có IoU cao nhất.
+
+Dự đoán vị trí frame kế tiếp:
+$$\hat{s}_t = F \cdot s_{t-1}$$
+
+Cập nhật sau khi nhận bbox thực mới từ YOLO:
+$$s_t = \hat{s}_t + K_t \cdot (z_t - H \cdot \hat{s}_t)$$
+
+Trong đó $s_t = [x,\, y,\, w,\, h,\, \dot{x},\, \dot{y}]^T$ chứa vị trí,
+kích thước và vận tốc bbox; $z_t$ là bbox thực quan sát được từ YOLO;
+$K_t$ là hệ số Kalman Gain cân bằng giữa dự đoán và quan sát.
+
+─────────────────────────────────────────────────────────────────────────────
+BƯỚC 5 — CẮT VÙNG VỎ TÁO (HYBRID SEGMENTATION)
+─────────────────────────────────────────────────────────────────────────────
+
+Sau khi YOLO xác nhận có táo, hệ thống cắt chính xác vùng vỏ táo để đo màu,
+kích thước, và hình dáng. Quá trình gồm 4 bước nhỏ:
+
+5.1 Làm mượt Gaussian (cửa sổ $9 \times 9$):
+$$I_{smooth}(x,y) = I(x,y) * G_\sigma(x,y)$$
+Mục đích: Loại nhiễu điểm ảnh lẻ trước khi ngưỡng hóa màu.
+
+5.2 Tạo mặt nạ màu táo (HSV Color Segmentation):
+Gộp vùng đỏ và vàng, loại vùng xanh và vùng tối:
+$$M_{tao} = (M_{do1} \cup M_{do2} \cup M_{vang}) \cap \overline{M_{xanh}} \cap M_{sang}$$
+Trong đó $M_{sang}$ là mặt nạ các pixel có độ sáng $L^* > 40$.
+
+5.3 Làm sạch hình thái học (Morphology):
+Phép đóng (Closing) lấp lỗ hổng bên trong vùng táo (do vùng sáng bóng):
+$$M_{dong} = \delta_B\!\left(\varepsilon_B(M_{tao})\right)$$
+Phép mở (Opening) xóa nhiễu nhỏ ở viền (do con lăn, bóng đổ):
+$$M_{mo} = \varepsilon_B\!\left(\delta_B(M_{dong})\right)$$
+Phần tử cấu trúc $B$: hình ellipse $7 \times 7$ pixel.
+
+5.4 Chọn contour táo tốt nhất:
+Từ nhiều contour ứng viên, hệ thống chọn contour có điểm số cao nhất:
+$$\text{score} = A \times (0.7 + 0.3 \times C)$$
+
+Với 3 ràng buộc lọc thêm (loại contour méo, dẹt, hoặc không lồi):
+$$C > 0.45 \;\wedge\; \text{Solidity} > 0.76 \;\wedge\; 0.6 < \frac{w}{h} < 1.6$$
+
+Trong đó:
+  - $A$: Diện tích contour (pixel²).
+  - $C = \dfrac{4\pi A}{P^2}$: Circularity (độ tròn trịa), $P$ là chu vi.
+  - $\text{Solidity} = \dfrac{A}{A_{convex\_hull}}$: Đo mức độ lồi của contour.
+
+Nếu không tìm được contour hợp lệ: Hệ thống fallback sang tìm đường tròn
+bằng Biến đổi Hough (HoughCircles) — tìm đường tròn $(a, b, r)$ thỏa:
+$$(x_i - a)^2 + (y_i - b)^2 = r^2$$
+bằng cách biểu quyết trong không gian tham số (Hough Accumulator).
+
+================================================================================
+Ghi chú: Toàn bộ lý thuyết trên được triển khai trong thư mục
+Processing/analyzer_modules/ gồm các file: blur_ops.py, pipeline.py,
+yolo_runtime.py, segmentation.py, tc1_ripeness.py, tc2_size.py, tc3_shape.py.
+================================================================================

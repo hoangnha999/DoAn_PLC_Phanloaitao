@@ -1,0 +1,18 @@
+TIỂU MỤC: THU THẬP DỮ LIỆU VÀ HUẤN LUYỆN MÔ HÌNH YOLOv8 NHẬN DIỆN TÁO
+
+1. Quá trình thu thập và phân chia dữ liệu
+- Dữ liệu thực tế: Thu thập 1117 ảnh quả táo chụp trên hệ thống con lăn băng tải (lưu tại dataset/dataset_apple/Image và nhãn tại dataset/dataset_apple/Label).
+- Phân chia dữ liệu: Dùng script `split_dataset.py` để xáo trộn ngẫu nhiên và phân chia theo tỷ lệ 80% train (893 ảnh/nhãn) và 20% validation (224 ảnh/nhãn).
+- File cấu hình `yolo_dataset/dataset.yaml` định nghĩa đường dẫn tập dữ liệu và lớp đối tượng `names: {0: apple}`.
+
+2. Huấn luyện mô hình YOLOv8n (Nano)
+- Phần cứng sử dụng: Google Colab GPU Nvidia Tesla T4 (15GB VRAM).
+- Các tham số cấu hình:
+  + Kiến trúc: YOLOv8n (phiên bản gọn nhẹ tối ưu tốc độ thời gian thực).
+  + Thiết lập: epochs = 150, batch = 16, imgsz = 640.
+  + Cơ chế tự dừng sớm (Early Stopping): patience = 15 (dừng khi 15 epoch liên tiếp không cải thiện độ chính xác).
+- Kết quả huấn luyện:
+  + Tự động dừng ở Epoch thứ 90 (mô hình tối ưu nhất đạt được ở Epoch thứ 75).
+  + Thời gian chạy huấn luyện: ~31 phút (0.515 giờ).
+  + Chỉ số kiểm thử trên tập Validation: Precision đạt 99.9%, Recall đạt 99.6%, mAP50 đạt 99.5%, mAP50-95 đạt 93.9%.
+  + Trọng số tối ưu thu được (`best.pt`) được tích hợp trực tiếp vào ứng dụng tại đường dẫn `giaodien/best.pt` để làm cổng lọc nhận dạng và phân vùng ROI cho thuật toán xử lý ảnh.
