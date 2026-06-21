@@ -3197,32 +3197,22 @@ class CameraWindow:
         rf.pack(side="left", fill="both", expand=True)
 
         # ── Vùng hiển thị Camera (Cân bằng kích thước bằng PanedWindow) ──
-        self.display_area = tk.PanedWindow(rf, orient=tk.VERTICAL, sashwidth=6, sashrelief="ridge", bg="#CBD5E1")
+        # Frame chọn chế độ xem camera
+        self.live_view_mode_var = tk.StringVar(value="COLOR")
+        
+        mode_select_frame = tk.Frame(rf, bg="#FFFFFF")
+        mode_select_frame.pack(fill="x", padx=6, pady=2)
+        
+        tk.Label(mode_select_frame, text="CHẾ ĐỘ HIỂN THỊ:", font=("Arial", 9, "bold"), fg="#475569", bg="#FFFFFF").pack(side="left", padx=(0, 6))
+        tk.Radiobutton(mode_select_frame, text="Ảnh màu (Color)", font=("Arial", 9), variable=self.live_view_mode_var, value="COLOR", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2").pack(side="left", padx=4)
+        tk.Radiobutton(mode_select_frame, text="Ảnh nhị phân (Binary)", font=("Arial", 9), variable=self.live_view_mode_var, value="BINARY", bg="#FFFFFF", activebackground="#FFFFFF", cursor="hand2").pack(side="left", padx=4)
+        
+        # Canvas duy nhất hiển thị camera
+        self.display_area = tk.Frame(rf, bg="#F8FAFC", highlightthickness=1, highlightbackground="#CBD5E1")
         self.display_area.pack(fill="both", expand=True, padx=6, pady=2)
-
-        # --- Khung hiển thị 1 ---
-        f1 = tk.Frame(self.display_area, bg="#F8FAFC")
-        self.display_area.add(f1, stretch="always", minsize=100)
         
-        self.lbl_view1 = tk.Label(f1, text="📷  CAMERA (COLOR)",
-                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#F8FAFC")
-        self.lbl_view1.pack(anchor="w")
-        
-        self.canvas = tk.Canvas(f1, bg="#000000", highlightthickness=1, 
-                                highlightbackground="#CBD5E1", cursor="cross")
+        self.canvas = tk.Canvas(self.display_area, bg="#000000", highlightthickness=0, cursor="cross")
         self.canvas.pack(fill="both", expand=True)
-
-        # --- Khung hiển thị 2 ---
-        f2 = tk.Frame(self.display_area, bg="#F8FAFC")
-        self.display_area.add(f2, stretch="always", minsize=100)
-        
-        self.lbl_view2 = tk.Label(f2, text="🔳  BINARY/THRESHOLD",
-                                  font=("Arial", 9, "bold"), fg="#0284C7", bg="#F8FAFC")
-        self.lbl_view2.pack(anchor="w")
-        
-        self.canvas_gray = tk.Canvas(f2, bg="#000000", highlightthickness=1, 
-                                     highlightbackground="#CBD5E1", cursor="cross")
-        self.canvas_gray.pack(fill="both", expand=True)
 
         # ── Frame Snapshot 10 hình (dưới cùng) ──
         tk.Label(rf, text="📸 10 ẢNH GẦN NHẤT (LIVE BUFFER)", font=("Arial", 9, "bold"), fg="#0284C7", bg="#FFFFFF").pack(anchor="w", padx=6, pady=(5, 0))
@@ -3274,16 +3264,9 @@ class CameraWindow:
         self.canvas.create_text(320, 150,
                                 text="[SYSTEM READY - WAITING FOR CAMERA]",
                                 font=("Consolas", 10), fill="#00E676")
-        self.canvas_gray.delete("all")
-        self.canvas_gray.create_rectangle(0, 0, 1000, 1000, fill="#0A0A0A")
-        self.canvas_gray.create_text(320, 100, text="🔲", font=("Arial", 36), fill="#333333")
-        self.canvas_gray.create_text(320, 150,
-                                     text="Ảnh xử lý sẽ hiển thị tại đây",
-                                     font=("Arial", 10), fill="#333344")
         
         # Đặt lại ID để vẽ frame mới khi bật camera
         self.img_id_color = None
-        self.img_id_gray = None
 
     # ═══════════════════════════════════════════════════════
     #  LOGIC CAMERA
@@ -3940,7 +3923,7 @@ class CameraWindow:
             imgtk2 = ImageTk.PhotoImage(image=Image.fromarray(f2_rgb))
 
             self.canvas.imgtk = imgtk1
-            self.canvas_gray.imgtk = imgtk2
+            self.canvas.imgtk_gray = imgtk2
             self._update_canvas(imgtk1, imgtk2)
         except Exception as e:
             self._log_event(f"❌ Lỗi cập nhật UI frame: {e}", "ERROR")
@@ -4104,14 +4087,15 @@ class CameraWindow:
 
     def _update_canvas(self, imgtk_color, imgtk_gray):
         if self.camera.is_running():
+            # Chọn ảnh hiển thị dựa trên radio button
+            mode = self.live_view_mode_var.get()
+            img_to_show = imgtk_color if mode == "COLOR" else imgtk_gray
+
             if getattr(self, 'img_id_color', None) is None:
                 self.canvas.delete("all")
-                self.canvas_gray.delete("all")
-                self.img_id_color = self.canvas.create_image(0, 0, anchor="nw", image=imgtk_color)
-                self.img_id_gray = self.canvas_gray.create_image(0, 0, anchor="nw", image=imgtk_gray)
+                self.img_id_color = self.canvas.create_image(0, 0, anchor="nw", image=img_to_show)
             else:
-                self.canvas.itemconfig(self.img_id_color, image=imgtk_color)
-                self.canvas_gray.itemconfig(self.img_id_gray, image=imgtk_gray)
+                self.canvas.itemconfig(self.img_id_color, image=img_to_show)
 
     # ═══════════════════════════════════════════════════════
     #  BỘ ĐẾM PHÂN LOẠI (OSPREYX DYNAMIC)
